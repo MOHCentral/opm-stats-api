@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # API Server
+  # ============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - POSTGRES_URL=postgres://mohaa:admin123@postgres:5432/mohaa_stats?sslmode=disable
+      - CLICKHOUSE_URL=clickhouse://clickhouse:9000/mohaa_stats
+      - REDIS_URL=redis://redis:6379/0
+      - WORKER_COUNT=8
+      - WORKER_QUEUE_SIZE=50000
+      - WORKER_BATCH_SIZE=1000
+      - WORKER_FLUSH_INTERVAL=1s
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    dns:
+      - 127.0.0.11
+    networks:
+      - mohaa-network
+
+  # ============================================================================
+  # PostgreSQL - OLTP (Users, Tournaments, State)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=mohaa
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=mohaa_stats
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mohaa -d mohaa_stats"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mohaa-network
+
+  # ============================================================================
+  # ClickHouse - OLAP (Events, Analytics)
+  # ============================================================================
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native interface
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DB=mohaa_stats
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./migrations/clickhouse:/docker-entrypoint-initdb.d
+      - ./config/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom.xml
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mohaa-network
+
+  # ============================================================================
+  # Redis - Caching, Rate Limiting, Real-time State
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - mohaa-network
+
+volumes:
+  postgres-data:
+  clickhouse-data:
+  redis-data:
+
+networks:
+  mohaa-network:
+    driver: bridge
