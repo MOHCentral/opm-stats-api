@@ -417,7 +417,7 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		ID          string    `json:"id"`
 		Map         string    `json:"map"`
 		StartTime   time.Time `json:"start_time"`
-		Duration    int       `json:"duration"`
+		Duration    int64     `json:"duration"`
 		PlayerCount uint64    `json:"player_count"`
 		Kills       uint64    `json:"kills"`
 	}
@@ -426,6 +426,7 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var m MatchSummary
 		if err := rows.Scan(&m.ID, &m.Map, &m.StartTime, &m.Duration, &m.PlayerCount, &m.Kills); err != nil {
+			h.logger.Warnw("Scan error in GetMatches", "error", err)
 			continue
 		}
 		matches = append(matches, m)
@@ -739,19 +740,19 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		SELECT 
 			match_id,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			min(timestamp) as played_at
 		FROM mohaa_stats.raw_events
 		WHERE match_id IN (
 			SELECT match_id FROM mohaa_stats.raw_events 
-			WHERE actor_id = ? 
+			WHERE actor_id = ? OR target_id = ?
 			GROUP BY match_id 
 			ORDER BY max(timestamp) DESC 
 			LIMIT 20
 		)
 		GROUP BY match_id
 		ORDER BY played_at ASC
-	`, guid, guid, guid)
+	`, guid, guid, guid, guid)
 
 	performance := make([]map[string]interface{}, 0)
 	if err == nil {
@@ -781,15 +782,15 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		SELECT 
 			map_name,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			count(DISTINCT match_id) as matches,
-			countIf(event_type = 'match_outcome' AND winning_team = actor_team) as wins
+			0 as wins
 		FROM mohaa_stats.raw_events
-		WHERE actor_id = ? AND map_name != ''
+		WHERE (actor_id = ? OR target_id = ?) AND map_name != ''
 		GROUP BY map_name
 		ORDER BY matches DESC
 		LIMIT 5
-	`, guid, guid, guid) // Removed complicated OR clause for speed
+	`, guid, guid, guid, guid) // Fixed params for OR clause
 
 	maps := make([]map[string]interface{}, 0)
 	if err == nil {
@@ -815,14 +816,14 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 			match_id,
 			map_name,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			min(timestamp) as started
 		FROM mohaa_stats.raw_events
-		WHERE actor_id = ?
+		WHERE actor_id = ? OR target_id = ?
 		GROUP BY match_id, map_name
 		ORDER BY started DESC
 		LIMIT 10
-	`, guid, guid, guid)
+	`, guid, guid, guid, guid)
 
 	matches := make([]map[string]interface{}, 0)
 	if err == nil {
@@ -954,17 +955,17 @@ func (h *Handler) GetPlayerMatches(w http.ResponseWriter, r *http.Request) {
 			match_id,
 			map_name,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			min(timestamp) as started,
 			max(timestamp) as ended
 		FROM mohaa_stats.raw_events
 		WHERE match_id IN (
-			SELECT DISTINCT match_id FROM mohaa_stats.raw_events WHERE actor_id = ?
+			SELECT DISTINCT match_id FROM mohaa_stats.raw_events WHERE actor_id = ? OR target_id = ?
 		)
 		GROUP BY match_id, map_name
 		ORDER BY started DESC
 		LIMIT 50
-	`, guid, guid, guid)
+	`, guid, guid, guid, guid)
 	if err != nil {
 		h.errorResponse(w, http.StatusInternalServerError, "Query failed")
 		return
@@ -1241,23 +1242,24 @@ func (h *Handler) GetPlayerPerformanceHistory(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 
 	// Fetch matches chronologically
+	// Deaths = when player is target of a kill event (target_id = guid)
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			match_id,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			min(timestamp) as played_at
 		FROM mohaa_stats.raw_events
 		WHERE match_id IN (
 			SELECT match_id FROM mohaa_stats.raw_events 
-			WHERE actor_id = ? 
+			WHERE actor_id = ? OR target_id = ?
 			GROUP BY match_id 
 			ORDER BY max(timestamp) DESC 
 			LIMIT 20
 		)
 		GROUP BY match_id
 		ORDER BY played_at ASC
-	`, guid, guid, guid)
+	`, guid, guid, guid, guid)
 	if err != nil {
 		h.errorResponse(w, http.StatusInternalServerError, "Query failed")
 		return
@@ -1266,8 +1268,8 @@ func (h *Handler) GetPlayerPerformanceHistory(w http.ResponseWriter, r *http.Req
 
 	type PerformancePoint struct {
 		MatchID  string  `json:"match_id"`
-		Kills    int     `json:"kills"`
-		Deaths   int     `json:"deaths"`
+		Kills    uint64  `json:"kills"`
+		Deaths   uint64  `json:"deaths"`
 		KD       float64 `json:"kd"`
 		PlayedAt float64 `json:"played_at"`
 	}
@@ -1277,6 +1279,7 @@ func (h *Handler) GetPlayerPerformanceHistory(w http.ResponseWriter, r *http.Req
 		var p PerformancePoint
 		var t time.Time // Scan into time.Time
 		if err := rows.Scan(&p.MatchID, &p.Kills, &p.Deaths, &t); err != nil {
+			h.logger.Warnw("Scan failed in performance", "error", err)
 			continue
 		}
 		p.PlayedAt = float64(t.Unix()) // Convert to unix timestamp for JSON
