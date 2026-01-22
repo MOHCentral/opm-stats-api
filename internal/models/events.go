@@ -416,18 +416,19 @@ type MapStats struct {
 	MapName       string  `json:"map_name"`
 	Kills         uint64  `json:"kills"`
 	Deaths        uint64  `json:"deaths"`
+	KDRatio       float64 `json:"kd_ratio"`
+	Headshots     uint64  `json:"headshots"`
 	MatchesPlayed uint64  `json:"matches_played"`
-	MatchesWon    uint64  `json:"matches_won"`
-	WinRate       float64 `json:"win_rate"`
 }
 
 // GametypeStats per-gametype statistics
 type GametypeStats struct {
 	Gametype      string  `json:"gametype"`
+	Kills         uint64  `json:"kills"`
+	Deaths        uint64  `json:"deaths"`
+	KDRatio       float64 `json:"kd_ratio"`
+	Headshots     uint64  `json:"headshots"`
 	MatchesPlayed uint64  `json:"matches_played"`
-	MatchesWon    uint64  `json:"matches_won"`
-	MatchesLost   uint64  `json:"matches_lost"`
-	WinRate       float64 `json:"win_rate"`
 }
 
 // LeaderboardEntry for leaderboard display with ALL stats
