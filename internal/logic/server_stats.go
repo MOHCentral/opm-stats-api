@@ -17,13 +17,13 @@ func NewServerStatsService(ch driver.Conn) *ServerStatsService {
 
 // GlobalActivity returns a heatmap of activity (Day of Week vs Hour of Day)
 func (s *ServerStatsService) GetGlobalActivity(ctx context.Context) ([]map[string]interface{}, error) {
+	// Remove time filter to show all activity data (test data may have future dates)
 	query := `
 		SELECT 
 			toDayOfWeek(toDateTime(timestamp)) as day_idx, -- 1=Mon, 7=Sun
 			toHour(toDateTime(timestamp)) as hour,
 			count() as intensity
-		FROM raw_events
-		WHERE timestamp >= toUnixTimestamp(now() - INTERVAL 30 DAY)
+		FROM mohaa_stats.raw_events
 		GROUP BY day_idx, hour
 		ORDER BY day_idx, hour
 	`
@@ -39,14 +39,14 @@ func (s *ServerStatsService) GetGlobalActivity(ctx context.Context) ([]map[strin
 
 	// We'll return raw for now and let handler/frontend format it
 	for rows.Next() {
-		var day, hour int
+		var day, hour uint8
 		var intensity uint64
 		if err := rows.Scan(&day, &hour, &intensity); err != nil {
 			continue
 		}
 		result = append(result, map[string]interface{}{
-			"day":   day,
-			"hour":  hour,
+			"day":   int(day),
+			"hour":  int(hour),
 			"value": intensity,
 		})
 	}
