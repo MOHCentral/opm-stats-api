@@ -1,0 +1,32 @@
+# Binaries & Build Output
+/bin/
+/api
+*.exe
+*.test
+*.out
+*.log
+
+# Dependencies
+vendor/
+
+# Environment & Secrets
+.env
+.env.local
+*.pem
+*.key
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Docker / Data
+postgres-data/
+clickhouse-data/
+redis-data/
+prometheus-data/
+grafana-data/
+
+# OS
+.DS_Store
+Thumbs.db
