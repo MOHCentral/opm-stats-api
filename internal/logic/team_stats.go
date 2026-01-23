@@ -41,12 +41,14 @@ func (s *TeamStatsService) GetFactionComparison(ctx context.Context, days int) (
 	// Calculate stats for both teams
 	getMetrics := func(team string) (TeamMetrics, error) {
 		var m TeamMetrics
-		// Kills, Deaths, Objectives
+		// Kills (as actor with actor_team)
+		// Deaths (as target in kill events where target_team = team)
+		// Objectives
 		query := `
 			SELECT 
-				countIf(event_type = 'player_kill' AND actor_team = ?) as kills,
-				countIf(event_type = 'player_death' AND actor_team = ?) as deaths,
-				countIf(event_type = 'objective_complete' AND actor_team = ?) as objs
+				countIf(event_type = 'kill' AND actor_team = ?) as kills,
+				countIf(event_type = 'kill' AND target_team = ?) as deaths,
+				countIf(event_type IN ('objective_update', 'objective_capture') AND actor_team = ?) as objs
 			FROM raw_events
 			WHERE timestamp >= now() - INTERVAL ? DAY
 		`
@@ -55,10 +57,7 @@ func (s *TeamStatsService) GetFactionComparison(ctx context.Context, days int) (
 			return m, err
 		}
 
-		// Wins (event_type = 'round_end' with winning_team = ?)
-		// Assuming round_end has winning_team field extracted or in extra?
-		// Usually round_end events might just say "winning_team": "axis"
-		// Using raw count for now assuming explicit event
+		// Wins (event_type = 'team_win' or 'round_end' with winning_team = ?)
 		winQuery := `
 			SELECT count() 
 			FROM raw_events 
@@ -96,8 +95,9 @@ func (s *TeamStatsService) GetFactionComparison(ctx context.Context, days int) (
 		s.ch.QueryRow(ctx, `
 			SELECT actor_weapon 
 			FROM raw_events 
-			WHERE event_type = 'player_kill' AND actor_team = ? 
+			WHERE event_type = 'kill' AND actor_team = ? 
 			  AND timestamp >= now() - INTERVAL ? DAY
+			  AND actor_weapon != ''
 			GROUP BY actor_weapon 
 			ORDER BY count() DESC LIMIT 1
 		`, team, days).Scan(&m.TopWeapon)

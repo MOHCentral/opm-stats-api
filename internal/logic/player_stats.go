@@ -160,7 +160,7 @@ func (s *PlayerStatsService) fillCombatStats(ctx context.Context, guid string, o
 	query := `
 		SELECT 
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
 			countIf(event_type = 'kill' AND actor_id = ? AND hitloc IN ('torso','torso_lower','torso_upper')) as torso,
 			countIf(event_type = 'kill' AND actor_id = ? AND hitloc IN ('left_arm','right_arm','left_leg','right_leg','left_arm_lower','left_arm_upper','right_arm_lower','right_arm_upper','left_leg_lower','left_leg_upper','right_leg_lower','right_leg_upper')) as limbs,

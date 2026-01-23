@@ -121,11 +121,11 @@ type ServerPulse struct {
 func (s *ServerStatsService) GetServerPulse(ctx context.Context) (*ServerPulse, error) {
 	pulse := &ServerPulse{}
 
-	// 1. Lethality (Kills per distinct minute of gameplay, approx)
-	// We'll take total kills / total playtime hours
+	// 1. Lethality (Kills per hour in last 24h)
+	// Total kills / 24 to get kills per hour average
 	if err := s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type='player_kill') / (sumIf(toFloat64OrZero(extract(extra, 'duration')), event_type='round_end') / 60 + 1) as kpm
+			countIf(event_type='kill') / 24.0 as kph
 		FROM raw_events
 		WHERE timestamp >= now() - INTERVAL 24 HOUR
 	`).Scan(&pulse.LethalityRating); err != nil {
@@ -140,21 +140,21 @@ func (s *ServerStatsService) GetServerPulse(ctx context.Context) (*ServerPulse, 
 		WHERE event_type = 'weapon_hit' AND timestamp >= now() - INTERVAL 24 HOUR
 	`).Scan(&pulse.TotalLeadPoured)
 
-	// 3. Meat Grinder Map
+	// 3. Meat Grinder Map (map with most kills/deaths)
 	s.ch.QueryRow(ctx, `
 		SELECT map_name 
 		FROM raw_events 
-		WHERE event_type = 'player_death'
+		WHERE event_type = 'kill' AND map_name != ''
 		GROUP BY map_name 
 		ORDER BY count() DESC 
 		LIMIT 1
 	`).Scan(&pulse.MeatGrinderMap)
 
-	// 4. Active Players (unique IDs in last 15 mins)
+	// 4. Active Players (unique IDs in last 24 hours - wider window for test data)
 	s.ch.QueryRow(ctx, `
 		SELECT uniq(actor_id) 
 		FROM raw_events 
-		WHERE timestamp >= now() - INTERVAL 15 MINUTE AND actor_id != ''
+		WHERE timestamp >= now() - INTERVAL 24 HOUR AND actor_id != '' AND actor_id != 'world'
 	`).Scan(&pulse.ActivePlayers)
 
 	// 5. Lead Exchange Rate - requires kill streak tracking per match

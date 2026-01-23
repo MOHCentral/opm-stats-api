@@ -70,18 +70,18 @@ func (h *Handler) getPlayerProfile(ctx context.Context, guid string) (*PlayerPro
 
 func (h *Handler) getPlayerStats(ctx context.Context, guid string) (*PlayerStats, error) {
 	var stats PlayerStats
-	// Reuse logic from GetPlayerStats query
+	// Deaths are kills where player is target_id
 	row := h.ch.QueryRow(ctx, `
 		SELECT
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'death' AND actor_id = ?) as deaths,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
 			countIf(event_type = 'weapon_fire' AND actor_id = ?) as shots,
 			countIf(event_type = 'weapon_hit' AND actor_id = ?) as hits,
-			uniq(match_id) as matches
+			uniqIf(match_id, actor_id = ?) as matches
 		FROM mohaa_stats.raw_events
-		WHERE actor_id = ?
-	`, guid, guid, guid, guid, guid, guid)
+		WHERE actor_id = ? OR target_id = ?
+	`, guid, guid, guid, guid, guid, guid, guid, guid)
 
 	var shots, hits int64
 	if err := row.Scan(&stats.Kills, &stats.Deaths, &stats.Headshots, &shots, &hits, &stats.Matches); err != nil {
@@ -265,17 +265,25 @@ func (h *Handler) getLiveMatches(ctx context.Context) ([]interface{}, error) {
 }
 
 func (h *Handler) getTopPlayers(ctx context.Context, limit int) ([]interface{}, error) {
+	// Deaths are counted from kill events where player is target_id
 	rows, err := h.ch.Query(ctx, `
+		WITH deaths_cte AS (
+			SELECT target_id, count() as death_count
+			FROM mohaa_stats.raw_events
+			WHERE event_type = 'kill' AND target_id != ''
+			GROUP BY target_id
+		)
 		SELECT 
-			actor_id,
-			any(actor_name) as name,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
-			countIf(event_type = 'headshot') as headshots,
-			uniq(match_id) as matches
-		FROM mohaa_stats.raw_events
-		WHERE actor_id != ''
-		GROUP BY actor_id
+			a.actor_id,
+			any(a.actor_name) as name,
+			countIf(a.event_type = 'kill') as kills,
+			ifNull(max(d.death_count), 0) as deaths,
+			countIf(a.event_type = 'headshot') as headshots,
+			uniq(a.match_id) as matches
+		FROM mohaa_stats.raw_events a
+		LEFT JOIN deaths_cte d ON a.actor_id = d.target_id
+		WHERE a.actor_id != ''
+		GROUP BY a.actor_id
 		ORDER BY kills DESC
 		LIMIT ?
 	`, limit)

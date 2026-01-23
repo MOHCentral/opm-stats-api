@@ -12,84 +12,92 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// 1. Aggregation Query - using correct event types from seeder
+	// Deaths are counted as kills where player is target_id, so we use a CTE
 	query := `
+		WITH deaths_cte AS (
+			SELECT target_id as player_id, count() as death_count
+			FROM mohaa_stats.raw_events
+			WHERE event_type = 'kill' AND target_id != '' AND target_id != 'world'
+			GROUP BY target_id
+		)
 		SELECT 
-			actor_id,
-			anyLast(actor_name) as name,
+			a.actor_id,
+			anyLast(a.actor_name) as name,
 			
-			-- A. Lethality & Combat (using correct event types: kill, death, headshot)
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
-			countIf(event_type = 'headshot') as headshots,
-			countIf(event_type = 'weapon_fire') as shots_fired,
-			countIf(event_type = 'weapon_hit') as shots_hit,
-			sumIf(damage, event_type = 'damage') as total_damage,
-			countIf(event_type IN ('player_bash', 'bash')) as bash_kills,
-			countIf(event_type IN ('grenade_throw', 'explosion', 'grenade_explode')) as grenade_kills,
-			countIf(event_type IN ('player_roadkill', 'roadkill')) as roadkills,
-			countIf(event_type = 'player_telefragged') as telefrags,
-			countIf(event_type IN ('player_crushed', 'crushed')) as crushed,
-			countIf(event_type IN ('player_teamkill', 'teamkill')) as teamkills,
-			countIf(event_type IN ('player_suicide', 'suicide')) as suicides,
-			countIf(event_type IN ('player_spawn', 'spawn')) as mystery_kills,
+			-- A. Lethality & Combat (using correct event types: kill, headshot)
+			countIf(a.event_type = 'kill') as kills,
+			ifNull(max(d.death_count), 0) as deaths,
+			countIf(a.event_type = 'headshot') as headshots,
+			countIf(a.event_type = 'weapon_fire') as shots_fired,
+			countIf(a.event_type = 'weapon_hit') as shots_hit,
+			sumIf(a.damage, a.event_type = 'damage') as total_damage,
+			countIf(a.event_type IN ('player_bash', 'bash')) as bash_kills,
+			countIf(a.event_type IN ('grenade_throw', 'explosion', 'grenade_explode')) as grenade_kills,
+			countIf(a.event_type IN ('player_roadkill', 'roadkill')) as roadkills,
+			countIf(a.event_type = 'player_telefragged') as telefrags,
+			countIf(a.event_type IN ('player_crushed', 'crushed')) as crushed,
+			countIf(a.event_type IN ('player_teamkill', 'teamkill')) as teamkills,
+			countIf(a.event_type IN ('player_suicide', 'suicide')) as suicides,
+			countIf(a.event_type IN ('player_spawn', 'spawn')) as mystery_kills,
 
 			-- B. Weapon Handling
-			countIf(event_type IN ('weapon_reload', 'reload')) as reloads,
-			countIf(event_type IN ('weapon_change', 'weapon_swap')) as weapon_swaps,
-			countIf(event_type = 'weapon_no_ammo') as no_ammo,
-			countIf(event_type = 'item_pickup') as looter,
+			countIf(a.event_type IN ('weapon_reload', 'reload')) as reloads,
+			countIf(a.event_type IN ('weapon_change', 'weapon_swap')) as weapon_swaps,
+			countIf(a.event_type = 'weapon_no_ammo') as no_ammo,
+			countIf(a.event_type = 'item_pickup') as looter,
 
 			-- C. Movement
-			sumIf(JSONExtractFloat(raw_json, 'walked'), event_type = 'distance') as walked,
-			sumIf(JSONExtractFloat(raw_json, 'sprinted'), event_type = 'distance') as sprinted,
-			sumIf(JSONExtractFloat(raw_json, 'swam'), event_type = 'distance') as swam,
-			sumIf(JSONExtractFloat(raw_json, 'driven'), event_type = 'distance') as driven,
-			countIf(event_type = 'jump') as jumps,
-			countIf(event_type = 'crouch') as crouch_events,
-			countIf(event_type = 'prone') as prone_events,
-			countIf(event_type = 'ladder_mount') as ladders,
+			sumIf(JSONExtractFloat(a.raw_json, 'walked'), a.event_type = 'distance') as walked,
+			sumIf(JSONExtractFloat(a.raw_json, 'sprinted'), a.event_type = 'distance') as sprinted,
+			sumIf(JSONExtractFloat(a.raw_json, 'swam'), a.event_type = 'distance') as swam,
+			sumIf(JSONExtractFloat(a.raw_json, 'driven'), a.event_type = 'distance') as driven,
+			countIf(a.event_type = 'jump') as jumps,
+			countIf(a.event_type = 'crouch') as crouch_events,
+			countIf(a.event_type = 'prone') as prone_events,
+			countIf(a.event_type = 'ladder_mount') as ladders,
 
 			-- D. Survival & Items
-			countIf(event_type = 'health_pickup') as health_picked,
-			countIf(event_type = 'ammo_pickup') as ammo_picked,
-			countIf(event_type = 'armor_pickup') as armor_picked,
-			countIf(event_type = 'item_pickup') as items_picked,
+			countIf(a.event_type = 'health_pickup') as health_picked,
+			countIf(a.event_type = 'ammo_pickup') as ammo_picked,
+			countIf(a.event_type = 'armor_pickup') as armor_picked,
+			countIf(a.event_type = 'item_pickup') as items_picked,
 
 			-- E. Objectives & Game Flow
-			countIf(event_type = 'match_outcome' AND damage = 1) as wins,
-			countIf(event_type = 'match_outcome' AND damage = 1 AND actor_weapon = 'dm') as ffa_wins,
-			countIf(event_type = 'match_outcome' AND damage = 1 AND actor_weapon != 'dm') as team_wins,
-			countIf(event_type IN ('objective_update', 'objective_capture')) as objectives_done,
-			countIf(event_type IN ('round_end', 'round_start')) as rounds_played,
-			countIf(event_type = 'match_outcome') as games_finished,
+			countIf(a.event_type = 'match_outcome' AND a.damage = 1) as wins,
+			countIf(a.event_type = 'match_outcome' AND a.damage = 1 AND a.actor_weapon = 'dm') as ffa_wins,
+			countIf(a.event_type = 'match_outcome' AND a.damage = 1 AND a.actor_weapon != 'dm') as team_wins,
+			countIf(a.event_type IN ('objective_update', 'objective_capture')) as objectives_done,
+			countIf(a.event_type IN ('round_end', 'round_start')) as rounds_played,
+			countIf(a.event_type = 'match_outcome') as games_finished,
 
 			-- F. Vehicles
-			countIf(event_type IN ('vehicle_enter', 'turret_enter')) as vehicle_enter,
-			countIf(event_type = 'turret_enter') as turret_enter,
-			countIf(event_type = 'kill' AND actor_id = 'vehicle') as vehicle_kills,
+			countIf(a.event_type IN ('vehicle_enter', 'turret_enter')) as vehicle_enter,
+			countIf(a.event_type = 'turret_enter') as turret_enter,
+			countIf(a.event_type = 'kill' AND a.actor_id = 'vehicle') as vehicle_kills,
 
 			-- G. Social & Misc
-			countIf(event_type IN ('chat', 'player_say')) as chat_msgs,
-			countIf(event_type = 'player_spectate') as spectating,
-			countIf(event_type = 'door_open') as doors_opened,
+			countIf(a.event_type IN ('chat', 'player_say')) as chat_msgs,
+			countIf(a.event_type = 'player_spectate') as spectating,
+			countIf(a.event_type = 'door_open') as doors_opened,
 			
 			-- H. Creative Stats
-			countIf(event_type IN ('ladder_mount', 'jump')) as verticality,
-			uniqIf(actor_weapon, event_type IN ('kill', 'player_bash', 'bash')) as unique_weapon_kills,
-			countIf(event_type = 'item_drop') as items_dropped,
-			countIf(event_type = 'vehicle_collision') as vehicle_collisions,
-			countIf(event_type = 'bot_killed') as bot_kills,
+			countIf(a.event_type IN ('ladder_mount', 'jump')) as verticality,
+			uniqIf(a.actor_weapon, a.event_type IN ('kill', 'player_bash', 'bash')) as unique_weapon_kills,
+			countIf(a.event_type = 'item_drop') as items_dropped,
+			countIf(a.event_type = 'vehicle_collision') as vehicle_collisions,
+			countIf(a.event_type = 'bot_killed') as bot_kills,
 
             -- Movement specific
-            sumIf(distance, event_type = 'distance') as total_distance,
-            countIf(event_type = 'weapon_reload') as reload_count,
-            countIf(event_type = 'ladder_mount') as ladder_mounts,
-            countIf(event_type = 'crouch') as manual_crouches
+            sumIf(a.distance, a.event_type = 'distance') as total_distance,
+            countIf(a.event_type = 'weapon_reload') as reload_count,
+            countIf(a.event_type = 'ladder_mount') as ladder_mounts,
+            countIf(a.event_type = 'crouch') as manual_crouches
 
-		FROM mohaa_stats.raw_events
-		WHERE actor_id != 'world' AND actor_id != ''
-		GROUP BY actor_id
-		HAVING kills > 0 OR deaths > 0 OR shots_fired > 0
+		FROM mohaa_stats.raw_events a
+		LEFT JOIN deaths_cte d ON a.actor_id = d.player_id
+		WHERE a.actor_id != 'world' AND a.actor_id != ''
+		GROUP BY a.actor_id
+		HAVING countIf(a.event_type = 'kill') > 0 OR max(d.death_count) > 0 OR countIf(a.event_type = 'weapon_fire') > 0
 	`
 
 	rows, err := h.ch.Query(ctx, query)

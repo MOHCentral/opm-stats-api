@@ -498,27 +498,29 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * limit
 
 	// Query leaderboard with all stats including movement
+	// Deaths are counted from a separate MV (player_deaths_daily_mv) via LEFT JOIN
 	query := `
 		SELECT 
-			actor_id,
-			any(actor_name),
-			sum(kills),
-			sum(deaths),
-			sum(headshots),
-			sum(shots_fired),
-			sum(shots_hit),
-			sum(total_damage),
-			sum(distance_km),
-			sum(jumps),
-			sum(matches_played),
-			sum(matches_won),
-			sum(playtime_seconds),
-			max(last_active)
-		FROM mohaa_stats.player_stats_daily_mv
-		WHERE actor_id != ''
-		GROUP BY actor_id
-		HAVING sum(kills) > 0
-		ORDER BY sum(kills) DESC
+			p.actor_id,
+			any(p.actor_name),
+			sum(p.kills),
+			ifNull(sum(d.deaths), 0) as deaths,
+			sum(p.headshots),
+			sum(p.shots_fired),
+			sum(p.shots_hit),
+			sum(p.total_damage),
+			sum(p.distance_km),
+			sum(p.jumps),
+			sum(p.matches_played),
+			sum(p.matches_won),
+			sum(p.playtime_seconds),
+			max(p.last_active)
+		FROM mohaa_stats.player_stats_daily_mv p
+		LEFT JOIN mohaa_stats.player_deaths_daily_mv d ON p.actor_id = d.target_id AND p.day = d.day
+		WHERE p.actor_id != ''
+		GROUP BY p.actor_id
+		HAVING sum(p.kills) > 0
+		ORDER BY sum(p.kills) DESC
 		LIMIT ? OFFSET ?
 	`
 
@@ -1361,19 +1363,32 @@ func (h *Handler) GetMatchDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get player scoreboard
+	// Get player scoreboard - needs subquery for deaths since death = being target_id in kill events
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
-			actor_id,
-			actor_name,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
-			countIf(event_type = 'headshot') as headshots
-		FROM mohaa_stats.raw_events
-		WHERE match_id = ? AND actor_id != '' AND actor_id != 'world'
-		GROUP BY actor_id, actor_name
-		ORDER BY kills DESC
-	`, matchID)
+			p.player_id as actor_id,
+			p.player_name as actor_name,
+			p.kills,
+			ifNull(d.deaths, 0) as deaths,
+			p.headshots
+		FROM (
+			SELECT 
+				actor_id as player_id,
+				any(actor_name) as player_name,
+				countIf(event_type = 'kill') as kills,
+				countIf(event_type = 'headshot') as headshots
+			FROM mohaa_stats.raw_events
+			WHERE match_id = ? AND actor_id != '' AND actor_id != 'world'
+			GROUP BY actor_id
+		) p
+		LEFT JOIN (
+			SELECT target_id, count() as deaths
+			FROM mohaa_stats.raw_events
+			WHERE match_id = ? AND event_type = 'kill' AND target_id != ''
+			GROUP BY target_id
+		) d ON p.player_id = d.target_id
+		ORDER BY p.kills DESC
+	`, matchID, matchID)
 	if err != nil {
 		h.errorResponse(w, http.StatusInternalServerError, "Query failed")
 		return
@@ -1528,10 +1543,11 @@ func (h *Handler) GetServerStats(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Get Aggregate Totals
 	// Using a single query to get multiple aggregates
+	// Note: total_deaths = total_kills for global stats (each kill = one death)
 	row := h.ch.QueryRow(ctx, `
 		SELECT 
 			countIf(event_type = 'kill') as total_kills,
-			countIf(event_type = 'death') as total_deaths,
+			countIf(event_type = 'kill') as total_deaths,
 			uniq(match_id) as total_matches,
 			uniq(actor_id) as unique_players,
 			toFloat64(0) as total_playtime,
@@ -2041,7 +2057,7 @@ func (h *Handler) GetGameTypeStats(w http.ResponseWriter, r *http.Request) {
 			) as game_type,
 			count(DISTINCT match_id) as total_matches,
 			countIf(event_type = 'kill') as total_kills,
-			countIf(event_type = 'death') as total_deaths,
+			countIf(event_type = 'kill') as total_deaths,
 			count(DISTINCT actor_id) as unique_players,
 			count(DISTINCT map_name) as map_count
 		FROM mohaa_stats.raw_events
@@ -2134,12 +2150,13 @@ func (h *Handler) GetGameTypeDetail(w http.ResponseWriter, r *http.Request) {
 	mapPattern := gameType + "%"
 
 	// Get aggregate stats
+	// Note: total_deaths = total_kills for global stats (each kill = one death)
 	var totalMatches, totalKills, totalDeaths, uniquePlayers, mapCount uint64
 	row := h.ch.QueryRow(ctx, `
 		SELECT 
 			count(DISTINCT match_id) as total_matches,
 			countIf(event_type = 'kill') as total_kills,
-			countIf(event_type = 'death') as total_deaths,
+			countIf(event_type = 'kill') as total_deaths,
 			count(DISTINCT actor_id) as unique_players,
 			count(DISTINCT map_name) as map_count
 		FROM mohaa_stats.raw_events
@@ -2204,18 +2221,31 @@ func (h *Handler) GetGameTypeLeaderboard(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	mapPattern := gameType + "%"
 
+	// For per-player deaths we need to join kills as actor with kills as target
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
-			actor_id as id,
-			any(actor_name) as name,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths
-		FROM mohaa_stats.raw_events
-		WHERE lower(map_name) LIKE ? AND actor_id != ''
-		GROUP BY actor_id
-		ORDER BY kills DESC
+			p.player_id as id,
+			p.player_name as name,
+			p.kills,
+			ifNull(d.deaths, 0) as deaths
+		FROM (
+			SELECT 
+				actor_id as player_id,
+				any(actor_name) as player_name,
+				countIf(event_type = 'kill') as kills
+			FROM mohaa_stats.raw_events
+			WHERE lower(map_name) LIKE ? AND actor_id != ''
+			GROUP BY actor_id
+		) p
+		LEFT JOIN (
+			SELECT target_id, count() as deaths
+			FROM mohaa_stats.raw_events
+			WHERE lower(map_name) LIKE ? AND event_type = 'kill' AND target_id != ''
+			GROUP BY target_id
+		) d ON p.player_id = d.target_id
+		ORDER BY p.kills DESC
 		LIMIT 25
-	`, mapPattern)
+	`, mapPattern, mapPattern)
 
 	if err != nil {
 		h.logger.Errorw("Failed to get game type leaderboard", "error", err)

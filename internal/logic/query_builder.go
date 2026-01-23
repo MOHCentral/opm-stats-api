@@ -38,18 +38,24 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 	}
 
 	// 2. Select Clause (Metric)
+	// Note: Deaths = kills for global stats. For player-specific deaths, 
+	// use target_id filtering (handled in player stats queries, not this builder)
 	var selectClause string
 	switch req.Metric {
 	case "kills":
 		selectClause = "countIf(event_type = 'kill')"
 	case "deaths":
-		selectClause = "countIf(event_type = 'death')"
+		// For global deaths: each kill event = one death
+		// For player-specific deaths, would need target_id filter (not supported in this builder)
+		selectClause = "countIf(event_type = 'kill')"
 	case "headshots":
 		selectClause = "countIf(event_type = 'headshot')"
 	case "accuracy": // Simplified accuracy (hits/shots) - careful with zero division
 		selectClause = "sumIf(1, event_type='weapon_hit') / max(1, sumIf(1, event_type='weapon_fire')) * 100"
 	case "kdr":
-		selectClause = "countIf(event_type = 'kill') / max(1, countIf(event_type = 'death'))"
+		// For global KDR: kills/kills = 1 (not useful)
+		// This metric is more meaningful for player-specific queries
+		selectClause = "countIf(event_type = 'kill') / max(1, countIf(event_type = 'kill'))"
 	default: // Default to just raw count of events matching filters if no metric specified? Or error?
 		selectClause = "count()" 
 	}

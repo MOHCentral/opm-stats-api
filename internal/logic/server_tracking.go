@@ -261,10 +261,11 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 	}
 
 	// Lifetime stats from ClickHouse
+	// Note: deaths = kills for global stats (each kill = one death)
 	s.ch.QueryRow(ctx, `
 		SELECT 
 			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
+			countIf(event_type = 'kill') as deaths,
 			countIf(event_type = 'headshot') as headshots,
 			uniq(match_id) as matches,
 			uniq(actor_id) as players,
@@ -469,23 +470,31 @@ func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverI
 		limit = 25
 	}
 
+	// Deaths are counted from kill events where player is target_id
 	query := `
+		WITH deaths_cte AS (
+			SELECT target_id, count() as death_count
+			FROM raw_events
+			WHERE server_id = ? AND event_type = 'kill' AND target_id != ''
+			GROUP BY target_id
+		)
 		SELECT 
-			actor_id,
-			any(actor_name) as name,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
-			countIf(event_type = 'headshot') as headshots,
-			uniq(match_id) as sessions,
-			max(timestamp) as last_seen
-		FROM raw_events
-		WHERE server_id = ? AND actor_id != ''
-		GROUP BY actor_id
+			a.actor_id,
+			any(a.actor_name) as name,
+			countIf(a.event_type = 'kill') as kills,
+			ifNull(max(d.death_count), 0) as deaths,
+			countIf(a.event_type = 'headshot') as headshots,
+			uniq(a.match_id) as sessions,
+			max(a.timestamp) as last_seen
+		FROM raw_events a
+		LEFT JOIN deaths_cte d ON a.actor_id = d.target_id
+		WHERE a.server_id = ? AND a.actor_id != ''
+		GROUP BY a.actor_id
 		ORDER BY kills DESC
 		LIMIT ?
 	`
 
-	rows, err := s.ch.Query(ctx, query, serverID, limit)
+	rows, err := s.ch.Query(ctx, query, serverID, serverID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("top players query: %w", err)
 	}
@@ -710,11 +719,12 @@ func (s *ServerTrackingService) GetServerActivityTimeline(ctx context.Context, s
 		days = 7
 	}
 
+	// Note: deaths = kills for global timeline stats (each kill = one death)
 	query := `
 		SELECT 
 			toStartOfHour(timestamp) as ts,
 			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
+			countIf(event_type = 'kill') as deaths,
 			uniq(actor_id) as players,
 			countIf(event_type = 'match_start') as match_starts
 		FROM raw_events
@@ -999,28 +1009,36 @@ func (s *ServerTrackingService) GetServerHistoricalPlayers(ctx context.Context, 
 		SELECT uniq(actor_id) FROM raw_events WHERE server_id = ?
 	`, serverID).Scan(&totalCount)
 
+	// Deaths are counted from kill events where player is target_id
 	query := `
+		WITH deaths_cte AS (
+			SELECT target_id, count() as death_count
+			FROM raw_events
+			WHERE server_id = ? AND event_type = 'kill' AND target_id != ''
+			GROUP BY target_id
+		)
 		SELECT 
-			actor_id,
-			any(actor_name) as name,
-			min(timestamp) as first_seen,
-			max(timestamp) as last_seen,
-			uniq(match_id) as sessions,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'death') as deaths,
-			countIf(event_type = 'headshot') as headshots,
-			countIf(event_type = 'kill' AND timestamp > now() - INTERVAL 7 DAY) as kills_7d,
-			countIf(event_type = 'kill' AND timestamp > now() - INTERVAL 30 DAY) as kills_30d,
-			argMax(actor_weapon, countIf(event_type = 'kill')) as fav_weapon,
-			argMax(map_name, count()) as fav_map
-		FROM raw_events
-		WHERE server_id = ? AND actor_id != ''
-		GROUP BY actor_id
+			a.actor_id,
+			any(a.actor_name) as name,
+			min(a.timestamp) as first_seen,
+			max(a.timestamp) as last_seen,
+			uniq(a.match_id) as sessions,
+			countIf(a.event_type = 'kill') as kills,
+			ifNull(max(d.death_count), 0) as deaths,
+			countIf(a.event_type = 'headshot') as headshots,
+			countIf(a.event_type = 'kill' AND a.timestamp > now() - INTERVAL 7 DAY) as kills_7d,
+			countIf(a.event_type = 'kill' AND a.timestamp > now() - INTERVAL 30 DAY) as kills_30d,
+			argMax(a.actor_weapon, countIf(a.event_type = 'kill')) as fav_weapon,
+			argMax(a.map_name, count()) as fav_map
+		FROM raw_events a
+		LEFT JOIN deaths_cte d ON a.actor_id = d.target_id
+		WHERE a.server_id = ? AND a.actor_id != ''
+		GROUP BY a.actor_id
 		ORDER BY kills DESC
 		LIMIT ? OFFSET ?
 	`
 
-	rows, err := s.ch.Query(ctx, query, serverID, limit, offset)
+	rows, err := s.ch.Query(ctx, query, serverID, serverID, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("historical players query: %w", err)
 	}
