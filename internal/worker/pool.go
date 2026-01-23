@@ -175,6 +175,10 @@ func (p *Pool) Enqueue(event *models.RawEvent) bool {
 		p.logger.Warn("Worker pool context canceled, dropping event")
 		eventsLoadShed.Inc()
 		return false
+	default:
+		p.logger.Warn("Worker pool full, dropping event")
+		eventsLoadShed.Inc()
+		return false
 	}
 }
 
