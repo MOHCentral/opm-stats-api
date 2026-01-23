@@ -22,6 +22,10 @@ type AchievementWorker struct {
 	mu              sync.RWMutex
 	ctx             context.Context
 	cancel          context.CancelFunc
+
+	jobQueue    chan *models.RawEvent
+	workerCount int
+	wg          sync.WaitGroup
 }
 
 // AchievementDefinition holds criteria for unlocking
@@ -35,7 +39,7 @@ type AchievementDefinition struct {
 }
 
 // NewAchievementWorker creates a new achievement processing worker
-func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, logger *zap.SugaredLogger) *AchievementWorker {
+func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, logger *zap.SugaredLogger, workerCount int, queueSize int) *AchievementWorker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	worker := &AchievementWorker{
@@ -45,6 +49,8 @@ func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, logger *zap.SugaredL
 		achievementDefs: make(map[string]*AchievementDefinition),
 		ctx:             ctx,
 		cancel:          cancel,
+		jobQueue:        make(chan *models.RawEvent, queueSize),
+		workerCount:     workerCount,
 	}
 
 	// Load achievement definitions from database
@@ -57,13 +63,50 @@ func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, logger *zap.SugaredL
 
 // Start begins the achievement worker
 func (w *AchievementWorker) Start() {
-	w.logger.Info("Achievement Worker started")
+	for i := 0; i < w.workerCount; i++ {
+		w.wg.Add(1)
+		go w.worker(i)
+	}
+	w.logger.Infow("Achievement Worker started", "workers", w.workerCount)
 }
 
-// Stop gracefully stops the worker
+// Stop gracefully shuts down the worker
 func (w *AchievementWorker) Stop() {
 	w.cancel()
+	close(w.jobQueue)
+	w.wg.Wait()
 	w.logger.Info("Achievement Worker stopped")
+}
+
+// worker processes jobs from the queue
+func (w *AchievementWorker) worker(id int) {
+	defer w.wg.Done()
+	w.logger.Infow("Achievement worker started", "id", id)
+
+	for event := range w.jobQueue {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					w.logger.Errorw("Achievement worker panic", "error", r, "event_type", event.Type)
+				}
+			}()
+			w.processEventInternal(event)
+		}()
+	}
+}
+
+// ProcessEvent enqueues an event for achievement processing
+func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
+	if w.ctx.Err() != nil {
+		return
+	}
+
+	select {
+	case w.jobQueue <- event:
+		// Enqueued successfully
+	case <-w.ctx.Done():
+		// Worker stopped
+	}
 }
 
 // loadAchievementDefinitions loads all achievements from database
@@ -106,8 +149,8 @@ func (w *AchievementWorker) loadAchievementDefinitions() error {
 	return nil
 }
 
-// ProcessEvent checks if an event triggers any achievements
-func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
+// processEventInternal checks if an event triggers any achievements
+func (w *AchievementWorker) processEventInternal(event *models.RawEvent) {
 	// Determine Actor ID based on event type
 	actorSMFID := w.getActorSMFID(event)
 	w.logger.Infow("Processing achievement event",
