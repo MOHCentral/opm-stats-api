@@ -30,10 +30,10 @@ type VersusRow struct {
 }
 
 type MatchDetail struct {
-	Info       models.LiveMatch     `json:"info"`
-	Timeline   []MatchTimelineEvent `json:"timeline"`
+	Info       models.LiveMatch       `json:"info"`
+	Timeline   []MatchTimelineEvent   `json:"timeline"`
 	Versus     map[string][]VersusRow `json:"versus"` // map[PlayerID] -> []VersusRow
-	TopWeapons []models.WeaponStats `json:"top_weapons"`
+	TopWeapons []models.WeaponStats   `json:"top_weapons"`
 }
 
 // GetMatchDetails fetches comprehensive match report
@@ -66,7 +66,7 @@ func (s *MatchReportService) GetMatchDetails(ctx context.Context, matchID string
 func (s *MatchReportService) getMatchInfo(ctx context.Context, matchID string) (*models.LiveMatch, error) {
 	var m models.LiveMatch
 	m.MatchID = matchID
-	
+
 	// Start/End timestamps
 	query := `
 		SELECT 
@@ -82,8 +82,8 @@ func (s *MatchReportService) getMatchInfo(ctx context.Context, matchID string) (
 		return &m, nil
 	}
 	// duration is seconds, m.Duration is float64 usually
-	// m.Duration = float64(duration) 
-	
+	// m.Duration = float64(duration)
+
 	return &m, nil
 }
 
@@ -137,11 +137,11 @@ func (s *MatchReportService) getVersusMatrix(ctx context.Context, matchID string
 	// Organize by Actor -> [List of Victims]
 	// Ideally checking logical matrix
 	matrix := make(map[string][]VersusRow)
-	
+
 	type record struct {
-		Actor string
+		Actor  string
 		Target string
-		Kills int
+		Kills  int
 	}
 	var records []record
 
@@ -157,6 +157,6 @@ func (s *MatchReportService) getVersusMatrix(ctx context.Context, matchID string
 	for _, r := range records {
 		matrix[r.Actor] = append(matrix[r.Actor], VersusRow{OpponentName: r.Target, Kills: r.Kills, Deaths: 0})
 	}
-	
+
 	return matrix, nil
 }
