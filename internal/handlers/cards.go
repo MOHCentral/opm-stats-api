@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"sort"
 )
 
 // GetLeaderboardCards returns the Top 3 players for ALL 40 dashboard categories
@@ -274,46 +273,64 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 	result := make(map[string][]map[string]interface{})
 
 	for _, cat := range categories {
-		// Flatten structure for sorting
 		type entry struct {
 			Name  string
 			Value float64
 			ID    string
 		}
-		list := make([]entry, 0, len(players))
+
+		var best [3]entry
+		count := 0
+
 		for _, p := range players {
-			if val := p.Metrics[cat]; val > 0 {
-				list = append(list, entry{Name: p.Name, Value: val, ID: p.ID})
+			val := p.Metrics[cat]
+			if val <= 0 {
+				continue
+			}
+
+			if count < 3 {
+				best[count] = entry{Name: p.Name, Value: val, ID: p.ID}
+				count++
+				// Keep sorted descending
+				for k := count - 1; k > 0; k-- {
+					if best[k].Value > best[k-1].Value {
+						best[k], best[k-1] = best[k-1], best[k]
+					}
+				}
+			} else if val > best[2].Value {
+				// Replace last one and shift up if needed
+				best[2] = entry{Name: p.Name, Value: val, ID: p.ID}
+				if best[2].Value > best[1].Value {
+					best[2], best[1] = best[1], best[2]
+					if best[1].Value > best[0].Value {
+						best[1], best[0] = best[0], best[1]
+					}
+				}
 			}
 		}
 
-		// Sort Descending
-		sort.Slice(list, func(i, j int) bool {
-			return list[i].Value > list[j].Value
-		})
-
 		// Take top 3
 		top3 := []map[string]interface{}{}
-		for i := 0; i < 3 && i < len(list); i++ {
-			valStr := fmt.Sprintf("%.0f", list[i].Value)
+		for i := 0; i < count; i++ {
+			valStr := fmt.Sprintf("%.0f", best[i].Value)
 
 			// Formatting rules
 			switch cat {
 			case "kd":
-				valStr = fmt.Sprintf("%.2f", list[i].Value)
+				valStr = fmt.Sprintf("%.2f", best[i].Value)
 			case "accuracy", "headshot_ratio":
-				valStr = fmt.Sprintf("%.1f%%", list[i].Value)
+				valStr = fmt.Sprintf("%.1f%%", best[i].Value)
 			case "distance", "sprinted", "swam", "driven", "marathon":
-				valStr = fmt.Sprintf("%.0fm", list[i].Value)
+				valStr = fmt.Sprintf("%.0fm", best[i].Value)
 			case "playtime", "spectating", "watcher":
 				// assuming events are just counts for now, but if time:
-				// valStr = fmt.Sprintf("%.1fh", list[i].Value / 3600)
+				// valStr = fmt.Sprintf("%.1fh", best[i].Value / 3600)
 			}
 
 			top3 = append(top3, map[string]interface{}{
-				"name":  list[i].Name,
+				"name":  best[i].Name,
 				"value": valStr,
-				"id":    list[i].ID,
+				"id":    best[i].ID,
 			})
 		}
 		result[cat] = top3
