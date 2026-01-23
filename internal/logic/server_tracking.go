@@ -65,8 +65,8 @@ type ServerGlobalStats struct {
 func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOverview, error) {
 	// Get registered servers from PostgreSQL
 	rows, err := s.pg.Query(ctx, `
-		SELECT id, name, address, port, region, max_players, 
-		       total_matches, total_players, last_seen, is_active
+		SELECT id, name, address, COALESCE(port, 0), COALESCE(region, ''), 
+		       total_matches, total_players, COALESCE(last_seen, created_at), is_active
 		FROM servers 
 		ORDER BY total_players DESC
 	`)
@@ -79,16 +79,15 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOver
 	rank := 1
 	for rows.Next() {
 		var srv ServerOverview
-		var maxPlayers int
 		var isActive bool
 		err := rows.Scan(&srv.ID, &srv.Name, &srv.Address, &srv.Port,
-			&srv.Region, &maxPlayers, &srv.TotalMatches, &srv.UniquePlayers,
+			&srv.Region, &srv.TotalMatches, &srv.UniquePlayers,
 			&srv.LastSeen, &isActive)
 		if err != nil {
 			continue
 		}
 
-		srv.MaxPlayers = maxPlayers
+		srv.MaxPlayers = 32 // Default max players
 		srv.DisplayName = fmt.Sprintf("%s:%d", srv.Name, srv.Port)
 		srv.Rank = rank
 		rank++

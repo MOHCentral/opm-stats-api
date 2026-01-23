@@ -11,15 +11,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - PORT=8080
-      - POSTGRES_URL=postgres://mohaa:admin123@postgres:5432/mohaa_stats?sslmode=disable
-      - CLICKHOUSE_URL=clickhouse://clickhouse:9000/mohaa_stats
-      - REDIS_URL=redis://redis:6379/0
-      - WORKER_COUNT=8
-      - WORKER_QUEUE_SIZE=50000
-      - WORKER_BATCH_SIZE=1000
-      - WORKER_FLUSH_INTERVAL=1s
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - PORT=${PORT:-8080}
+      - POSTGRES_URL=${POSTGRES_URL:-postgres://mohaa:admin123@postgres:5432/mohaa_stats?sslmode=disable}
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-clickhouse://clickhouse:9000/mohaa_stats}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - WORKER_COUNT=${WORKER_COUNT:-8}
+      - WORKER_QUEUE_SIZE=${WORKER_QUEUE_SIZE:-50000}
+      - WORKER_BATCH_SIZE=${WORKER_BATCH_SIZE:-1000}
+      - WORKER_FLUSH_INTERVAL=${WORKER_FLUSH_INTERVAL:-1s}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,9 +39,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=mohaa
-      - POSTGRES_PASSWORD=admin123
-      - POSTGRES_DB=mohaa_stats
+      - POSTGRES_USER=${POSTGRES_USER:-mohaa}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - POSTGRES_DB=${POSTGRES_DB:-mohaa_stats}
     ports:
       - "5432:5432"
     volumes:
@@ -65,9 +65,9 @@ services:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native interface
     environment:
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=
-      - CLICKHOUSE_DB=mohaa_stats
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-mohaa_stats}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./migrations/clickhouse:/docker-entrypoint-initdb.d

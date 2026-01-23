@@ -1338,10 +1338,10 @@ func (h *Handler) GetMatchDetails(w http.ResponseWriter, r *http.Request) {
 	matchID := chi.URLParam(r, "matchId")
 	ctx := r.Context()
 
-	// Get match summary
+	// Get match summary - use any() for map_name since we need aggregate
 	row := h.ch.QueryRow(ctx, `
 		SELECT 
-			map_name,
+			any(map_name) as map_name,
 			min(timestamp) as started,
 			max(timestamp) as ended,
 			countIf(event_type = 'kill') as total_kills,
