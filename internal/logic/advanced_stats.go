@@ -22,8 +22,8 @@ func NewAdvancedStatsService(ch driver.Conn) *AdvancedStatsService {
 
 // PeakPerformance shows when a player performs best
 type PeakPerformance struct {
-	BestHour        HourStats    `json:"best_hour"`
-	BestDay         DayStats     `json:"best_day"`
+	BestHour        HourStats      `json:"best_hour"`
+	BestDay         DayStats       `json:"best_day"`
 	BestMap         MapPeakStats   `json:"best_map"`
 	BestWeapon      WeaponPeak     `json:"best_weapon"`
 	HourlyBreakdown []HourStats    `json:"hourly_breakdown"`
@@ -237,7 +237,7 @@ func (s *AdvancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	// Calculate Best Conditions for Summary
 	peak.BestConditions.BestMap = peak.BestMap.MapName
 	peak.BestConditions.BestDay = peak.BestDay.DayOfWeek
-	
+
 	// Convert hour to label
 	h := peak.BestHour.Hour
 	switch {
@@ -250,9 +250,9 @@ func (s *AdvancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	default:
 		peak.BestConditions.BestHourLabel = "Night"
 	}
-	
+
 	// Simple heuristic for optimal session length (mock for now or derived from playtime)
-	peak.BestConditions.OptimalSessionMins = 45 
+	peak.BestConditions.OptimalSessionMins = 45
 
 	return peak, nil
 }
@@ -633,14 +633,14 @@ func (s *AdvancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	// Could be based on weapon classes, movement, etc.
 	// Defaulting to "Soldier" if no clear pattern, or use best weapon class
 	combo.Signature.PlayStyle = "Soldier"
-	
+
 	// Check best weapon for style hint
 	s.ch.QueryRow(ctx, `
 		SELECT any(actor_weapon) FROM raw_events 
 		WHERE event_type = 'player_kill' AND actor_id = ? 
 		GROUP BY actor_weapon ORDER BY count() DESC LIMIT 1
 	`, guid).Scan(&combo.Signature.PlayStyle)
-	
+
 	// Map specific weapons to styles
 	switch combo.Signature.PlayStyle {
 	case "kar98", "springfield":
@@ -650,7 +650,7 @@ func (s *AdvancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	case "shotgun":
 		combo.Signature.PlayStyle = "Aggressor"
 	case "bar", "stg44", "mp44":
-		combo.Signature.PlayStyle = "Soldier" 
+		combo.Signature.PlayStyle = "Soldier"
 	case "bazooka", "panzerschreck":
 		combo.Signature.PlayStyle = "Demolitionist"
 	case "":
@@ -673,11 +673,13 @@ func (s *AdvancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 		SELECT avg(toFloat64OrZero(extract(extra, 'velocity'))) 
 		FROM raw_events WHERE event_type = 'player_kill' AND actor_id = ?
 	`, guid).Scan(&combo.MovementCombat.RunGunIndex)
-	
+
 	// Normalize index (0-100), assuming max velocity ~300-400
 	if combo.MovementCombat.RunGunIndex > 0 {
 		combo.MovementCombat.RunGunIndex = (combo.MovementCombat.RunGunIndex / 300.0) * 100
-		if combo.MovementCombat.RunGunIndex > 100 { combo.MovementCombat.RunGunIndex = 100 }
+		if combo.MovementCombat.RunGunIndex > 100 {
+			combo.MovementCombat.RunGunIndex = 100
+		}
 	}
 
 	// 5. Bunny Hop Efficiency (Jumps vs Distance or Kills)
@@ -689,9 +691,9 @@ func (s *AdvancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 			countIf(event_type = 'player_kill')
 		FROM raw_events WHERE actor_id = ?
 	`, guid).Scan(&jumps, &kills)
-	
+
 	if kills > 0 {
-		combo.MovementCombat.BunnyHopEfficiency = min(100, (jumps / kills) * 20) // Arbitrary scaling
+		combo.MovementCombat.BunnyHopEfficiency = min(100, (jumps/kills)*20) // Arbitrary scaling
 	}
 
 	return combo, nil
