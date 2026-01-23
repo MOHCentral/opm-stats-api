@@ -211,7 +211,6 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			p.Metrics["bot_bully_ratio"] = float64(botKills) / float64(kills)
 		}
 
-
 		p.Metrics["wins"] = float64(wins)
 		p.Metrics["ffa_wins"] = float64(ffaWins)
 		p.Metrics["team_wins"] = float64(teamWins)

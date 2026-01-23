@@ -7,15 +7,15 @@ import (
 
 // DynamicQueryRequest holds parameters for constructing a stats query
 type DynamicQueryRequest struct {
-	Dimension   string    `json:"dimension"`     // Group by: weapon, map, player_guid, etc.
-	Metric      string    `json:"metric"`        // Select: kills, deaths, kdr, headshots
-	FilterGUID  string    `json:"filter_guid"`   // WHERE actor_id = ?
-	FilterMap   string    `json:"filter_map"`    // WHERE map_name = ?
-	FilterWeapon string   `json:"filter_weapon"` // WHERE extra LIKE '%weapon%'
-	FilterServer string   `json:"filter_server"` // WHERE server_id = ?
-	StartDate   time.Time `json:"start_date"`
-	EndDate     time.Time `json:"end_date"`
-	Limit       int       `json:"limit"`
+	Dimension    string    `json:"dimension"`     // Group by: weapon, map, player_guid, etc.
+	Metric       string    `json:"metric"`        // Select: kills, deaths, kdr, headshots
+	FilterGUID   string    `json:"filter_guid"`   // WHERE actor_id = ?
+	FilterMap    string    `json:"filter_map"`    // WHERE map_name = ?
+	FilterWeapon string    `json:"filter_weapon"` // WHERE extra LIKE '%weapon%'
+	FilterServer string    `json:"filter_server"` // WHERE server_id = ?
+	StartDate    time.Time `json:"start_date"`
+	EndDate      time.Time `json:"end_date"`
+	Limit        int       `json:"limit"`
 }
 
 // AllowedDimensions maps safe API values to SQL columns
@@ -38,7 +38,7 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 	}
 
 	// 2. Select Clause (Metric)
-	// Note: Deaths = kills for global stats. For player-specific deaths, 
+	// Note: Deaths = kills for global stats. For player-specific deaths,
 	// use target_id filtering (handled in player stats queries, not this builder)
 	var selectClause string
 	switch req.Metric {
@@ -57,7 +57,7 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 		// This metric is more meaningful for player-specific queries
 		selectClause = "countIf(event_type = 'kill') / max(1, countIf(event_type = 'kill'))"
 	default: // Default to just raw count of events matching filters if no metric specified? Or error?
-		selectClause = "count()" 
+		selectClause = "count()"
 	}
 
 	// 3. Build Query
