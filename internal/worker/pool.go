@@ -67,14 +67,16 @@ type Job struct {
 
 // PoolConfig configures the worker pool
 type PoolConfig struct {
-	WorkerCount   int
-	QueueSize     int
-	BatchSize     int
-	FlushInterval time.Duration
-	ClickHouse    driver.Conn
-	Postgres      *pgxpool.Pool
-	Redis         *redis.Client
-	Logger        *zap.Logger
+	WorkerCount            int
+	QueueSize              int
+	BatchSize              int
+	AchievementWorkerCount int
+	AchievementQueueSize   int
+	FlushInterval          time.Duration
+	ClickHouse             driver.Conn
+	Postgres               *pgxpool.Pool
+	Redis                  *redis.Client
+	Logger                 *zap.Logger
 }
 
 // Pool manages a pool of workers for async event processing
@@ -99,6 +101,12 @@ func NewPool(cfg PoolConfig) *Pool {
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = 500
 	}
+	if cfg.AchievementWorkerCount <= 0 {
+		cfg.AchievementWorkerCount = 2
+	}
+	if cfg.AchievementQueueSize <= 0 {
+		cfg.AchievementQueueSize = 1000
+	}
 	if cfg.FlushInterval <= 0 {
 		cfg.FlushInterval = time.Second
 	}
@@ -110,7 +118,7 @@ func NewPool(cfg PoolConfig) *Pool {
 	}
 
 	// Initialize Achievement Worker with both Postgres and ClickHouse
-	pool.achievementWorker = NewAchievementWorker(cfg.Postgres, cfg.ClickHouse, cfg.Logger.Sugar())
+	pool.achievementWorker = NewAchievementWorker(cfg.Postgres, cfg.ClickHouse, cfg.Logger.Sugar(), cfg.AchievementWorkerCount, cfg.AchievementQueueSize)
 	pool.achievementWorker.Start()
 
 	return pool
@@ -139,14 +147,16 @@ func (p *Pool) Start(ctx context.Context) {
 func (p *Pool) Stop() {
 	p.logger.Info("Stopping worker pool...")
 
-	// Stop achievement worker
+	p.cancel()
+	close(p.jobQueue)
+	p.wg.Wait()
+
+	// Stop achievement worker after all pool workers are done
+	// This ensures no new events are sent to the achievement worker
 	if p.achievementWorker != nil {
 		p.achievementWorker.Stop()
 	}
 
-	p.cancel()
-	close(p.jobQueue)
-	p.wg.Wait()
 	p.logger.Info("Worker pool stopped")
 }
 
@@ -327,14 +337,8 @@ func (p *Pool) processBatch(batch []Job) error {
 		event := job.Event
 		if p.achievementWorker != nil {
 			p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
-			go func(evt *models.RawEvent) {
-				defer func() {
-					if r := recover(); r != nil {
-						p.logger.Errorw("Achievement worker panic", "error", r, "event_type", evt.Type)
-					}
-				}()
-				p.achievementWorker.ProcessEvent(evt)
-			}(event)
+			// ProcessEvent is now safe to call directly (uses bounded worker pool internally)
+			p.achievementWorker.ProcessEvent(event)
 		}
 	}
 
