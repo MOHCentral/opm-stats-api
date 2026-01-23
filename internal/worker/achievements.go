@@ -9,14 +9,17 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/openmohaa/stats-api/internal/models"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // AchievementWorker processes events and unlocks achievements
 type AchievementWorker struct {
 	db              *pgxpool.Pool      // Postgres for achievement defs and unlocks
 	ch              driver.Conn        // ClickHouse for stats queries
+	redis           *redis.Client      // Redis for notifications
 	logger          *zap.SugaredLogger // Logger for debugging
 	achievementDefs map[string]*AchievementDefinition
 	mu              sync.RWMutex
@@ -35,12 +38,13 @@ type AchievementDefinition struct {
 }
 
 // NewAchievementWorker creates a new achievement processing worker
-func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, logger *zap.SugaredLogger) *AchievementWorker {
+func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, redis *redis.Client, logger *zap.SugaredLogger) *AchievementWorker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	worker := &AchievementWorker{
 		db:              db,
 		ch:              ch,
+		redis:           redis,
 		logger:          logger,
 		achievementDefs: make(map[string]*AchievementDefinition),
 		ctx:             ctx,
@@ -506,9 +510,8 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 	w.notifyPlayer(smfID, slug, def)
 }
 
-// notifyPlayer sends achievement notification (placeholder)
+// notifyPlayer sends achievement notification via Redis Pub/Sub
 func (w *AchievementWorker) notifyPlayer(smfID int, slug string, def *AchievementDefinition) {
-	// Would send WebSocket notification or queue for next page load
 	notification := map[string]interface{}{
 		"type":        "achievement_unlock",
 		"smf_id":      smfID,
@@ -519,10 +522,22 @@ func (w *AchievementWorker) notifyPlayer(smfID int, slug string, def *Achievemen
 		"unlocked_at": time.Now(),
 	}
 
-	jsonData, _ := json.Marshal(notification)
+	jsonData, err := json.Marshal(notification)
+	if err != nil {
+		w.logger.Errorw("Failed to marshal achievement notification", "error", err)
+		return
+	}
+
 	w.logger.Debugw("Achievement notification", "data", string(jsonData))
 
-	// In production, would use Redis pub/sub or WebSocket
+	if w.redis != nil {
+		err := w.redis.Publish(w.ctx, "achievement_unlocks", jsonData).Err()
+		if err != nil {
+			w.logger.Errorw("Failed to publish achievement notification", "error", err)
+		}
+	} else {
+		w.logger.Warn("Redis client not initialized, skipping notification")
+	}
 }
 
 // ProcessBatch processes multiple events in batch
