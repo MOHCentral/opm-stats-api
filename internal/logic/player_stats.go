@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"golang.org/x/sync/errgroup"
 )
 
 type PlayerStatsService struct {
@@ -118,39 +119,65 @@ type PickupStat struct {
 func (s *PlayerStatsService) GetDeepStats(ctx context.Context, guid string) (*DeepStats, error) {
 	stats := &DeepStats{}
 
-	// We'll run these concurrently in a real scenario, but sequential for safety now
-	if err := s.fillCombatStats(ctx, guid, &stats.Combat); err != nil {
-		return nil, fmt.Errorf("combat stats: %w", err)
-	}
+	g, ctx := errgroup.WithContext(ctx)
 
-	if err := s.fillWeaponStats(ctx, guid, &stats.Weapons); err != nil {
-		return nil, fmt.Errorf("weapon stats: %w", err)
-	}
+	// Combat stats first, then Stance stats which depend on Combat.Kills
+	g.Go(func() error {
+		if err := s.fillCombatStats(ctx, guid, &stats.Combat); err != nil {
+			return fmt.Errorf("combat stats: %w", err)
+		}
+		if err := s.fillStanceStats(ctx, guid, &stats.Stance, stats.Combat.Kills); err != nil {
+			stats.Stance = StanceStats{}
+		}
+		return nil
+	})
 
-	if err := s.fillMovementStats(ctx, guid, &stats.Movement); err != nil {
-		return nil, fmt.Errorf("movement stats: %w", err)
-	}
+	g.Go(func() error {
+		if err := s.fillWeaponStats(ctx, guid, &stats.Weapons); err != nil {
+			return fmt.Errorf("weapon stats: %w", err)
+		}
+		return nil
+	})
 
-	if err := s.fillAccuracyStats(ctx, guid, &stats.Accuracy); err != nil {
-		return nil, fmt.Errorf("accuracy stats: %w", err)
-	}
+	g.Go(func() error {
+		if err := s.fillMovementStats(ctx, guid, &stats.Movement); err != nil {
+			return fmt.Errorf("movement stats: %w", err)
+		}
+		return nil
+	})
 
-	if err := s.fillSessionStats(ctx, guid, &stats.Session); err != nil {
-		return nil, fmt.Errorf("session stats: %w", err)
-	}
+	g.Go(func() error {
+		if err := s.fillAccuracyStats(ctx, guid, &stats.Accuracy); err != nil {
+			return fmt.Errorf("accuracy stats: %w", err)
+		}
+		return nil
+	})
 
-	if err := s.fillRivalStats(ctx, guid, &stats.Rivals); err != nil {
-		// Non-critical, log only? For now just return empty
-		stats.Rivals = RivalStats{}
-	}
+	g.Go(func() error {
+		if err := s.fillSessionStats(ctx, guid, &stats.Session); err != nil {
+			return fmt.Errorf("session stats: %w", err)
+		}
+		return nil
+	})
 
-	if err := s.fillStanceStats(ctx, guid, &stats.Stance, stats.Combat.Kills); err != nil {
-		stats.Stance = StanceStats{}
-	}
+	g.Go(func() error {
+		if err := s.fillRivalStats(ctx, guid, &stats.Rivals); err != nil {
+			// Non-critical, log only? For now just return empty
+			stats.Rivals = RivalStats{}
+		}
+		return nil
+	})
 
-	if err := s.fillInteractionStats(ctx, guid, &stats.Interaction); err != nil {
-		// Log or ignore
-		stats.Interaction = InteractionStats{}
+	g.Go(func() error {
+		if err := s.fillInteractionStats(ctx, guid, &stats.Interaction); err != nil {
+			// Log or ignore
+			stats.Interaction = InteractionStats{}
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return stats, nil
