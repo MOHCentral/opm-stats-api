@@ -110,7 +110,8 @@ func NewPool(cfg PoolConfig) *Pool {
 	}
 
 	// Initialize Achievement Worker with both Postgres and ClickHouse
-	pool.achievementWorker = NewAchievementWorker(cfg.Postgres, cfg.ClickHouse, cfg.Logger.Sugar())
+	statStore := &RedisStatStore{client: cfg.Redis}
+	pool.achievementWorker = NewAchievementWorker(cfg.Postgres, cfg.ClickHouse, statStore, cfg.Logger.Sugar())
 	pool.achievementWorker.Start()
 
 	return pool
