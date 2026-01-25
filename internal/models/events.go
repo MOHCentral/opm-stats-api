@@ -296,6 +296,9 @@ type RawEvent struct {
 	ObjectiveStatus string `json:"objective_status,omitempty"`
 	BotID           string `json:"bot_id,omitempty"`
 	Seat            string `json:"seat,omitempty"`
+
+	// Match Outcome (1 = Win, 0 = Loss)
+	MatchOutcome uint8 `json:"match_outcome,omitempty"`
 }
 
 // ClickHouseEvent is the normalized event for ClickHouse storage
@@ -305,6 +308,9 @@ type ClickHouseEvent struct {
 	ServerID  string
 	MapName   string
 	EventType string
+
+	// Match Outcome
+	MatchOutcome uint8
 
 	// Actor (player performing action)
 	ActorID     string
