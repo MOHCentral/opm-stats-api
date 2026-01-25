@@ -8,15 +8,57 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"strconv"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/openmohaa/stats-api/internal/models"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
+// DBStore abstracts the database operations
+type DBStore interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// StatStore abstracts the storage for player statistics (e.g., Redis)
+type StatStore interface {
+	Incr(ctx context.Context, key string) (int64, error)
+	IncrByFloat(ctx context.Context, key string, value float64) (float64, error)
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+}
+
+// RedisStatStore implements StatStore using Redis
+type RedisStatStore struct {
+	client *redis.Client
+}
+
+func (s *RedisStatStore) Incr(ctx context.Context, key string) (int64, error) {
+	return s.client.Incr(ctx, key).Result()
+}
+
+func (s *RedisStatStore) IncrByFloat(ctx context.Context, key string, value float64) (float64, error) {
+	return s.client.IncrByFloat(ctx, key, value).Result()
+}
+
+func (s *RedisStatStore) Get(ctx context.Context, key string) (string, error) {
+	return s.client.Get(ctx, key).Result()
+}
+
+func (s *RedisStatStore) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return s.client.Set(ctx, key, value, expiration).Err()
+}
+
 // AchievementWorker processes events and unlocks achievements
 type AchievementWorker struct {
-	db              *pgxpool.Pool      // Postgres for achievement defs and unlocks
+	db              DBStore            // Postgres for achievement defs and unlocks
 	ch              driver.Conn        // ClickHouse for stats queries
+	statStore       StatStore          // Redis for stats
 	logger          *zap.SugaredLogger // Logger for debugging
 	achievementDefs map[string]*AchievementDefinition
 	mu              sync.RWMutex
@@ -35,12 +77,13 @@ type AchievementDefinition struct {
 }
 
 // NewAchievementWorker creates a new achievement processing worker
-func NewAchievementWorker(db *pgxpool.Pool, ch driver.Conn, logger *zap.SugaredLogger) *AchievementWorker {
+func NewAchievementWorker(db DBStore, ch driver.Conn, statStore StatStore, logger *zap.SugaredLogger) *AchievementWorker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	worker := &AchievementWorker{
 		db:              db,
 		ch:              ch,
+		statStore:       statStore,
 		logger:          logger,
 		achievementDefs: make(map[string]*AchievementDefinition),
 		ctx:             ctx,
@@ -155,7 +198,13 @@ func (w *AchievementWorker) getActorSMFID(event *models.RawEvent) int64 {
 func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.RawEvent) {
 	w.logger.Infow("[ACHIEVEMENT] checkCombatAchievements called", "smfID", smfID)
 	// Get player's total kills
-	totalKills := w.getPlayerStat(int(smfID), "total_kills")
+	totalKills := w.incrementPlayerStat(int(smfID), "total_kills")
+
+	// Check for vehicle kills
+	if strings.Contains(event.Inflictor, "vehicle") {
+		w.incrementPlayerStat(int(smfID), "vehicle_kills")
+	}
+
 	w.logger.Infow("Player kill stats",
 		"smfID", smfID,
 		"totalKills", totalKills,
@@ -206,7 +255,7 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 
 // checkHeadshotAchievements checks headshot-based achievements
 func (w *AchievementWorker) checkHeadshotAchievements(smfID int64, event *models.RawEvent) {
-	totalHeadshots := w.getPlayerStat(int(smfID), "total_headshots")
+	totalHeadshots := w.incrementPlayerStat(int(smfID), "total_headshots")
 
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
@@ -231,10 +280,11 @@ func (w *AchievementWorker) checkHeadshotAchievements(smfID int64, event *models
 
 // checkMovementAchievements checks distance and movement achievements
 func (w *AchievementWorker) checkMovementAchievements(smfID int64, event *models.RawEvent) {
-	totalDistance := w.getPlayerStat(int(smfID), "total_distance")
+	delta := float64(event.Walked + event.Sprinted + event.Swam + event.Driven)
+	totalDistance := w.incrementPlayerStatFloat(int(smfID), "total_distance", delta)
 
 	// Convert to kilometers
-	distanceKM := float64(totalDistance) / 1000.0
+	distanceKM := totalDistance / 1000.0
 
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
@@ -282,7 +332,7 @@ func (w *AchievementWorker) checkSurvivalAchievements(smfID int64, event *models
 	ts := time.Unix(int64(event.Timestamp), 0)
 
 	if event.Type == models.EventHealthPickup {
-		healthPickups := w.getPlayerStat(int(smfID), "health_pickups")
+		healthPickups := w.incrementPlayerStat(int(smfID), "health_pickups")
 
 		milestones := map[string]int{
 			"medic-bronze":   10,
@@ -302,7 +352,12 @@ func (w *AchievementWorker) checkSurvivalAchievements(smfID int64, event *models
 
 // checkObjectiveAchievements checks objective-based achievements
 func (w *AchievementWorker) checkObjectiveAchievements(smfID int64, event *models.RawEvent) {
-	totalObjectives := w.getPlayerStat(int(smfID), "objectives_completed")
+	var totalObjectives int
+	if event.Type == models.EventObjectiveCapture {
+		totalObjectives = w.incrementPlayerStat(int(smfID), "objectives_completed")
+	} else {
+		totalObjectives = w.getPlayerStat(int(smfID), "objectives_completed")
+	}
 
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
@@ -324,7 +379,7 @@ func (w *AchievementWorker) checkObjectiveAchievements(smfID int64, event *model
 
 // checkTeamplayAchievements checks team-based achievements
 func (w *AchievementWorker) checkTeamplayAchievements(smfID int64, event *models.RawEvent) {
-	totalWins := w.getPlayerStat(int(smfID), "total_wins")
+	totalWins := w.incrementPlayerStat(int(smfID), "total_wins")
 
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
@@ -365,8 +420,70 @@ func (w *AchievementWorker) checkHeadshotStreakAchievement(smfID int, event *mod
 	// For now, simplified
 }
 
-// getPlayerStat retrieves a player stat from ClickHouse
+// incrementPlayerStat increments a stat in Redis and backfills from ClickHouse if needed
+func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int {
+	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+
+	// Increment in Redis
+	val, err := w.statStore.Incr(w.ctx, key)
+	if err != nil {
+		w.logger.Errorw("Failed to increment player stat", "key", key, "error", err)
+		return w.fetchFromDB(smfID, statName)
+	}
+
+	// If value is 1, check if we need to initialize from DB
+	if val == 1 {
+		baseline := w.fetchFromDB(smfID, statName)
+		if baseline > 1 {
+			// Backfill Redis with correct value
+			w.statStore.Set(w.ctx, key, baseline, 0)
+			return baseline
+		}
+	}
+
+	return int(val)
+}
+
+// incrementPlayerStatFloat increments a float stat (like distance)
+func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string, incrAmount float64) float64 {
+	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+
+	val, err := w.statStore.IncrByFloat(w.ctx, key, incrAmount)
+	if err != nil {
+		w.logger.Errorw("Failed to increment player stat float", "key", key, "error", err)
+		return float64(w.fetchFromDB(smfID, statName))
+	}
+
+	// Check if this looks like a fresh key (val is close to increment amount)
+	if val <= incrAmount+0.1 {
+		baseline := w.fetchFromDB(smfID, statName)
+		if float64(baseline) > val {
+			w.statStore.Set(w.ctx, key, baseline, 0)
+			return float64(baseline)
+		}
+	}
+
+	return val
+}
+
+// getPlayerStat retrieves a player stat from Redis, falling back to ClickHouse
 func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
+	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+
+	valStr, err := w.statStore.Get(w.ctx, key)
+	if err == nil {
+		val, _ := strconv.Atoi(valStr)
+		return val
+	}
+
+	// Fallback to DB
+	baseline := w.fetchFromDB(smfID, statName)
+	w.statStore.Set(w.ctx, key, baseline, 0)
+	return baseline
+}
+
+// fetchFromDB retrieves a player stat from ClickHouse (DB fallback)
+func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 	// Map stat names to ClickHouse queries
 	var query string
 	switch statName {
@@ -400,7 +517,7 @@ func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
 		return 0
 	}
 
-	w.logger.Debugw("Retrieved player stat",
+	w.logger.Debugw("Retrieved player stat from DB",
 		"statName", statName,
 		"smfID", smfID,
 		"value", value,
