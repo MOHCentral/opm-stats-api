@@ -1191,33 +1191,44 @@ func (s *ServerTrackingService) GetServerMapRotation(ctx context.Context, server
 		}
 	}
 
-	// Calculate next map probabilities for each map
+	// Calculate next map probabilities for all maps in one query
+	mapLookup := make(map[string]*MapRotationEntry)
 	for i := range analysis.Maps {
 		analysis.Maps[i].NextMapProb = make(map[string]float64)
-		// Get transition probabilities
-		nextRows, err := s.ch.Query(ctx, `
-			WITH transitions AS (
-				SELECT 
-					map_name,
-					leadInFrame(map_name) OVER (ORDER BY timestamp) as next_map
-				FROM raw_events
-				WHERE server_id = ? AND event_type = 'match_start'
-			)
-			SELECT next_map, count() * 100.0 / sum(count()) OVER () as prob
-			FROM transitions
-			WHERE map_name = ? AND next_map != ''
-			GROUP BY next_map
-			ORDER BY prob DESC
-			LIMIT 5
-		`, serverID, analysis.Maps[i].MapName)
-		if err == nil {
-			for nextRows.Next() {
-				var nextMap string
-				var prob float64
-				nextRows.Scan(&nextMap, &prob)
-				analysis.Maps[i].NextMapProb[nextMap] = prob
+		mapLookup[analysis.Maps[i].MapName] = &analysis.Maps[i]
+	}
+
+	// Get transition probabilities for all maps
+	nextRows, err := s.ch.Query(ctx, `
+		WITH transitions AS (
+			SELECT
+				map_name,
+				leadInFrame(map_name) OVER (ORDER BY timestamp) as next_map
+			FROM raw_events
+			WHERE server_id = ? AND event_type = 'match_start'
+		)
+		SELECT
+			map_name,
+			next_map,
+			count() * 100.0 / sum(count()) OVER (PARTITION BY map_name) as prob
+		FROM transitions
+		WHERE map_name != '' AND next_map != ''
+		GROUP BY map_name, next_map
+		ORDER BY map_name, prob DESC
+		LIMIT 5 BY map_name
+	`, serverID)
+
+	if err == nil {
+		defer nextRows.Close()
+		for nextRows.Next() {
+			var mapName, nextMap string
+			var prob float64
+			if err := nextRows.Scan(&mapName, &nextMap, &prob); err != nil {
+				continue
 			}
-			nextRows.Close()
+			if entry, ok := mapLookup[mapName]; ok {
+				entry.NextMapProb[nextMap] = prob
+			}
 		}
 	}
 
