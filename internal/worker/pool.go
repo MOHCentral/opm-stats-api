@@ -58,6 +58,24 @@ var (
 	})
 )
 
+// Achievement thresholds
+var (
+	killThresholds = map[int64]string{
+		100:   "KILL_100",
+		500:   "KILL_500",
+		1000:  "KILL_1000",
+		5000:  "KILL_5000",
+		10000: "KILL_10000",
+	}
+
+	headshotThresholds = map[int64]string{
+		50:   "HEADSHOT_50",
+		100:  "HEADSHOT_100",
+		500:  "HEADSHOT_500",
+		1000: "HEADSHOT_1000",
+	}
+)
+
 // Job represents a unit of work for the worker pool
 type Job struct {
 	Event     *models.RawEvent
@@ -690,29 +708,14 @@ func (p *Pool) handleChat(ctx context.Context, event *models.RawEvent) {
 
 // checkKillAchievements checks kill-based achievements
 func (p *Pool) checkKillAchievements(ctx context.Context, playerGUID string, killCount int64) {
-	thresholds := map[int64]string{
-		100:   "KILL_100",
-		500:   "KILL_500",
-		1000:  "KILL_1000",
-		5000:  "KILL_5000",
-		10000: "KILL_10000",
-	}
-
-	if achievementID, ok := thresholds[killCount]; ok {
+	if achievementID, ok := killThresholds[killCount]; ok {
 		p.grantAchievement(ctx, playerGUID, achievementID)
 	}
 }
 
 // checkHeadshotAchievements checks headshot-based achievements
 func (p *Pool) checkHeadshotAchievements(ctx context.Context, playerGUID string, count int64) {
-	thresholds := map[int64]string{
-		50:   "HEADSHOT_50",
-		100:  "HEADSHOT_100",
-		500:  "HEADSHOT_500",
-		1000: "HEADSHOT_1000",
-	}
-
-	if achievementID, ok := thresholds[count]; ok {
+	if achievementID, ok := headshotThresholds[count]; ok {
 		p.grantAchievement(ctx, playerGUID, achievementID)
 	}
 }
