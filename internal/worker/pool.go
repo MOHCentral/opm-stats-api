@@ -9,7 +9,9 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,23 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openmohaa/stats-api/internal/models"
+)
+
+// Achievement thresholds
+var (
+	killThresholds = map[int64]string{
+		100:   "KILL_100",
+		500:   "KILL_500",
+		1000:  "KILL_1000",
+		5000:  "KILL_5000",
+		10000: "KILL_10000",
+	}
+	headshotThresholds = map[int64]string{
+		50:   "HEADSHOT_50",
+		100:  "HEADSHOT_100",
+		500:  "HEADSHOT_500",
+		1000: "HEADSHOT_1000",
+	}
 )
 
 // Prometheus metrics
@@ -312,8 +331,11 @@ func (p *Pool) processBatch(batch []Job) error {
 		}
 
 		// Process side effects (Redis state updates)
-		go p.processEventSideEffects(ctx, event)
+		// Batch processed later to optimize goroutines and I/O
 	}
+
+	// Process side effects in batch (Redis state updates)
+	go p.processBatchSideEffects(ctx, batch)
 
 	// Send batch to ClickHouse FIRST
 	err = chBatch.Send()
@@ -339,6 +361,184 @@ func (p *Pool) processBatch(batch []Job) error {
 	}
 
 	return nil
+}
+
+// processBatchSideEffects processes side effects for a batch of events
+func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
+	if len(batch) == 0 {
+		return
+	}
+
+	// Phase 1: Segregation & Pipelining
+	pipe := p.config.Redis.Pipeline()
+
+	// Track what we need to check after pipeline execution
+	type killCheck struct {
+		guid string
+		cmd  *redis.IntCmd
+	}
+	type headshotCheck struct {
+		guid string
+		cmd  *redis.IntCmd
+	}
+
+	var killChecks []killCheck
+	var headshotChecks []headshotCheck
+	var deferredEvents []*models.RawEvent
+
+	for _, job := range batch {
+		event := job.Event
+
+		switch event.Type {
+		case models.EventKill:
+			if event.AttackerGUID != "" && event.AttackerGUID != "world" {
+				key := "player:" + event.AttackerGUID + ":kills"
+				cmd := pipe.Incr(ctx, key)
+				killChecks = append(killChecks, killCheck{guid: event.AttackerGUID, cmd: cmd})
+			}
+		case models.EventHeadshot:
+			if event.PlayerGUID != "" {
+				key := "player:" + event.PlayerGUID + ":headshots"
+				cmd := pipe.Incr(ctx, key)
+				headshotChecks = append(headshotChecks, headshotCheck{guid: event.PlayerGUID, cmd: cmd})
+			}
+		case models.EventConnect:
+			if event.PlayerGUID != "" {
+				pipe.HSet(ctx, "player_names", event.PlayerGUID, event.PlayerName)
+				pipe.SAdd(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
+			}
+		case models.EventDisconnect:
+			if event.PlayerGUID != "" {
+				pipe.SRem(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
+			}
+		case models.EventTeamChange:
+			if event.PlayerGUID != "" && event.NewTeam != "" {
+				pipe.HSet(ctx, "match:"+event.MatchID+":teams", event.PlayerGUID, event.NewTeam)
+			}
+		case models.EventSpawn:
+			if event.PlayerGUID != "" && event.PlayerTeam != "" {
+				pipe.HSet(ctx, "match:"+event.MatchID+":teams", event.PlayerGUID, event.PlayerTeam)
+			}
+		case models.EventMatchStart, models.EventMatchEnd, models.EventHeartbeat, models.EventChat, models.EventTeamWin:
+			deferredEvents = append(deferredEvents, event)
+		default:
+			deferredEvents = append(deferredEvents, event)
+		}
+	}
+
+	// Execute pipeline
+	_, err := pipe.Exec(ctx)
+	if err != nil && err != redis.Nil {
+		p.logger.Errorw("Redis pipeline failed", "error", err)
+	}
+
+	// Phase 2: Achievement Verification
+	type potentialUnlock struct {
+		guid          string
+		achievementID string
+		sIsMemberCmd  *redis.BoolCmd
+	}
+	var potentialUnlocks []potentialUnlock
+
+	verifyPipe := p.config.Redis.Pipeline()
+
+	for _, check := range killChecks {
+		val, err := check.cmd.Result()
+		if err == nil {
+			if achievementID, ok := killThresholds[val]; ok {
+				key := "player:" + check.guid + ":achievements"
+				cmd := verifyPipe.SIsMember(ctx, key, achievementID)
+				potentialUnlocks = append(potentialUnlocks, potentialUnlock{
+					guid:          check.guid,
+					achievementID: achievementID,
+					sIsMemberCmd:  cmd,
+				})
+			}
+		}
+	}
+
+	for _, check := range headshotChecks {
+		val, err := check.cmd.Result()
+		if err == nil {
+			if achievementID, ok := headshotThresholds[val]; ok {
+				key := "player:" + check.guid + ":achievements"
+				cmd := verifyPipe.SIsMember(ctx, key, achievementID)
+				potentialUnlocks = append(potentialUnlocks, potentialUnlock{
+					guid:          check.guid,
+					achievementID: achievementID,
+					sIsMemberCmd:  cmd,
+				})
+			}
+		}
+	}
+
+	if len(potentialUnlocks) > 0 {
+		_, err := verifyPipe.Exec(ctx)
+		if err != nil && err != redis.Nil {
+			p.logger.Errorw("Redis verification pipeline failed", "error", err)
+		}
+	}
+
+	// Phase 3: Bulk Persistence
+	type unlockToPersist struct {
+		guid          string
+		achievementID string
+	}
+	var newUnlocks []unlockToPersist
+
+	for _, check := range potentialUnlocks {
+		// If SIsMember returned false (not member), it's a new unlock
+		if !check.sIsMemberCmd.Val() {
+			newUnlocks = append(newUnlocks, unlockToPersist{
+				guid:          check.guid,
+				achievementID: check.achievementID,
+			})
+		}
+	}
+
+	if len(newUnlocks) > 0 {
+		// 1. Bulk Insert to Postgres
+		// Construct query: INSERT INTO player_achievements (player_guid, achievement_id, unlocked_at) VALUES ...
+		var sb strings.Builder
+		sb.WriteString("INSERT INTO player_achievements (player_guid, achievement_id, unlocked_at) VALUES ")
+		vals := []interface{}{}
+		now := time.Now()
+
+		for i, unlock := range newUnlocks {
+			n := i * 3
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(&sb, "($%d, $%d, $%d)", n+1, n+2, n+3)
+			vals = append(vals, unlock.guid, unlock.achievementID, now)
+		}
+		sb.WriteString(" ON CONFLICT (player_guid, achievement_id) DO NOTHING")
+
+		_, err := p.config.Postgres.Exec(ctx, sb.String(), vals...)
+		if err != nil {
+			p.logger.Errorw("Failed to bulk insert achievements", "error", err, "count", len(newUnlocks))
+		} else {
+			for _, unlock := range newUnlocks {
+				p.logger.Infow("Achievement unlocked", "player", unlock.guid, "achievement", unlock.achievementID)
+			}
+		}
+
+		// 2. Mark as unlocked in Redis
+		persistPipe := p.config.Redis.Pipeline()
+		for _, unlock := range newUnlocks {
+			key := "player:" + unlock.guid + ":achievements"
+			persistPipe.SAdd(ctx, key, unlock.achievementID)
+		}
+		_, err = persistPipe.Exec(ctx)
+		if err != nil && err != redis.Nil {
+			p.logger.Errorw("Redis persistence pipeline failed", "error", err)
+		}
+	}
+
+	// Phase 4: Deferred Processing
+	for _, event := range deferredEvents {
+		p.processEventSideEffects(ctx, event)
+	}
 }
 
 // convertToClickHouseEvent normalizes a raw event for ClickHouse
