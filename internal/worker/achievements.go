@@ -31,6 +31,7 @@ type StatStore interface {
 	IncrByFloat(ctx context.Context, key string, value float64) (float64, error)
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	Publish(ctx context.Context, channel string, message interface{}) error
 }
 
 // RedisStatStore implements StatStore using Redis
@@ -52,6 +53,10 @@ func (s *RedisStatStore) Get(ctx context.Context, key string) (string, error) {
 
 func (s *RedisStatStore) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	return s.client.Set(ctx, key, value, expiration).Err()
+}
+
+func (s *RedisStatStore) Publish(ctx context.Context, channel string, message interface{}) error {
+	return s.client.Publish(ctx, channel, message).Err()
 }
 
 // AchievementWorker processes events and unlocks achievements
@@ -636,10 +641,18 @@ func (w *AchievementWorker) notifyPlayer(smfID int, slug string, def *Achievemen
 		"unlocked_at": time.Now(),
 	}
 
-	jsonData, _ := json.Marshal(notification)
-	w.logger.Debugw("Achievement notification", "data", string(jsonData))
+	jsonData, err := json.Marshal(notification)
+	if err != nil {
+		w.logger.Errorw("Failed to marshal achievement notification", "error", err)
+		return
+	}
 
-	// In production, would use Redis pub/sub or WebSocket
+	if err := w.statStore.Publish(w.ctx, "achievement_unlocks", jsonData); err != nil {
+		w.logger.Errorw("Failed to publish achievement notification", "error", err)
+		return
+	}
+
+	w.logger.Debugw("Achievement notification published", "smfID", smfID, "slug", slug)
 }
 
 // ProcessBatch processes multiple events in batch

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -82,5 +83,62 @@ func TestGetWeaponKills(t *testing.T) {
 	count := worker.getWeaponKills(smfID, weapon)
 	if count != int(expectedCount) {
 		t.Errorf("expected count %d, got %d", expectedCount, count)
+	}
+}
+
+func TestNotifyPlayer(t *testing.T) {
+	mockStatStore := NewMockStatStore()
+	logger := zap.NewNop().Sugar()
+	worker := &AchievementWorker{
+		statStore: mockStatStore,
+		logger:    logger,
+		ctx:       context.Background(),
+	}
+
+	def := &AchievementDefinition{
+		Slug:        "test-achievement",
+		Category:    "general",
+		Tier:        "gold",
+		Points:      100,
+		Description: "Test Description",
+	}
+
+	smfID := 12345
+	slug := "test-achievement"
+
+	worker.notifyPlayer(smfID, slug, def)
+
+	if len(mockStatStore.PublishedMessages) != 1 {
+		t.Fatalf("expected 1 published message, got %d", len(mockStatStore.PublishedMessages))
+	}
+
+	msg := mockStatStore.PublishedMessages[0]
+	if msg.Channel != "achievement_unlocks" {
+		t.Errorf("expected channel 'achievement_unlocks', got '%s'", msg.Channel)
+	}
+
+	// Verify payload
+	payloadBytes, ok := msg.Message.([]byte)
+	if !ok {
+		t.Fatalf("expected message to be []byte, got %T", msg.Message)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("failed to unmarshal payload: %v", err)
+	}
+
+	if payload["type"] != "achievement_unlock" {
+		t.Errorf("expected type 'achievement_unlock', got '%v'", payload["type"])
+	}
+	// JSON numbers are float64 in interface{}
+	if payload["smf_id"].(float64) != float64(smfID) {
+		t.Errorf("expected smf_id %d, got %v", smfID, payload["smf_id"])
+	}
+	if payload["slug"] != slug {
+		t.Errorf("expected slug '%s', got '%v'", slug, payload["slug"])
+	}
+	if payload["points"].(float64) != float64(def.Points) {
+		t.Errorf("expected points %d, got %v", def.Points, payload["points"])
 	}
 }
