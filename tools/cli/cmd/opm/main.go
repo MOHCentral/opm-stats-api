@@ -919,13 +919,12 @@ func seedPlayer(identifier string, tokenOrMatches string, matchesInput int) {
 	target.Style = "aggressive"
 	target.Favorite = "Thompson"
 
-	// FIX: If GUID is legacy/invalid "GUID_ELGAN", update it to a valid UUID
-	if target.GUID == "GUID_ELGAN" || !strings.Contains(target.GUID, "-") {
+	// Update GUID if legacy/invalid
+	if IsInvalidGUID(target.GUID) {
 		newGUID := uuid.New().String()
 		fmt.Printf("⚠ Found invalid GUID '%s' for user '%s'. Updating to '%s'...\n", target.GUID, target.Name, newGUID)
 
-		_, err := mysql.Exec("UPDATE smf_mohaa_identities SET player_guid = ? WHERE id_member = ?", newGUID, target.SMFUserID)
-		if err != nil {
+		if err := UpdatePlayerGUID(mysql, target.SMFUserID, newGUID); err != nil {
 			fmt.Printf("Error updating GUID in MySQL: %v\n", err)
 			return
 		}
