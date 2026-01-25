@@ -13,8 +13,8 @@ import (
 // ServerTrackingService provides comprehensive server monitoring
 type ServerTrackingService struct {
 	ch    driver.Conn
-	pg    *pgxpool.Pool
-	redis *redis.Client
+	pg    PgPool
+	redis RedisClient
 }
 
 func NewServerTrackingService(ch driver.Conn, pg *pgxpool.Pool, redis *redis.Client) *ServerTrackingService {
@@ -76,6 +76,7 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOver
 	defer rows.Close()
 
 	var servers []ServerOverview
+	var serverIDs []string
 	rank := 1
 	for rows.Next() {
 		var srv ServerOverview
@@ -92,34 +93,76 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOver
 		srv.Rank = rank
 		rank++
 
-		// Check if server is live (has heartbeat in last 2 minutes)
-		liveData, err := s.redis.HGet(ctx, "live_servers", srv.ID).Result()
-		if err == nil && liveData != "" {
-			srv.IsOnline = true
-			// Parse live data for current players/map
-			// Format: "players:5,map:mohdm6,gametype:dm"
-			parseServerLiveData(liveData, &srv)
-		} else {
-			srv.IsOnline = isActive && time.Since(srv.LastSeen) < 5*time.Minute
-		}
+		// Base online status (can be overridden by Redis)
+		srv.IsOnline = isActive && time.Since(srv.LastSeen) < 5*time.Minute
 
-		// Get stats from ClickHouse
-		s.ch.QueryRow(ctx, `
+		servers = append(servers, srv)
+		serverIDs = append(serverIDs, srv.ID)
+	}
+
+	if len(servers) == 0 {
+		return servers, nil
+	}
+
+	// 1. Batch Redis: Get live data for all servers at once
+	liveServerMap, _ := s.redis.HGetAll(ctx, "live_servers").Result()
+
+	// 2. Batch ClickHouse: Get stats for all servers at once
+	type ServerStats struct {
+		TotalKills  int64
+		AvgPlayers  float64
+		PeakPlayers int
+	}
+	statsMap := make(map[string]ServerStats)
+
+	if len(serverIDs) > 0 {
+		// Optimized query aggregating by server_id
+		rowsCH, err := s.ch.Query(ctx, `
 			SELECT 
-				countIf(event_type = 'kill') as kills,
+				server_id,
+				sum(kills) as total_kills,
 				avg(player_count) as avg_players,
 				max(player_count) as peak
 			FROM (
 				SELECT 
+					server_id,
 					countIf(event_type = 'kill') as kills,
 					uniqExact(actor_id) as player_count
 				FROM raw_events
-				WHERE server_id = ? AND timestamp > now() - INTERVAL 24 HOUR
-				GROUP BY toStartOfHour(timestamp)
+				WHERE server_id IN (?) AND timestamp > now() - INTERVAL 24 HOUR
+				GROUP BY server_id, toStartOfHour(timestamp)
 			)
-		`, srv.ID).Scan(&srv.TotalKills, &srv.AvgPlayers24h, &srv.PeakPlayers24h)
+			GROUP BY server_id
+		`, serverIDs)
 
-		servers = append(servers, srv)
+		if err == nil {
+			defer rowsCH.Close()
+			for rowsCH.Next() {
+				var sid string
+				var st ServerStats
+				if err := rowsCH.Scan(&sid, &st.TotalKills, &st.AvgPlayers, &st.PeakPlayers); err == nil {
+					statsMap[sid] = st
+				}
+			}
+		}
+	}
+
+	// 3. Merge Data
+	for i := range servers {
+		srv := &servers[i]
+
+		// Redis Live Data
+		if liveData, ok := liveServerMap[srv.ID]; ok && liveData != "" {
+			srv.IsOnline = true
+			parseServerLiveData(liveData, srv)
+		}
+
+		// ClickHouse Stats
+		if st, ok := statsMap[srv.ID]; ok {
+			srv.TotalKills = st.TotalKills
+			srv.AvgPlayers24h = st.AvgPlayers
+			srv.PeakPlayers24h = st.PeakPlayers
+		}
 	}
 
 	return servers, nil
