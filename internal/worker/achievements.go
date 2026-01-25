@@ -410,22 +410,22 @@ func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
 
 // getWeaponKills gets kills for specific weapon
 func (w *AchievementWorker) getWeaponKills(smfID int, weapon string) int {
-	// TODO: This needs to query ClickHouse, not Postgres
-	// query := `
-	// 	SELECT COALESCE(COUNT(*), 0)
-	// 	FROM raw_events
-	// 	WHERE actor_smf_id = $1
-	// 	  AND event_type = 'player_kill'
-	// 	  AND extra->>'weapon' = $2
-	// `
+	query := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND actor_weapon = ?`
 
-	// var count int
-	// err := w.db.QueryRow(w.ctx, query, smfID, weapon).Scan(&count)
-	// if err != nil {
-	// 	return 0
-	// }
+	var count uint64
+	err := w.ch.QueryRow(w.ctx, query, smfID, weapon).Scan(&count)
+	if err != nil {
+		w.logger.Errorw("ClickHouse query error",
+			"func", "getWeaponKills",
+			"smfID", smfID,
+			"weapon", weapon,
+			"query", query,
+			"error", err,
+		)
+		return 0
+	}
 
-	return 0
+	return int(count)
 }
 
 // unlockAchievement records an achievement unlock
