@@ -276,6 +276,7 @@ func main() {
 		numMatches := 500
 		if len(os.Args) > 2 {
 			fmt.Sscanf(os.Args[2], "%d", &numMatches)
+		}
 		if len(os.Args) > 3 {
 			fmt.Sscanf(os.Args[3], "%d", &Concurrency)
 		}
@@ -291,8 +292,7 @@ func main() {
 			fmt.Sscanf(os.Args[3], "%d", &numMatches)
 		}
 		if len(os.Args) > 4 {
-			fmt.Sscanf(os.Args[4], "%d", &Concurrency
-			fmt.Sscanf(os.Args[3], "%d", &numMatches)
+			fmt.Sscanf(os.Args[4], "%d", &Concurrency)
 		}
 		players := setupUsers(numUsers)
 		if len(players) > 0 {
@@ -326,7 +326,12 @@ func main() {
 	case "clear":
 		clearData()
 	case "status":
-		showStatus()OPM CLI - OpenMOHAA Plugin Manager & Seeder
+		showStatus()
+	}
+}
+
+func printUsage() {
+	fmt.Println(`OPM CLI - OpenMOHAA Plugin Manager & Seeder
 
 Usage:
   opm setup [users]                 Create SMF users (default: 1000)
@@ -661,7 +666,7 @@ func setupUsers(numUsers int) []Player {
 			username := generatePlayerName(userID)
 			email := fmt.Sprintf("%s@test.local", strings.ToLower(username))
 			passwdHash := hashSMFPassword(username, password)
-			guid := fmt.Sprintf("GUID_%05d", userID)
+			guid := uuid.New().String()
 			token := uuid.New().String()
 
 			_, err := tx.Exec(`
@@ -903,7 +908,7 @@ func seedPlayer(identifier string, tokenOrMatches string, matchesInput int) {
 	target.Style = "aggressive"
 	target.Favorite = "Thompson"
 
-	// FIX: If GUID is legacy/invalid "GUID_ELGAN", update it to a valid UUID
+	// Migration: If GUID is legacy (e.g. "GUID_ELGAN" or old format without hyphens), update it to a valid UUID
 	if target.GUID == "GUID_ELGAN" || !strings.Contains(target.GUID, "-") {
 		newGUID := uuid.New().String()
 		fmt.Printf("⚠ Found invalid GUID '%s' for user '%s'. Updating to '%s'...\n", target.GUID, target.Name, newGUID)
