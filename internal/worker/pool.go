@@ -263,7 +263,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			actor_pos_x, actor_pos_y, actor_pos_z, actor_pitch, actor_yaw, actor_stance,
 			target_id, target_name, target_team,
 			target_pos_x, target_pos_y, target_pos_z, target_stance,
-			damage, hitloc, distance, raw_json, actor_smf_id, target_smf_id
+			damage, hitloc, distance, raw_json, actor_smf_id, target_smf_id, match_outcome
 		)
 	`)
 	if err != nil {
@@ -305,6 +305,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			chEvent.RawJSON,
 			chEvent.ActorSMFID,
 			chEvent.TargetSMFID,
+			chEvent.MatchOutcome,
 		)
 		if err != nil {
 			p.logger.Warnw("Failed to append event to batch", "error", err, "event_type", event.Type)
@@ -354,11 +355,12 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 		MatchID:   matchID,
 		ServerID:  event.ServerID,
 		MapName:   event.MapName,
-		EventType: string(event.Type),
-		Damage:    uint32(event.Damage),
-		Hitloc:    event.Hitloc,
-		Distance:  event.Distance,
-		RawJSON:   rawJSON,
+		EventType:    string(event.Type),
+		Damage:       uint32(event.Damage),
+		Hitloc:       event.Hitloc,
+		Distance:     event.Distance,
+		RawJSON:      rawJSON,
+		MatchOutcome: event.MatchOutcome,
 	}
 
 	// Set actor/target based on event type
@@ -430,8 +432,8 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 		ch.ActorName = sanitizeName(event.PlayerName)
 		ch.ActorSMFID = event.PlayerSMFID
 		ch.ActorTeam = event.PlayerTeam
-		// Use Damage column for Win/Loss flag (1=Win, 0=Loss)
-		ch.Damage = uint32(event.Count)
+		// Use MatchOutcome column for Win/Loss flag (1=Win, 0=Loss)
+		ch.MatchOutcome = event.MatchOutcome
 		// Use ActorWeapon column for Gametype storage
 		ch.ActorWeapon = event.Gametype
 
@@ -550,17 +552,15 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 			// Create Outcome Event
 			go func(playerGUID, playerTeam string, won int, gType string) {
 				outcomeEvent := &models.RawEvent{
-					Type:       models.EventMatchOutcome,
-					MatchID:    event.MatchID,
-					ServerID:   event.ServerID,
-					MapName:    event.MapName,
-					Timestamp:  float64(time.Now().Unix()),
-					PlayerGUID: playerGUID,
-					PlayerTeam: playerTeam,
-					Gametype:   gType,
-					// CRITICAL FIX: Use Damage field (maps to ClickHouse damage column)
-					// 1 = win, 0 = loss
-					Damage: won,
+					Type:         models.EventMatchOutcome,
+					MatchID:      event.MatchID,
+					ServerID:     event.ServerID,
+					MapName:      event.MapName,
+					Timestamp:    float64(time.Now().Unix()),
+					PlayerGUID:   playerGUID,
+					PlayerTeam:   playerTeam,
+					Gametype:     gType,
+					MatchOutcome: uint8(won), // 1 = win, 0 = loss
 				}
 				p.Enqueue(outcomeEvent)
 			}(guid, team, outcome, gametype)
