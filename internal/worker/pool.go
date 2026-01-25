@@ -77,24 +77,6 @@ var (
 	})
 )
 
-// Achievement thresholds
-var (
-	killThresholds = map[int64]string{
-		100:   "KILL_100",
-		500:   "KILL_500",
-		1000:  "KILL_1000",
-		5000:  "KILL_5000",
-		10000: "KILL_10000",
-	}
-
-	headshotThresholds = map[int64]string{
-		50:   "HEADSHOT_50",
-		100:  "HEADSHOT_100",
-		500:  "HEADSHOT_500",
-		1000: "HEADSHOT_1000",
-	}
-)
-
 // Job represents a unit of work for the worker pool
 type Job struct {
 	Event     *models.RawEvent

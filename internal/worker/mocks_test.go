@@ -12,12 +12,19 @@ import (
 
 // MockStatStore implements StatStore for testing
 type MockStatStore struct {
-	Stats map[string]float64
+	Stats             map[string]float64
+	PublishedMessages []PublishedMessage
+}
+
+type PublishedMessage struct {
+	Channel string
+	Message interface{}
 }
 
 func NewMockStatStore() *MockStatStore {
 	return &MockStatStore{
-		Stats: make(map[string]float64),
+		Stats:             make(map[string]float64),
+		PublishedMessages: make([]PublishedMessage, 0),
 	}
 }
 
@@ -50,6 +57,14 @@ func (m *MockStatStore) Set(ctx context.Context, key string, value interface{}, 
 	default:
 		// handle other types if needed
 	}
+	return nil
+}
+
+func (m *MockStatStore) Publish(ctx context.Context, channel string, message interface{}) error {
+	m.PublishedMessages = append(m.PublishedMessages, PublishedMessage{
+		Channel: channel,
+		Message: message,
+	})
 	return nil
 }
 
