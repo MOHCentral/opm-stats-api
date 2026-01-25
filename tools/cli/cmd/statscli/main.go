@@ -276,6 +276,7 @@ func main() {
 		numMatches := 500
 		if len(os.Args) > 2 {
 			fmt.Sscanf(os.Args[2], "%d", &numMatches)
+		}
 		if len(os.Args) > 3 {
 			fmt.Sscanf(os.Args[3], "%d", &Concurrency)
 		}
@@ -291,8 +292,7 @@ func main() {
 			fmt.Sscanf(os.Args[3], "%d", &numMatches)
 		}
 		if len(os.Args) > 4 {
-			fmt.Sscanf(os.Args[4], "%d", &Concurrency
-			fmt.Sscanf(os.Args[3], "%d", &numMatches)
+			fmt.Sscanf(os.Args[4], "%d", &Concurrency)
 		}
 		players := setupUsers(numUsers)
 		if len(players) > 0 {
@@ -326,7 +326,14 @@ func main() {
 	case "clear":
 		clearData()
 	case "status":
-		showStatus()OPM CLI - OpenMOHAA Plugin Manager & Seeder
+		showStatus()
+	default:
+		printUsage()
+	}
+}
+
+func printUsage() {
+	fmt.Println(`OPM CLI - OpenMOHAA Plugin Manager & Seeder
 
 Usage:
   opm setup [users]                 Create SMF users (default: 1000)

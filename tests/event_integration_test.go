@@ -86,7 +86,7 @@ func TestAllEventTypes(t *testing.T) {
 	for _, eventType := range eventTypes {
 		t.Run(eventType, func(t *testing.T) {
 			event := createTestEvent(eventType)
-			if err := sendEvent(client, event); err != nil {
+			if err := sendIntegrationEvent(client, event); err != nil {
 				t.Errorf("Failed to send %s event: %v", eventType, err)
 			}
 		})
@@ -163,7 +163,7 @@ func TestCombatSequence(t *testing.T) {
 	}
 
 	for _, event := range sequence {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send event %s in sequence: %v", event["type"], err)
 		}
 		time.Sleep(50 * time.Millisecond) // Small delay between events
@@ -202,7 +202,7 @@ func TestVehicleSequence(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send vehicle event: %v", err)
 		}
 	}
@@ -239,7 +239,7 @@ func TestGrenadeSequence(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send grenade event: %v", err)
 		}
 	}
@@ -280,7 +280,7 @@ func TestBotSequence(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send bot event: %v", err)
 		}
 	}
@@ -346,7 +346,7 @@ func TestMovementSequence(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send movement event: %v", err)
 		}
 	}
@@ -378,7 +378,7 @@ func TestVoteSequence(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send vote event: %v", err)
 		}
 	}
@@ -421,7 +421,7 @@ func TestObjectiveSequence(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send objective event: %v", err)
 		}
 	}
@@ -456,7 +456,7 @@ func TestWorldInteraction(t *testing.T) {
 	}
 
 	for _, event := range events {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send world event: %v", err)
 		}
 	}
@@ -508,7 +508,7 @@ func TestMatchLifecycle(t *testing.T) {
 	}
 
 	for _, event := range lifecycle {
-		if err := sendEvent(client, event); err != nil {
+		if err := sendIntegrationEvent(client, event); err != nil {
 			t.Errorf("Failed to send lifecycle event %s: %v", event["type"], err)
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -578,7 +578,7 @@ func createTestEvent(eventType string) map[string]interface{} {
 	return baseEvent
 }
 
-func sendEvent(client *http.Client, event map[string]interface{}) error {
+func sendIntegrationEvent(client *http.Client, event map[string]interface{}) error {
 	// Ensure server credentials are set
 	if _, ok := event["server_id"]; !ok {
 		event["server_id"] = ServerID
