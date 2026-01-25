@@ -866,6 +866,7 @@ func (s *ServerTrackingService) GetServerRankings(ctx context.Context, limit int
 	defer rows.Close()
 
 	var rankings []ServerRanking
+	var serverIDs []string
 	rank := 1
 	for rows.Next() {
 		var r ServerRanking
@@ -875,14 +876,38 @@ func (s *ServerTrackingService) GetServerRankings(ctx context.Context, limit int
 		r.Rank = rank
 		r.Score = float64(r.Kills24h) + float64(r.Players24h)*10 + float64(r.Matches24h)*5
 
-		// Get server name from Postgres
-		s.pg.QueryRow(ctx, "SELECT name FROM servers WHERE id = $1", r.ServerID).Scan(&r.Name)
-		if r.Name == "" {
+		// Set default name fallback
+		if len(r.ServerID) >= 8 {
 			r.Name = r.ServerID[:8] + "..."
+		} else {
+			r.Name = r.ServerID
 		}
 
 		rankings = append(rankings, r)
+		serverIDs = append(serverIDs, r.ServerID)
 		rank++
+	}
+
+	// Bulk fetch server names from Postgres
+	if len(serverIDs) > 0 {
+		pgRows, err := s.pg.Query(ctx, "SELECT id, name FROM servers WHERE id = ANY($1)", serverIDs)
+		if err == nil {
+			defer pgRows.Close()
+			serverNames := make(map[string]string)
+			for pgRows.Next() {
+				var id, name string
+				if err := pgRows.Scan(&id, &name); err == nil && name != "" {
+					serverNames[id] = name
+				}
+			}
+
+			// Update names in rankings
+			for i := range rankings {
+				if name, ok := serverNames[rankings[i].ServerID]; ok {
+					rankings[i].Name = name
+				}
+			}
+		}
 	}
 
 	return rankings, nil
