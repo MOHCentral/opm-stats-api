@@ -68,6 +68,13 @@ func (m *MockStatStore) Publish(ctx context.Context, channel string, message int
 	return nil
 }
 
+func (m *MockStatStore) Del(ctx context.Context, keys ...string) error {
+	for _, k := range keys {
+		delete(m.Stats, k)
+	}
+	return nil
+}
+
 // MockClickHouseConn implements driver.Conn for testing
 type MockClickHouseConn struct {
 	driver.Conn

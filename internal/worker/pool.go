@@ -408,6 +408,9 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 			if event.PlayerGUID != "" {
 				pipe.HSet(ctx, "player_names", event.PlayerGUID, event.PlayerName)
 				pipe.SAdd(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
+				if event.PlayerSMFID > 0 {
+					pipe.HSet(ctx, "player_smfids", event.PlayerGUID, event.PlayerSMFID)
+				}
 			}
 		case models.EventDisconnect:
 			if event.PlayerGUID != "" {
@@ -744,14 +747,31 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 			}
 		}
 
+		// Prepare pipeline for SMF ID lookups
+		pipe := p.config.Redis.Pipeline()
+		smfLookups := make(map[string]*redis.StringCmd)
+		for guid := range teams {
+			smfLookups[guid] = pipe.HGet(ctx, "player_smfids", guid)
+		}
+		pipe.Exec(ctx)
+
 		for guid, team := range teams {
 			outcome := 0 // Loss
 			if team == winningTeam {
 				outcome = 1 // Win
 			}
 
+			// Get SMFID from lookup result
+			var smfid int64
+			if cmd, ok := smfLookups[guid]; ok {
+				if val, err := cmd.Result(); err == nil {
+					// Use fmt.Sscanf or just ignore error as default is 0
+					fmt.Sscanf(val, "%d", &smfid)
+				}
+			}
+
 			// Create Outcome Event
-			go func(playerGUID, playerTeam string, won int, gType string) {
+			go func(playerGUID, playerTeam string, won int, gType string, pid int64) {
 				outcomeEvent := &models.RawEvent{
 					Type:         models.EventMatchOutcome,
 					MatchID:      event.MatchID,
@@ -762,9 +782,10 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 					PlayerTeam:   playerTeam,
 					Gametype:     gType,
 					MatchOutcome: uint8(won), // 1 = win, 0 = loss
+					PlayerSMFID:  pid,
 				}
 				p.Enqueue(outcomeEvent)
-			}(guid, team, outcome, gametype)
+			}(guid, team, outcome, gametype, smfid)
 		}
 	}
 
@@ -858,6 +879,11 @@ func (p *Pool) handleConnect(ctx context.Context, event *models.RawEvent) {
 
 	// Track player online status
 	p.config.Redis.SAdd(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
+
+	// Track player SMF ID if available
+	if event.PlayerSMFID > 0 {
+		p.config.Redis.HSet(ctx, "player_smfids", event.PlayerGUID, event.PlayerSMFID)
+	}
 }
 
 // handleDisconnect updates player state
