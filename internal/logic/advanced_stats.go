@@ -8,12 +8,12 @@ import (
 )
 
 // AdvancedStatsService provides comprehensive stats analysis
-type AdvancedStatsService struct {
+type advancedStatsService struct {
 	ch driver.Conn
 }
 
-func NewAdvancedStatsService(ch driver.Conn) *AdvancedStatsService {
-	return &AdvancedStatsService{ch: ch}
+func NewAdvancedStatsService(ch driver.Conn) AdvancedStatsService {
+	return &advancedStatsService{ch: ch}
 }
 
 // =============================================================================
@@ -86,7 +86,7 @@ type StreakStats struct {
 }
 
 // GetPeakPerformance returns when a player performs best
-func (s *AdvancedStatsService) GetPeakPerformance(ctx context.Context, guid string) (*PeakPerformance, error) {
+func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid string) (*PeakPerformance, error) {
 	peak := &PeakPerformance{}
 
 	// Hourly breakdown
@@ -284,7 +284,7 @@ type DrillDownItem struct {
 }
 
 // GetDrillDown breaks down a stat by a dimension
-func (s *AdvancedStatsService) GetDrillDown(ctx context.Context, guid string, stat string, dimension string, limit int) (*DrillDownResult, error) {
+func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, stat string, dimension string, limit int) (*DrillDownResult, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 10
 	}
@@ -472,7 +472,7 @@ type WeaponProgress struct {
 }
 
 // GetComboMetrics returns cross-dimensional stat combinations
-func (s *AdvancedStatsService) GetComboMetrics(ctx context.Context, guid string) (*ComboMetrics, error) {
+func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string) (*ComboMetrics, error) {
 	combo := &ComboMetrics{}
 
 	// Weapon on Map (best weapon per map)
@@ -728,7 +728,7 @@ type TurretStats struct {
 }
 
 // GetVehicleStats returns vehicle and turret statistics
-func (s *AdvancedStatsService) GetVehicleStats(ctx context.Context, guid string) (*VehicleStats, error) {
+func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string) (*VehicleStats, error) {
 	stats := &VehicleStats{}
 
 	// Basic vehicle stats
@@ -810,7 +810,7 @@ type TeamStats struct {
 }
 
 // GetGameFlowStats returns round/objective/team statistics
-func (s *AdvancedStatsService) GetGameFlowStats(ctx context.Context, guid string) (*GameFlowStats, error) {
+func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string) (*GameFlowStats, error) {
 	stats := &GameFlowStats{}
 
 	// Basic round stats
@@ -883,7 +883,7 @@ type WorldStats struct {
 }
 
 // GetWorldStats returns world interaction statistics
-func (s *AdvancedStatsService) GetWorldStats(ctx context.Context, guid string) (*WorldStats, error) {
+func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (*WorldStats, error) {
 	stats := &WorldStats{}
 
 	err := s.ch.QueryRow(ctx, `
@@ -934,7 +934,7 @@ type BotTypeStat struct {
 }
 
 // GetBotStats returns bot-related statistics
-func (s *AdvancedStatsService) GetBotStats(ctx context.Context, guid string) (*BotStats, error) {
+func (s *advancedStatsService) GetBotStats(ctx context.Context, guid string) (*BotStats, error) {
 	stats := &BotStats{}
 
 	// Bot kills/deaths (assuming bots have 'bot' in their name or a flag)
@@ -964,7 +964,7 @@ func (s *AdvancedStatsService) GetBotStats(ctx context.Context, guid string) (*B
 // =============================================================================
 
 // GetDrillDownNested returns a second-level breakdown
-func (s *AdvancedStatsService) GetDrillDownNested(ctx context.Context, guid, stat, parentDim, parentValue, childDim string, limit int) ([]DrillDownItem, error) {
+func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, stat, parentDim, parentValue, childDim string, limit int) ([]DrillDownItem, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1029,7 +1029,7 @@ func (s *AdvancedStatsService) GetDrillDownNested(ctx context.Context, guid, sta
 }
 
 // GetStatLeaders returns players ranked by a stat in a specific context (e.g. Best with MP40)
-func (s *AdvancedStatsService) GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]map[string]interface{}, error) {
+func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]map[string]interface{}, error) {
 	if limit <= 0 {
 		limit = 25
 	}
@@ -1086,7 +1086,7 @@ func (s *AdvancedStatsService) GetStatLeaders(ctx context.Context, stat, dimensi
 }
 
 // GetAvailableDrilldowns returns valid dimensions for a stat
-func (s *AdvancedStatsService) GetAvailableDrilldowns(stat string) []string {
+func (s *advancedStatsService) GetAvailableDrilldowns(stat string) []string {
 	// Static return for now
 	return []string{"weapon", "map", "victim", "hitloc", "hour", "day"}
 }

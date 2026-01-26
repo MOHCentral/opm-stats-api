@@ -7,12 +7,12 @@ import (
 	"github.com/openmohaa/stats-api/internal/models"
 )
 
-type MatchReportService struct {
+type matchReportService struct {
 	ch driver.Conn
 }
 
-func NewMatchReportService(ch driver.Conn) *MatchReportService {
-	return &MatchReportService{ch: ch}
+func NewMatchReportService(ch driver.Conn) MatchReportService {
+	return &matchReportService{ch: ch}
 }
 
 type MatchTimelineEvent struct {
@@ -37,7 +37,7 @@ type MatchDetail struct {
 }
 
 // GetMatchDetails fetches comprehensive match report
-func (s *MatchReportService) GetMatchDetails(ctx context.Context, matchID string) (*MatchDetail, error) {
+func (s *matchReportService) GetMatchDetails(ctx context.Context, matchID string) (*MatchDetail, error) {
 	// 1. Basic Info
 	info, err := s.getMatchInfo(ctx, matchID)
 	if err != nil {
@@ -63,7 +63,7 @@ func (s *MatchReportService) GetMatchDetails(ctx context.Context, matchID string
 	}, nil
 }
 
-func (s *MatchReportService) getMatchInfo(ctx context.Context, matchID string) (*models.LiveMatch, error) {
+func (s *matchReportService) getMatchInfo(ctx context.Context, matchID string) (*models.LiveMatch, error) {
 	var m models.LiveMatch
 	m.MatchID = matchID
 
@@ -87,7 +87,7 @@ func (s *MatchReportService) getMatchInfo(ctx context.Context, matchID string) (
 	return &m, nil
 }
 
-func (s *MatchReportService) getTimeline(ctx context.Context, matchID string) ([]MatchTimelineEvent, error) {
+func (s *matchReportService) getTimeline(ctx context.Context, matchID string) ([]MatchTimelineEvent, error) {
 	query := `
 		SELECT 
 			timestamp, 
@@ -117,7 +117,7 @@ func (s *MatchReportService) getTimeline(ctx context.Context, matchID string) ([
 	return timeline, nil
 }
 
-func (s *MatchReportService) getVersusMatrix(ctx context.Context, matchID string) (map[string][]VersusRow, error) {
+func (s *matchReportService) getVersusMatrix(ctx context.Context, matchID string) (map[string][]VersusRow, error) {
 	// Matrix: For every pair (A, B), count kills A->B and B->A
 	query := `
 		SELECT 

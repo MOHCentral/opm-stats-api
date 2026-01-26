@@ -7,12 +7,12 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-type GamificationService struct {
+type gamificationService struct {
 	ch driver.Conn
 }
 
-func NewGamificationService(ch driver.Conn) *GamificationService {
-	return &GamificationService{ch: ch}
+func NewGamificationService(ch driver.Conn) GamificationService {
+	return &gamificationService{ch: ch}
 }
 
 type PlaystyleBadge struct {
@@ -23,7 +23,7 @@ type PlaystyleBadge struct {
 }
 
 // GetPlaystyle analyzes player stats to determine their dominant playstyle
-func (s *GamificationService) GetPlaystyle(ctx context.Context, playerID string) (*PlaystyleBadge, error) {
+func (s *gamificationService) GetPlaystyle(ctx context.Context, playerID string) (*PlaystyleBadge, error) {
 	// Query aggregates needed for classification
 	var avgDist float64
 	var topWeapon string

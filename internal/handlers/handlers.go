@@ -39,6 +39,16 @@ type Config struct {
 	Redis      *redis.Client
 	Logger     *zap.Logger
 	JWTSecret  string
+
+	// Services
+	PlayerStats   logic.PlayerStatsService
+	ServerStats   logic.ServerStatsService
+	Gamification  logic.GamificationService
+	MatchReport   logic.MatchReportService
+	AdvancedStats logic.AdvancedStatsService
+	TeamStats     logic.TeamStatsService
+	Tournament    logic.TournamentService
+	Achievements  logic.AchievementsService
 }
 
 type Handler struct {
@@ -47,14 +57,14 @@ type Handler struct {
 	ch            driver.Conn
 	redis         *redis.Client
 	logger        *zap.SugaredLogger
-	playerStats   *logic.PlayerStatsService
-	serverStats   *logic.ServerStatsService
-	gamification  *logic.GamificationService
-	matchReport   *logic.MatchReportService
-	advancedStats *logic.AdvancedStatsService
-	teamStats     *logic.TeamStatsService
-	tournament    *logic.TournamentService
-	achievements  *logic.AchievementsService // [NEW]
+	playerStats   logic.PlayerStatsService
+	serverStats   logic.ServerStatsService
+	gamification  logic.GamificationService
+	matchReport   logic.MatchReportService
+	advancedStats logic.AdvancedStatsService
+	teamStats     logic.TeamStatsService
+	tournament    logic.TournamentService
+	achievements  logic.AchievementsService
 	jwtSecret     []byte
 }
 
@@ -65,14 +75,14 @@ func New(cfg Config) *Handler {
 		ch:            cfg.ClickHouse,
 		redis:         cfg.Redis,
 		logger:        cfg.Logger.Sugar(),
-		playerStats:   logic.NewPlayerStatsService(cfg.ClickHouse),
-		serverStats:   logic.NewServerStatsService(cfg.ClickHouse),
-		gamification:  logic.NewGamificationService(cfg.ClickHouse),
-		matchReport:   logic.NewMatchReportService(cfg.ClickHouse),
-		advancedStats: logic.NewAdvancedStatsService(cfg.ClickHouse),
-		teamStats:     logic.NewTeamStatsService(cfg.ClickHouse),
-		tournament:    logic.NewTournamentService(cfg.ClickHouse),
-		achievements:  logic.NewAchievementsService(cfg.ClickHouse), // [NEW]
+		playerStats:   cfg.PlayerStats,
+		serverStats:   cfg.ServerStats,
+		gamification:  cfg.Gamification,
+		matchReport:   cfg.MatchReport,
+		advancedStats: cfg.AdvancedStats,
+		teamStats:     cfg.TeamStats,
+		tournament:    cfg.Tournament,
+		achievements:  cfg.Achievements,
 		jwtSecret:     []byte(cfg.JWTSecret),
 	}
 }
@@ -319,59 +329,18 @@ func (h *Handler) IngestMatchResult(w http.ResponseWriter, r *http.Request) {
 
 // GetGlobalStats returns aggregate statistics for the dashboard
 func (h *Handler) GetGlobalStats(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Query aggregations from materialized views (much faster than raw_events)
-	// Note: In a real prod env, we'd cache this heavily
-	var totalKills, totalMatches, activePlayers uint64
-
-	// Total Kills from aggregated daily stats
-	if err := h.ch.QueryRow(ctx, "SELECT sum(kills) FROM mohaa_stats.player_stats_daily_mv").Scan(&totalKills); err != nil {
-		h.logger.Errorw("Failed to get total kills", "error", err)
+	stats, err := h.serverStats.GetGlobalStats(r.Context())
+	if err != nil {
+		h.logger.Errorw("Failed to get global stats", "error", err)
+		// We could return 500, but legacy behavior was partial.
+		// If implementation returns error on critical stats, 500 might be appropriate.
+		// For now, if we get data, use it. If completely failed, error.
+		if stats == nil {
+			h.errorResponse(w, http.StatusInternalServerError, "Internal server error")
+			return
+		}
 	}
-
-	// Total Matches from match summary
-	if err := h.ch.QueryRow(ctx, "SELECT count() FROM mohaa_stats.match_summary_mv").Scan(&totalMatches); err != nil {
-		h.logger.Errorw("Failed to get total matches", "error", err)
-	}
-
-	// Active Players (last 24h) - need raw_events for time filter
-	if err := h.ch.QueryRow(ctx, "SELECT uniq(actor_id) FROM mohaa_stats.player_stats_daily_mv WHERE day >= today() - 1 AND actor_id != ''").Scan(&activePlayers); err != nil {
-		h.logger.Errorw("Failed to get active players", "error", err)
-	}
-
-	// Count distinct servers from server activity MV
-	var serverCount int64
-	h.ch.QueryRow(ctx, `SELECT uniq(server_id) FROM mohaa_stats.server_activity_mv WHERE server_id != ''`).Scan(&serverCount)
-
-	// Calculate Global Averages (Accuracy & KD)
-	var avgAccuracy, avgKD float64
-
-	// Average Accuracy: Sum(Hits) / Sum(Shots)
-	// Using nullif to avoid division by zero
-	h.ch.QueryRow(ctx, `
-		SELECT 
-			sum(shots_hit) / nullif(sum(shots_fired), 0) * 100 
-		FROM mohaa_stats.player_stats_daily_mv
-	`).Scan(&avgAccuracy)
-
-	// Average KD: Sum(Kills) / Sum(Deaths)
-	h.ch.QueryRow(ctx, `
-		SELECT 
-			sum(kills) / nullif(sum(deaths), 0) 
-		FROM mohaa_stats.player_stats_daily_mv
-	`).Scan(&avgKD)
-
-	// If scan failed (null result), they might stay at 0, which is fine.
-
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"total_kills":         totalKills,
-		"total_matches":       totalMatches,
-		"active_players_24h":  activePlayers,
-		"server_count":        serverCount,
-		"server_avg_accuracy": avgAccuracy,
-		"server_avg_kd":       avgKD,
-	})
+	h.jsonResponse(w, http.StatusOK, stats)
 }
 
 // GetMatches returns a list of recent matches

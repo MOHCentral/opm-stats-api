@@ -95,6 +95,44 @@ func (m *MockClickHouseConn) Query(ctx context.Context, query string, args ...in
 	return &MockRows{}, nil
 }
 
+func (m *MockClickHouseConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+	return &MockBatch{}, nil
+}
+
+type MockBatch struct{}
+
+func (m *MockBatch) IsSent() bool {
+	return false
+}
+
+func (m *MockBatch) Rows() int {
+	return 0
+}
+
+func (m *MockBatch) Append(v ...interface{}) error {
+	return nil
+}
+
+func (m *MockBatch) AppendStruct(v interface{}) error {
+	return nil
+}
+
+func (m *MockBatch) Column(int) driver.BatchColumn {
+	return nil
+}
+
+func (m *MockBatch) Send() error {
+	return nil
+}
+
+func (m *MockBatch) Flush() error {
+	return nil
+}
+
+func (m *MockBatch) Abort() error {
+	return nil
+}
+
 // MockRow implements driver.Row
 type MockRow struct{}
 

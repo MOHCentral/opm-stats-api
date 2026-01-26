@@ -27,6 +27,7 @@ import (
 	"github.com/openmohaa/stats-api/internal/config"
 	"github.com/openmohaa/stats-api/internal/db"
 	"github.com/openmohaa/stats-api/internal/handlers"
+	"github.com/openmohaa/stats-api/internal/logic"
 	"github.com/openmohaa/stats-api/internal/worker"
 )
 
@@ -95,14 +96,32 @@ func main() {
 
 	// Achievement worker is now integrated into worker pool (no separate instance needed)
 
+	// Initialize services
+	playerStats := logic.NewPlayerStatsService(chConn)
+	serverStats := logic.NewServerStatsService(chConn)
+	gamification := logic.NewGamificationService(chConn)
+	matchReport := logic.NewMatchReportService(chConn)
+	advancedStats := logic.NewAdvancedStatsService(chConn)
+	teamStats := logic.NewTeamStatsService(chConn)
+	tournament := logic.NewTournamentService(chConn)
+	achievements := logic.NewAchievementsService(chConn)
+
 	// Initialize handlers
 	h := handlers.New(handlers.Config{
-		WorkerPool: workerPool,
-		Postgres:   pgPool,
-		ClickHouse: chConn,
-		Redis:      redisClient,
-		Logger:     logger,
-		JWTSecret:  cfg.JWTSecret,
+		WorkerPool:    workerPool,
+		Postgres:      pgPool,
+		ClickHouse:    chConn,
+		Redis:         redisClient,
+		Logger:        logger,
+		JWTSecret:     cfg.JWTSecret,
+		PlayerStats:   playerStats,
+		ServerStats:   serverStats,
+		Gamification:  gamification,
+		MatchReport:   matchReport,
+		AdvancedStats: advancedStats,
+		TeamStats:     teamStats,
+		Tournament:    tournament,
+		Achievements:  achievements,
 	})
 
 	// Setup router
