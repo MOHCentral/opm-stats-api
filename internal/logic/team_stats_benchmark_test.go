@@ -8,30 +8,30 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-// MockRow implements driver.Row
-type MockRow struct {
+// BenchMockRow implements driver.Row
+type BenchMockRow struct {
 	err error
 }
 
-func (m *MockRow) Err() error {
+func (m *BenchMockRow) Err() error {
 	return m.err
 }
 
-func (m *MockRow) Scan(dest ...any) error {
+func (m *BenchMockRow) Scan(dest ...any) error {
 	return nil
 }
 
-func (m *MockRow) ScanStruct(dest any) error {
+func (m *BenchMockRow) ScanStruct(dest any) error {
 	return nil
 }
 
-// MockRows implements driver.Rows
-type MockRows struct {
+// BenchMockRows implements driver.Rows
+type BenchMockRows struct {
 	count int
 	limit int
 }
 
-func (m *MockRows) Next() bool {
+func (m *BenchMockRows) Next() bool {
 	if m.count < m.limit {
 		m.count++
 		return true
@@ -39,7 +39,7 @@ func (m *MockRows) Next() bool {
 	return false
 }
 
-func (m *MockRows) Scan(dest ...any) error {
+func (m *BenchMockRows) Scan(dest ...any) error {
 	// For top weapon query, we expect 2 args: team, weapon
 	if len(dest) >= 2 {
 		if teamPtr, ok := dest[0].(*string); ok {
@@ -52,49 +52,49 @@ func (m *MockRows) Scan(dest ...any) error {
 	return nil
 }
 
-func (m *MockRows) ScanStruct(dest any) error        { return nil }
-func (m *MockRows) ColumnTypes() []driver.ColumnType { return nil }
-func (m *MockRows) Totals(dest ...any) error         { return nil }
-func (m *MockRows) Columns() []string                { return nil }
-func (m *MockRows) Close() error                     { return nil }
-func (m *MockRows) Err() error                       { return nil }
+func (m *BenchMockRows) ScanStruct(dest any) error        { return nil }
+func (m *BenchMockRows) ColumnTypes() []driver.ColumnType { return nil }
+func (m *BenchMockRows) Totals(dest ...any) error         { return nil }
+func (m *BenchMockRows) Columns() []string                { return nil }
+func (m *BenchMockRows) Close() error                     { return nil }
+func (m *BenchMockRows) Err() error                       { return nil }
 
-// MockConn implements driver.Conn
-type MockConn struct {
+// BenchMockConn implements driver.Conn
+type BenchMockConn struct {
 	QueryCount int
 	Latency    time.Duration
 }
 
-func (m *MockConn) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+func (m *BenchMockConn) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
 	m.QueryCount++
 	time.Sleep(m.Latency)
-	return &MockRow{}
+	return &BenchMockRow{}
 }
 
-func (m *MockConn) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+func (m *BenchMockConn) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
 	m.QueryCount++
 	time.Sleep(m.Latency)
-	return &MockRows{limit: 2}, nil
+	return &BenchMockRows{limit: 2}, nil
 }
 
 // Stubs for other methods
-func (m *MockConn) Contributors() []string                                                { return nil }
-func (m *MockConn) ServerVersion() (*driver.ServerVersion, error)                         { return nil, nil }
-func (m *MockConn) Select(ctx context.Context, dest any, query string, args ...any) error { return nil }
-func (m *MockConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+func (m *BenchMockConn) Contributors() []string                                                { return nil }
+func (m *BenchMockConn) ServerVersion() (*driver.ServerVersion, error)                         { return nil, nil }
+func (m *BenchMockConn) Select(ctx context.Context, dest any, query string, args ...any) error { return nil }
+func (m *BenchMockConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
 	return nil, nil
 }
-func (m *MockConn) Exec(ctx context.Context, query string, args ...any) error { return nil }
-func (m *MockConn) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
+func (m *BenchMockConn) Exec(ctx context.Context, query string, args ...any) error { return nil }
+func (m *BenchMockConn) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
 	return nil
 }
-func (m *MockConn) Ping(context.Context) error { return nil }
-func (m *MockConn) Stats() driver.Stats        { return driver.Stats{} }
-func (m *MockConn) Close() error               { return nil }
+func (m *BenchMockConn) Ping(context.Context) error { return nil }
+func (m *BenchMockConn) Stats() driver.Stats        { return driver.Stats{} }
+func (m *BenchMockConn) Close() error               { return nil }
 
 func BenchmarkGetFactionComparison(b *testing.B) {
 	// Simulate 1ms latency per query
-	mockConn := &MockConn{
+	mockConn := &BenchMockConn{
 		Latency: 1 * time.Millisecond,
 	}
 	service := NewTeamStatsService(mockConn)
@@ -110,7 +110,7 @@ func BenchmarkGetFactionComparison(b *testing.B) {
 }
 
 func TestGetFactionComparisonQueryCount(t *testing.T) {
-	mockConn := &MockConn{}
+	mockConn := &BenchMockConn{}
 	service := NewTeamStatsService(mockConn)
 	ctx := context.Background()
 

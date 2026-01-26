@@ -331,28 +331,14 @@ func (s *PlayerStatsService) fillSessionStats(ctx context.Context, guid string, 
 		return err
 	}
 
-	// Count wins: matches where a team_win event exists for the player's team
-	// This requires joining to find the player's team in each match, then checking if that team won
+	// Count wins using materialized view which tracks wins via match_outcome=1
 	winsQuery := `
-		WITH player_matches AS (
-			SELECT DISTINCT match_id, any(actor_team) as team
-			FROM mohaa_stats.raw_events
-			WHERE actor_id = ? AND actor_team != ''
-			GROUP BY match_id
-		),
-		winning_teams AS (
-			SELECT match_id, any(JSONExtractString(raw_json, 'team')) as winning_team
-			FROM mohaa_stats.raw_events
-			WHERE event_type = 'team_win'
-			GROUP BY match_id
-		)
-		SELECT count()
-		FROM player_matches pm
-		JOIN winning_teams wt ON pm.match_id = wt.match_id
-		WHERE pm.team = wt.winning_team
+		SELECT sum(matches_won)
+		FROM mohaa_stats.player_stats_daily_mv
+		WHERE actor_id = ?
 	`
 	if err := s.ch.QueryRow(ctx, winsQuery, guid).Scan(&out.Wins); err != nil {
-		// If error, set wins to 0 (team_win might not have team field)
+		// Default to 0 on error
 		out.Wins = 0
 	}
 

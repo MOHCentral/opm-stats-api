@@ -56,21 +56,22 @@ func (s *AchievementsService) getMatchAchievements(ctx context.Context, matchID,
 		win                                 int
 	)
 
+	// Updated to use correct event types and logic
 	query := `
 		SELECT 
-			countIf(event_type = 'player_kill') as kills,
-			countIf(event_type = 'player_death') as deaths,
-			countIf(event_type = 'weapon_fire') as shots,
-			countIf(event_type = 'weapon_hit') as hits,
-			countIf(event_type = 'team_win') as wins
+			countIf(event_type = 'kill' AND actor_id = ?) as kills,
+			countIf(event_type = 'kill' AND target_id = ?) as deaths,
+			countIf(event_type = 'weapon_fire' AND actor_id = ?) as shots,
+			countIf(event_type = 'weapon_hit' AND actor_id = ?) as hits,
+			countIf(event_type = 'match_outcome' AND match_outcome = 1 AND actor_id = ?) as wins
 		FROM raw_events 
-		WHERE match_id = ? AND actor_id = ?
+		WHERE match_id = ? AND (actor_id = ? OR target_id = ?)
 	`
-	// Note: We scan broadly. If rows are empty, these become 0.
-	// ClickHouse countIf returns 0 on empty group usually if queried right, but simple select might return no rows.
-	// We'll trust the driver to return 0s or error.
-	if err := s.ch.QueryRow(ctx, query, matchID, playerID).Scan(&kills, &deaths, &shotsFired, &shotsHit, &win); err != nil {
-		// return nil, err // Or just return empty list if no stats found
+
+	if err := s.ch.QueryRow(ctx, query,
+		playerID, playerID, playerID, playerID, playerID,
+		matchID, playerID, playerID,
+	).Scan(&kills, &deaths, &shotsFired, &shotsHit, &win); err != nil {
 		return list, nil
 	}
 
@@ -133,9 +134,10 @@ func (s *AchievementsService) getTournamentAchievements(ctx context.Context, tou
 	)
 
 	// Get total wins and matches played in this tournament
+	// Using match_outcome for wins
 	query := `
 		SELECT 
-			countIf(event_type = 'team_win') as wins,
+			countIf(event_type = 'match_outcome' AND match_outcome = 1) as wins,
 			uniq(match_id) as matches
 		FROM raw_events 
 		WHERE tournament_id = ? AND actor_id = ?
