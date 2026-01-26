@@ -8,12 +8,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type PlayerStatsService struct {
+type playerStatsService struct {
 	ch driver.Conn
 }
 
-func NewPlayerStatsService(ch driver.Conn) *PlayerStatsService {
-	return &PlayerStatsService{ch: ch}
+func NewPlayerStatsService(ch driver.Conn) PlayerStatsService {
+	return &playerStatsService{ch: ch}
 }
 
 // DeepStats represents the massive aggregated stats object
@@ -116,7 +116,7 @@ type PickupStat struct {
 }
 
 // GetDeepStats fetches all categories for a player
-func (s *PlayerStatsService) GetDeepStats(ctx context.Context, guid string) (*DeepStats, error) {
+func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*DeepStats, error) {
 	stats := &DeepStats{}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -183,7 +183,7 @@ func (s *PlayerStatsService) GetDeepStats(ctx context.Context, guid string) (*De
 	return stats, nil
 }
 
-func (s *PlayerStatsService) fillCombatStats(ctx context.Context, guid string, out *CombatStats) error {
+func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, out *CombatStats) error {
 	query := `
 		SELECT 
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
@@ -234,7 +234,7 @@ func (s *PlayerStatsService) fillCombatStats(ctx context.Context, guid string, o
 	return nil
 }
 
-func (s *PlayerStatsService) fillWeaponStats(ctx context.Context, guid string, out *[]WeaponStats) error {
+func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, out *[]WeaponStats) error {
 	query := `
 		SELECT 
 			actor_weapon as weapon_name,
@@ -267,7 +267,7 @@ func (s *PlayerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 	return nil
 }
 
-func (s *PlayerStatsService) fillMovementStats(ctx context.Context, guid string, out *MovementStats) error {
+func (s *playerStatsService) fillMovementStats(ctx context.Context, guid string, out *MovementStats) error {
 	// Distance event stores walked/sprinted/swam/driven in raw_json
 	// Convert game units to kilometers (divide by 100000)
 	query := `
@@ -294,7 +294,7 @@ func (s *PlayerStatsService) fillMovementStats(ctx context.Context, guid string,
 	return nil
 }
 
-func (s *PlayerStatsService) fillAccuracyStats(ctx context.Context, guid string, out *AccuracyStats) error {
+func (s *playerStatsService) fillAccuracyStats(ctx context.Context, guid string, out *AccuracyStats) error {
 	var shots, hits, headshots uint64
 	var avgDist *float64
 
@@ -324,7 +324,7 @@ func (s *PlayerStatsService) fillAccuracyStats(ctx context.Context, guid string,
 	return nil
 }
 
-func (s *PlayerStatsService) fillSessionStats(ctx context.Context, guid string, out *SessionStats) error {
+func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, out *SessionStats) error {
 	// Count unique matches
 	query := `SELECT uniq(match_id) as matches FROM mohaa_stats.raw_events WHERE actor_id = ?`
 	if err := s.ch.QueryRow(ctx, query, guid).Scan(&out.MatchesPlayed); err != nil {
@@ -377,7 +377,7 @@ func (s *PlayerStatsService) fillSessionStats(ctx context.Context, guid string, 
 	return nil
 }
 
-func (s *PlayerStatsService) fillInteractionStats(ctx context.Context, guid string, out *InteractionStats) error {
+func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid string, out *InteractionStats) error {
 	// Chat (both player_say and chat events)
 	s.ch.QueryRow(ctx, "SELECT countIf((event_type='player_say' OR event_type='chat') AND actor_id=?) FROM mohaa_stats.raw_events", guid).Scan(&out.ChatMessages)
 
@@ -421,7 +421,7 @@ func (s *PlayerStatsService) fillInteractionStats(ctx context.Context, guid stri
 	return nil
 }
 
-func (s *PlayerStatsService) fillRivalStats(ctx context.Context, guid string, out *RivalStats) error {
+func (s *playerStatsService) fillRivalStats(ctx context.Context, guid string, out *RivalStats) error {
 	// Find Nemesis (Player who killed me most)
 	err := s.ch.QueryRow(ctx, `
 		SELECT actor_name, count() as c 
@@ -446,7 +446,7 @@ func (s *PlayerStatsService) fillRivalStats(ctx context.Context, guid string, ou
 	return nil
 }
 
-func (s *PlayerStatsService) fillStanceStats(ctx context.Context, guid string, out *StanceStats, totalKills uint64) error {
+func (s *playerStatsService) fillStanceStats(ctx context.Context, guid string, out *StanceStats, totalKills uint64) error {
 	if totalKills == 0 {
 		return nil
 	}
@@ -481,7 +481,7 @@ func (s *PlayerStatsService) fillStanceStats(ctx context.Context, guid string, o
 }
 
 // ResolvePlayerGUID finds the most recent GUID associated with a player name
-func (s *PlayerStatsService) ResolvePlayerGUID(ctx context.Context, name string) (string, error) {
+func (s *playerStatsService) ResolvePlayerGUID(ctx context.Context, name string) (string, error) {
 	var guid string
 	query := `
 		SELECT actor_id 

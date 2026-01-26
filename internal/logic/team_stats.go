@@ -7,12 +7,12 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-type TeamStatsService struct {
+type teamStatsService struct {
 	ch driver.Conn
 }
 
-func NewTeamStatsService(ch driver.Conn) *TeamStatsService {
-	return &TeamStatsService{ch: ch}
+func NewTeamStatsService(ch driver.Conn) TeamStatsService {
+	return &teamStatsService{ch: ch}
 }
 
 // FactionStats comparison
@@ -33,7 +33,7 @@ type TeamMetrics struct {
 }
 
 // GetFactionComparison returns aggregated stats for Axis vs Allies over the last N days
-func (s *TeamStatsService) GetFactionComparison(ctx context.Context, days int) (*FactionStats, error) {
+func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (*FactionStats, error) {
 	if days <= 0 {
 		days = 30
 	}

@@ -7,16 +7,16 @@ import (
 	"github.com/openmohaa/stats-api/internal/models"
 )
 
-type ServerStatsService struct {
+type serverStatsService struct {
 	ch driver.Conn
 }
 
-func NewServerStatsService(ch driver.Conn) *ServerStatsService {
-	return &ServerStatsService{ch: ch}
+func NewServerStatsService(ch driver.Conn) ServerStatsService {
+	return &serverStatsService{ch: ch}
 }
 
 // GlobalActivity returns a heatmap of activity (Day of Week vs Hour of Day)
-func (s *ServerStatsService) GetGlobalActivity(ctx context.Context) ([]map[string]interface{}, error) {
+func (s *serverStatsService) GetGlobalActivity(ctx context.Context) ([]map[string]interface{}, error) {
 	// Remove time filter to show all activity data (test data may have future dates)
 	query := `
 		SELECT 
@@ -54,7 +54,7 @@ func (s *ServerStatsService) GetGlobalActivity(ctx context.Context) ([]map[strin
 }
 
 // MapPopularity returns top maps by matches played
-func (s *ServerStatsService) GetMapPopularity(ctx context.Context) ([]models.MapStats, error) {
+func (s *serverStatsService) GetMapPopularity(ctx context.Context) ([]models.MapStats, error) {
 	query := `
 		SELECT 
 			map_name,
@@ -118,7 +118,56 @@ type ServerPulse struct {
 }
 
 // GetServerPulse returns high-level metrics about the server's "chaos level"
-func (s *ServerStatsService) GetServerPulse(ctx context.Context) (*ServerPulse, error) {
+// GetGlobalStats returns aggregate statistics for the dashboard
+func (s *serverStatsService) GetGlobalStats(ctx context.Context) (map[string]interface{}, error) {
+	var totalKills, totalMatches, activePlayers uint64
+
+	// Total Kills from aggregated daily stats
+	if err := s.ch.QueryRow(ctx, "SELECT sum(kills) FROM mohaa_stats.player_stats_daily_mv").Scan(&totalKills); err != nil {
+		return nil, err
+	}
+
+	// Total Matches
+	if err := s.ch.QueryRow(ctx, "SELECT count() FROM mohaa_stats.match_summary_mv").Scan(&totalMatches); err != nil {
+		return nil, err
+	}
+
+	// Active Players
+	if err := s.ch.QueryRow(ctx, "SELECT uniq(actor_id) FROM mohaa_stats.player_stats_daily_mv WHERE day >= today() - 1 AND actor_id != ''").Scan(&activePlayers); err != nil {
+		return nil, err
+	}
+
+	// Server Count
+	var serverCount int64
+	s.ch.QueryRow(ctx, `SELECT uniq(server_id) FROM mohaa_stats.server_activity_mv WHERE server_id != ''`).Scan(&serverCount)
+
+	// Average Accuracy
+	var avgAccuracy float64
+	s.ch.QueryRow(ctx, `
+		SELECT
+			sum(shots_hit) / nullif(sum(shots_fired), 0) * 100
+		FROM mohaa_stats.player_stats_daily_mv
+	`).Scan(&avgAccuracy)
+
+	// Average KD
+	var avgKD float64
+	s.ch.QueryRow(ctx, `
+		SELECT
+			sum(kills) / nullif(sum(deaths), 0)
+		FROM mohaa_stats.player_stats_daily_mv
+	`).Scan(&avgKD)
+
+	return map[string]interface{}{
+		"total_kills":         totalKills,
+		"total_matches":       totalMatches,
+		"active_players_24h":  activePlayers,
+		"server_count":        serverCount,
+		"server_avg_accuracy": avgAccuracy,
+		"server_avg_kd":       avgKD,
+	}, nil
+}
+
+func (s *serverStatsService) GetServerPulse(ctx context.Context) (*ServerPulse, error) {
 	pulse := &ServerPulse{}
 
 	// 1. Lethality (Kills per hour in last 24h)

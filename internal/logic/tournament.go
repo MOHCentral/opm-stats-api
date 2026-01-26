@@ -8,18 +8,18 @@ import (
 	"github.com/openmohaa/stats-api/internal/models"
 )
 
-type TournamentService struct {
+type tournamentService struct {
 	ch driver.Conn
 }
 
-func NewTournamentService(ch driver.Conn) *TournamentService {
-	return &TournamentService{ch: ch}
+func NewTournamentService(ch driver.Conn) TournamentService {
+	return &tournamentService{ch: ch}
 }
 
 // GetTournaments returns list of tournaments
 // Tournament data is managed in SMF database (MariaDB), not ClickHouse
 // This API endpoint returns empty - use SMF PHP endpoints for tournament data
-func (s *TournamentService) GetTournaments(ctx context.Context) ([]models.Tournament, error) {
+func (s *tournamentService) GetTournaments(ctx context.Context) ([]models.Tournament, error) {
 	// Tournament management is handled by SMF plugin (smf-plugins/mohaa_tournaments)
 	// ClickHouse only stores tournament match stats, not tournament metadata
 	return []models.Tournament{}, nil
@@ -27,7 +27,7 @@ func (s *TournamentService) GetTournaments(ctx context.Context) ([]models.Tourna
 
 // GetTournament returns tournament details
 // Tournament metadata is in SMF database - this returns error for API requests
-func (s *TournamentService) GetTournament(ctx context.Context, id string) (*models.Tournament, error) {
+func (s *tournamentService) GetTournament(ctx context.Context, id string) (*models.Tournament, error) {
 	uid, err := uuid.Parse(id)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *TournamentService) GetTournament(ctx context.Context, id string) (*mode
 }
 
 // GetTournamentStats returns aggregated stats for a tournament
-func (s *TournamentService) GetTournamentStats(ctx context.Context, tournamentID string) (map[string]interface{}, error) {
+func (s *tournamentService) GetTournamentStats(ctx context.Context, tournamentID string) (map[string]interface{}, error) {
 	stats := make(map[string]interface{})
 
 	// Use temp vars for scanning

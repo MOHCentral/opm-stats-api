@@ -7,12 +7,12 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-type AchievementsService struct {
+type achievementsService struct {
 	ch driver.Conn
 }
 
-func NewAchievementsService(ch driver.Conn) *AchievementsService {
-	return &AchievementsService{ch: ch}
+func NewAchievementsService(ch driver.Conn) AchievementsService {
+	return &achievementsService{ch: ch}
 }
 
 type Achievement struct {
@@ -36,7 +36,7 @@ const (
 
 // GetAchievements calculates achievements for a specific scope (match, tournament, etc.)
 // contextID is the match_id or tournament_id
-func (s *AchievementsService) GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]Achievement, error) {
+func (s *achievementsService) GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]Achievement, error) {
 	switch scope {
 	case ScopeMatch:
 		return s.getMatchAchievements(ctx, contextID, playerID)
@@ -47,7 +47,7 @@ func (s *AchievementsService) GetAchievements(ctx context.Context, scope Achieve
 	}
 }
 
-func (s *AchievementsService) getMatchAchievements(ctx context.Context, matchID, playerID string) ([]Achievement, error) {
+func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID, playerID string) ([]Achievement, error) {
 	list := []Achievement{}
 
 	// 1. Fetch Stats for this match
@@ -124,7 +124,7 @@ func (s *AchievementsService) getMatchAchievements(ctx context.Context, matchID,
 	return list, nil
 }
 
-func (s *AchievementsService) getTournamentAchievements(ctx context.Context, tournamentID, playerID string) ([]Achievement, error) {
+func (s *achievementsService) getTournamentAchievements(ctx context.Context, tournamentID, playerID string) ([]Achievement, error) {
 	list := []Achievement{}
 
 	// Query tournament aggregated stats

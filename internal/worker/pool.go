@@ -337,7 +337,10 @@ func (p *Pool) processBatch(batch []Job) error {
 	}
 
 	// Process side effects in batch (Redis state updates)
-	go p.processBatchSideEffects(ctx, batch)
+	// Must copy batch because the slice is reused in the worker loop
+	batchCopy := make([]Job, len(batch))
+	copy(batchCopy, batch)
+	go p.processBatchSideEffects(ctx, batchCopy)
 
 	// Send batch to ClickHouse FIRST
 	err = chBatch.Send()
