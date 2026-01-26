@@ -18,6 +18,68 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	combatMilestones = map[string]int{
+		"first-blood":     1,
+		"killer-bronze":   10,
+		"killer-silver":   50,
+		"killer-gold":     100,
+		"killer-platinum": 500,
+		"killer-diamond":  1000,
+		"killing-spree":   5,
+		"unstoppable":     10,
+		"legendary":       20,
+	}
+
+	headshotMilestones = map[string]int{
+		"sharpshooter-bronze":   10,
+		"sharpshooter-silver":   50,
+		"sharpshooter-gold":     100,
+		"sharpshooter-platinum": 250,
+		"sharpshooter-diamond":  500,
+	}
+
+	movementMilestones = map[string]float64{
+		"marathoner-bronze":   10,
+		"marathoner-silver":   50,
+		"marathoner-gold":     100,
+		"marathoner-platinum": 250,
+		"marathoner-diamond":  500,
+	}
+
+	vehicleMilestones = map[string]int{
+		"tanker-bronze":   5,
+		"tanker-silver":   25,
+		"tanker-gold":     50,
+		"tanker-platinum": 100,
+		"tanker-diamond":  250,
+	}
+
+	survivalMilestones = map[string]int{
+		"medic-bronze":   10,
+		"medic-silver":   50,
+		"medic-gold":     100,
+		"medic-platinum": 250,
+		"medic-diamond":  500,
+	}
+
+	objectiveMilestones = map[string]int{
+		"objective-bronze":   5,
+		"objective-silver":   25,
+		"objective-gold":     50,
+		"objective-platinum": 100,
+		"objective-diamond":  250,
+	}
+
+	teamplayMilestones = map[string]int{
+		"winner-bronze":   10,
+		"winner-silver":   25,
+		"winner-gold":     50,
+		"winner-platinum": 100,
+		"winner-diamond":  250,
+	}
+)
+
 // DBStore abstracts the database operations
 type DBStore interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -221,21 +283,9 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 	ts := time.Unix(int64(event.Timestamp), 0)
 
 	// Check milestone achievements
-	milestones := map[string]int{
-		"first-blood":     1,
-		"killer-bronze":   10,
-		"killer-silver":   50,
-		"killer-gold":     100,
-		"killer-platinum": 500,
-		"killer-diamond":  1000,
-		"killing-spree":   5,  // In single match
-		"unstoppable":     10, // In single match
-		"legendary":       20, // In single match
-	}
+	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(combatMilestones))
 
-	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(milestones))
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range combatMilestones {
 		w.logger.Debugw("Checking milestone", "slug", slug, "threshold", threshold, "totalKills", totalKills, "passes", totalKills >= threshold)
 		if totalKills >= threshold {
 			w.logger.Infow("Achievement milestone reached!",
@@ -265,15 +315,7 @@ func (w *AchievementWorker) checkHeadshotAchievements(smfID int64, event *models
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	milestones := map[string]int{
-		"sharpshooter-bronze":   10,
-		"sharpshooter-silver":   50,
-		"sharpshooter-gold":     100,
-		"sharpshooter-platinum": 250,
-		"sharpshooter-diamond":  500,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range headshotMilestones {
 		if totalHeadshots == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -294,15 +336,7 @@ func (w *AchievementWorker) checkMovementAchievements(smfID int64, event *models
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	milestones := map[string]float64{
-		"marathoner-bronze":   10,
-		"marathoner-silver":   50,
-		"marathoner-gold":     100,
-		"marathoner-platinum": 250,
-		"marathoner-diamond":  500,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range movementMilestones {
 		if distanceKM >= threshold && distanceKM < threshold+0.1 {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -316,15 +350,7 @@ func (w *AchievementWorker) checkVehicleAchievements(smfID int64, event *models.
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	milestones := map[string]int{
-		"tanker-bronze":   5,
-		"tanker-silver":   25,
-		"tanker-gold":     50,
-		"tanker-platinum": 100,
-		"tanker-diamond":  250,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range vehicleMilestones {
 		if vehicleKills == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -339,15 +365,7 @@ func (w *AchievementWorker) checkSurvivalAchievements(smfID int64, event *models
 	if event.Type == models.EventHealthPickup {
 		healthPickups := w.incrementPlayerStat(int(smfID), "health_pickups")
 
-		milestones := map[string]int{
-			"medic-bronze":   10,
-			"medic-silver":   50,
-			"medic-gold":     100,
-			"medic-platinum": 250,
-			"medic-diamond":  500,
-		}
-
-		for slug, threshold := range milestones {
+		for slug, threshold := range survivalMilestones {
 			if healthPickups == threshold {
 				w.unlockAchievement(int(smfID), slug, serverID, ts)
 			}
@@ -367,15 +385,7 @@ func (w *AchievementWorker) checkObjectiveAchievements(smfID int64, event *model
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	milestones := map[string]int{
-		"objective-bronze":   5,
-		"objective-silver":   25,
-		"objective-gold":     50,
-		"objective-platinum": 100,
-		"objective-diamond":  250,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range objectiveMilestones {
 		if totalObjectives == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -389,15 +399,7 @@ func (w *AchievementWorker) checkTeamplayAchievements(smfID int64, event *models
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	milestones := map[string]int{
-		"winner-bronze":   10,
-		"winner-silver":   25,
-		"winner-gold":     50,
-		"winner-platinum": 100,
-		"winner-diamond":  250,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range teamplayMilestones {
 		if totalWins == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
