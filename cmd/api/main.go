@@ -104,7 +104,7 @@ func main() {
 	advancedStats := logic.NewAdvancedStatsService(chConn)
 	teamStats := logic.NewTeamStatsService(chConn)
 	tournament := logic.NewTournamentService(chConn)
-	achievements := logic.NewAchievementsService(chConn)
+	achievements := logic.NewAchievementsService(chConn, pgPool)
 
 	// Initialize handlers
 	h := handlers.New(handlers.Config{
