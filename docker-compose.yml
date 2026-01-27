@@ -12,7 +12,7 @@ services:
       - "com.mohaa.service=api"
       - "com.mohaa.description=OpenMOHAA Stats REST API"
     ports:
-      - "8080:8080"
+      - "8084:8080"
     environment:
       - PORT=${PORT:-8080}
       - POSTGRES_URL=${POSTGRES_URL:-postgres://mohaa:admin123@postgres:5432/mohaa_stats?sslmode=disable}
