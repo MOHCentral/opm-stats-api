@@ -79,7 +79,8 @@ type PoolConfig struct {
 	Logger                 *zap.Logger
 }
 
-// Pool manages a pool of workers for async event processing
+// Pool manages a pool of workers for async event processing.
+// It handles ingestion, batching, and dispatching to specialized workers.
 type Pool struct {
 	config            PoolConfig
 	jobQueue          chan Job
