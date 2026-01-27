@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 type achievementsService struct {
 	ch driver.Conn
+	pg PgPool
 }
 
-func NewAchievementsService(ch driver.Conn) AchievementsService {
-	return &achievementsService{ch: ch}
+func NewAchievementsService(ch driver.Conn, pg PgPool) AchievementsService {
+	return &achievementsService{ch: ch, pg: pg}
 }
 
 type Achievement struct {
@@ -175,5 +177,63 @@ func (s *achievementsService) getTournamentAchievements(ctx context.Context, tou
 	}
 	list = append(list, survivor)
 
+	return list, nil
+}
+
+func (s *achievementsService) GetPlayerAchievements(ctx context.Context, playerGUID string) ([]models.PlayerAchievement, error) {
+	// Query persistent achievements from Postgres
+	// Join with definitions to get metadata
+	// Schema 001: player_achievements (player_guid, achievement_id) -> achievements (id)
+	query := `
+		SELECT
+			pa.id, pa.player_guid, pa.achievement_id, pa.unlocked_at,
+			a.id, a.name, a.description, a.category, a.points, a.icon_url
+		FROM player_achievements pa
+		JOIN achievements a ON pa.achievement_id = a.id
+		WHERE pa.player_guid = $1
+	`
+	rows, err := s.pg.Query(ctx, query, playerGUID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.PlayerAchievement
+	for rows.Next() {
+		var pa models.PlayerAchievement
+		pa.Achievement = &models.Achievement{}
+
+		var iconURL *string // Handle nullable
+
+		if err := rows.Scan(
+			&pa.ID, &pa.PlayerGUID, &pa.AchievementID, &pa.UnlockedAt,
+			&pa.Achievement.ID, &pa.Achievement.Name, &pa.Achievement.Description,
+			&pa.Achievement.Category, &pa.Achievement.Points, &iconURL,
+		); err != nil {
+			return nil, err
+		}
+
+		if iconURL != nil {
+			pa.Achievement.IconURL = *iconURL
+		}
+
+		// Set default Tier based on points (10=Bronze/1, 25=Silver/2, 50=Gold/3, 100=Platinum/4)
+		switch pa.Achievement.Points {
+		case 10:
+			pa.Achievement.Tier = 1
+		case 25:
+			pa.Achievement.Tier = 2
+		case 50:
+			pa.Achievement.Tier = 3
+		case 100:
+			pa.Achievement.Tier = 4
+		case 200, 250:
+			pa.Achievement.Tier = 5
+		default:
+			pa.Achievement.Tier = 1
+		}
+
+		list = append(list, pa)
+	}
 	return list, nil
 }
