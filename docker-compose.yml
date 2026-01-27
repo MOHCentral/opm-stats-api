@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ============================================================================
   # API Server
@@ -8,6 +6,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: mohaa-stats-api:latest
+    container_name: mohaa-api
+    labels:
+      - "com.mohaa.service=api"
+      - "com.mohaa.description=OpenMOHAA Stats REST API"
     ports:
       - "8080:8080"
     environment:
@@ -38,6 +41,10 @@ services:
   # ============================================================================
   postgres:
     image: postgres:16-alpine
+    container_name: mohaa-postgres
+    labels:
+      - "com.mohaa.service=postgres"
+      - "com.mohaa.description=Player profiles, tournaments, achievements"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-mohaa}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
@@ -61,6 +68,10 @@ services:
   # ============================================================================
   clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
+    container_name: mohaa-clickhouse
+    labels:
+      - "com.mohaa.service=clickhouse"
+      - "com.mohaa.description=Event storage and analytics (1M+ events)"
     ports:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native interface
@@ -86,6 +97,10 @@ services:
   # ============================================================================
   redis:
     image: redis:7-alpine
+    container_name: mohaa-redis
+    labels:
+      - "com.mohaa.service=redis"
+      - "com.mohaa.description=Caching and real-time state"
     ports:
       - "6379:6379"
     volumes:
