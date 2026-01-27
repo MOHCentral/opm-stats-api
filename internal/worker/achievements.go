@@ -506,7 +506,6 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 		"description", def.Description,
 	)
 
-	// TODO: Send notification to player
 	w.notifyPlayer(smfID, slug, def)
 }
 
