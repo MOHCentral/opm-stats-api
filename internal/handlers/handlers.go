@@ -873,15 +873,17 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPlayerAchievements returns player achievements
-// Player achievement unlocks are tracked in SMF database (smf_mohaa_player_achievements)
-// This endpoint could query player stats from ClickHouse if needed for batch checking
 func (h *Handler) GetPlayerAchievements(w http.ResponseWriter, r *http.Request) {
-	// Achievement definitions and unlocks are stored in SMF database
-	// Go API provides player stats; SMF handles achievement logic
+	guid := chi.URLParam(r, "guid")
+	achievements, err := h.achievements.GetPlayerAchievements(r.Context(), guid)
+	if err != nil {
+		h.logger.Errorw("Failed to get player achievements", "error", err, "guid", guid)
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to get achievements")
+		return
+	}
+
 	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"message":      "Player achievements are managed in SMF database",
-		"source":       "smf_database",
-		"achievements": []interface{}{},
+		"achievements": achievements,
 	})
 }
 

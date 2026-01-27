@@ -67,4 +67,5 @@ type TournamentService interface {
 
 type AchievementsService interface {
 	GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]Achievement, error)
+	GetPlayerAchievements(ctx context.Context, playerGUID string) ([]models.PlayerAchievement, error)
 }
