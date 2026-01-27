@@ -22,8 +22,16 @@ import (
 
 	"github.com/openmohaa/stats-api/internal/logic"
 	"github.com/openmohaa/stats-api/internal/models"
-	"github.com/openmohaa/stats-api/internal/worker"
 )
+
+// MaxBodySize limits the size of request bodies to 1MB
+const MaxBodySize = 1048576
+
+// IngestQueue defines the interface for the event ingestion worker pool
+type IngestQueue interface {
+	Enqueue(event *models.RawEvent) bool
+	QueueDepth() int
+}
 
 // hashToken creates a SHA256 hash of a token for secure storage lookup
 func hashToken(token string) string {
@@ -33,7 +41,7 @@ func hashToken(token string) string {
 }
 
 type Config struct {
-	WorkerPool *worker.Pool
+	WorkerPool IngestQueue
 	Postgres   *pgxpool.Pool
 	ClickHouse driver.Conn
 	Redis      *redis.Client
@@ -52,7 +60,7 @@ type Config struct {
 }
 
 type Handler struct {
-	pool          *worker.Pool
+	pool          IngestQueue
 	pg            *pgxpool.Pool
 	ch            driver.Conn
 	redis         *redis.Client
@@ -135,9 +143,11 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 // IngestEvents handles POST /api/v1/ingest/events
 // Accepts URL-encoded or JSON events from game servers
 func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
+	// Limit request body to 1MB to prevent DoS
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodySize)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.errorResponse(w, http.StatusBadRequest, "Failed to read body")
+		h.errorResponse(w, http.StatusRequestEntityTooLarge, "Request body too large")
 		return
 	}
 	defer r.Body.Close()

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/openmohaa/stats-api/internal/models"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -490,4 +491,92 @@ func (s *playerStatsService) ResolvePlayerGUID(ctx context.Context, name string)
 		}
 	}
 	return guid, nil
+}
+
+// GetPlayerStatsByGametype returns stats grouped by gametype (derived from map prefix)
+func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid string) ([]models.GametypeStats, error) {
+	// Derive gametype from map_name prefix (dm_, obj_, lib_, tdm_)
+	// Aggregate kills, deaths, headshots per gametype
+	rows, err := s.ch.Query(ctx, `
+		SELECT
+			multiIf(
+				startsWith(map_name, 'dm_'), 'dm',
+				startsWith(map_name, 'obj_'), 'obj',
+				startsWith(map_name, 'lib_'), 'lib',
+				startsWith(map_name, 'tdm_'), 'tdm',
+				startsWith(map_name, 'ctf_'), 'ctf',
+				'other'
+			) as gametype,
+			countIf(event_type = 'kill' AND actor_id = ?) as kills,
+			countIf(event_type IN ('death', 'kill') AND target_id = ?) as deaths,
+			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
+			uniq(match_id) as matches_played
+		FROM mohaa_stats.raw_events
+		WHERE (actor_id = ? OR target_id = ?)
+		  AND map_name != ''
+		GROUP BY gametype
+		HAVING kills > 0 OR deaths > 0
+		ORDER BY kills DESC
+	`, guid, guid, guid, guid, guid)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query gametype stats: %w", err)
+	}
+	defer rows.Close()
+
+	stats := []models.GametypeStats{}
+	for rows.Next() {
+		var s models.GametypeStats
+		if err := rows.Scan(&s.Gametype, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
+			continue
+		}
+		if s.Deaths > 0 {
+			s.KDRatio = float64(s.Kills) / float64(s.Deaths)
+		} else if s.Kills > 0 {
+			s.KDRatio = float64(s.Kills)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
+// GetPlayerStatsByMap returns detailed stats grouped by map
+func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid string) ([]models.MapStats, error) {
+	// Query map stats - aggregating kills, deaths, headshots per map
+	rows, err := s.ch.Query(ctx, `
+		SELECT
+			map_name,
+			countIf(event_type = 'kill' AND actor_id = ?) as kills,
+			countIf(event_type IN ('death', 'kill') AND target_id = ?) as deaths,
+			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
+			uniq(match_id) as matches_played
+		FROM mohaa_stats.raw_events
+		WHERE (actor_id = ? OR target_id = ?)
+		  AND map_name != ''
+		GROUP BY map_name
+		HAVING kills > 0 OR deaths > 0
+		ORDER BY kills DESC
+	`, guid, guid, guid, guid, guid)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query map breakdown: %w", err)
+	}
+	defer rows.Close()
+
+	stats := []models.MapStats{}
+	for rows.Next() {
+		var s models.MapStats
+		if err := rows.Scan(&s.MapName, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
+			continue
+		}
+		if s.Deaths > 0 {
+			s.KDRatio = float64(s.Kills) / float64(s.Deaths)
+		} else if s.Kills > 0 {
+			s.KDRatio = float64(s.Kills)
+		}
+		stats = append(stats, s)
+	}
+
+	return stats, nil
 }

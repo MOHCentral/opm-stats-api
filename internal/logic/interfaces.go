@@ -25,6 +25,8 @@ type RedisClient interface {
 type PlayerStatsService interface {
 	GetDeepStats(ctx context.Context, guid string) (*DeepStats, error)
 	ResolvePlayerGUID(ctx context.Context, name string) (string, error)
+	GetPlayerStatsByGametype(ctx context.Context, guid string) ([]models.GametypeStats, error)
+	GetPlayerStatsByMap(ctx context.Context, guid string) ([]models.MapStats, error)
 }
 
 type ServerStatsService interface {
