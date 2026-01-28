@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/openmohaa/stats-api/internal/logic"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // ============================================================================
@@ -170,7 +171,7 @@ func (h *Handler) GetServerDetail(w http.ResponseWriter, r *http.Request) {
 // @Tags Server
 // @Produce json
 // @Param id path string true "Server ID"
-// @Success 200 {object} map[string]interface{} "Live Status"
+// @Success 200 {object} models.ServerLiveStatusResponse "Live Status"
 // @Failure 400 {object} map[string]string "Missing ID"
 // @Failure 500 {object} map[string]string "Internal Error"
 // @Router /servers/{id}/live [get]
@@ -197,7 +198,7 @@ func (h *Handler) GetServerLiveStatus(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path string true "Server ID"
 // @Param hours query int false "Hours" default(24)
-// @Success 200 {array} map[string]interface{} "History Data"
+// @Success 200 {array} models.PlayerHistoryPoint "History Data"
 // @Failure 500 {object} map[string]string "Internal Error"
 // @Router /servers/{id}/player-history [get]
 func (h *Handler) GetServerPlayerHistory(w http.ResponseWriter, r *http.Request) {
@@ -351,7 +352,7 @@ func (h *Handler) GetServerRecentMatches(w http.ResponseWriter, r *http.Request)
 // @Produce json
 // @Param id path string true "Server ID"
 // @Param days query int false "Days" default(7)
-// @Success 200 {array} map[string]interface{} "Timeline"
+// @Success 200 {array} models.ActivityTimelinePoint "Timeline"
 // @Failure 500 {object} map[string]string "Internal Error"
 // @Router /servers/{id}/activity-timeline [get]
 func (h *Handler) GetServerActivityTimeline(w http.ResponseWriter, r *http.Request) {
@@ -537,7 +538,7 @@ func (h *Handler) GetServerHistoricalPlayers(w http.ResponseWriter, r *http.Requ
 // @Produce json
 // @Param id path string true "Server ID"
 // @Param days query int false "Days" default(30)
-// @Success 200 {array} map[string]interface{} "Rotation Data"
+// @Success 200 {array} models.ServerMapRotationResponse "Rotation Data"
 // @Failure 500 {object} map[string]string "Internal Error"
 // @Router /servers/{id}/map-rotation [get]
 func (h *Handler) GetServerMapRotation(w http.ResponseWriter, r *http.Request) {
@@ -568,7 +569,7 @@ func (h *Handler) GetServerMapRotation(w http.ResponseWriter, r *http.Request) {
 // @Tags Server
 // @Produce json
 // @Param id path string true "Server ID"
-// @Success 200 {array} map[string]interface{} "Country Data"
+// @Success 200 {array} models.ServerCountryStatsResponse "Country Data"
 // @Failure 500 {object} map[string]string "Internal Error"
 // @Router /servers/{id}/countries [get]
 func (h *Handler) GetServerCountryStats(w http.ResponseWriter, r *http.Request) {

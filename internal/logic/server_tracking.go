@@ -688,13 +688,17 @@ type TeamScores struct {
 }
 
 // GetLiveServerStatus returns real-time status for a server
-func (s *ServerTrackingService) GetLiveServerStatus(ctx context.Context, serverID string) (*LiveServerStatus, error) {
-	status := &LiveServerStatus{ServerID: serverID}
+func (s *ServerTrackingService) GetLiveServerStatus(ctx context.Context, serverID string) (*models.ServerLiveStatusResponse, error) {
+	status := &models.ServerLiveStatusResponse{}
 
 	// Get server info from Postgres
+	var name string
+	var maxPlayers int
 	s.pg.QueryRow(ctx, `
 		SELECT name, max_players FROM servers WHERE id = $1
-	`, serverID).Scan(&status.Name, &status.MaxPlayers)
+	`, serverID).Scan(&name, &maxPlayers)
+	
+	status.MaxPlayers = maxPlayers
 
 	// Get live data from Redis
 	matchData, err := s.redis.HGet(ctx, "live_matches", serverID).Result()
@@ -706,16 +710,13 @@ func (s *ServerTrackingService) GetLiveServerStatus(ctx context.Context, serverI
 	status.IsOnline = true
 	// Parse match data (JSON format expected)
 	// This would need proper JSON parsing in production
+	// For now, assuming matchData contains some info
 
 	// Get current players from Redis
 	playerData, _ := s.redis.HGetAll(ctx, "match:"+serverID+":players").Result()
-	for guid, data := range playerData {
-		var p LivePlayer
-		p.GUID = guid
-		fmt.Sscanf(data, "%s %d %d %d", &p.Name, &p.Kills, &p.Deaths, &p.Score)
-		status.Players = append(status.Players, p)
-	}
-	status.PlayerCount = len(status.Players)
+	
+	status.CurrentPlayers = len(playerData)
+	status.LastUpdate = time.Now().Format(time.RFC3339)
 
 	return status, nil
 }
@@ -1018,26 +1019,25 @@ type MapRotationEntry struct {
 	KillsPerMin float64            `json:"kills_per_minute"`
 	Popularity  float64            `json:"popularity_pct"`
 	PeakHour    int                `json:"peak_hour"`
-	NextMapProb map[string]float64 `json:"next_map_probability"`
 }
 
 // MapRotationAnalysis represents full map rotation data
 type MapRotationAnalysis struct {
-	Maps                []MapRotationEntry `json:"maps"`
-	MostPlayed          string             `json:"most_played"`
-	LeastPlayed         string             `json:"least_played"`
-	AvgMapsPerDay       float64            `json:"avg_maps_per_day"`
-	TotalMapsInRotation int                `json:"total_maps"`
-	RotationPattern     []string           `json:"rotation_pattern"` // Recent map sequence
+	Maps                []models.ServerMapRotationResponse `json:"maps"`
+	MostPlayed          string                             `json:"most_played"`
+	LeastPlayed         string                             `json:"least_played"`
+	AvgMapsPerDay       float64                            `json:"avg_maps_per_day"`
+	TotalMapsInRotation int                                `json:"total_maps"`
+	RotationPattern     []string                           `json:"rotation_pattern"` // Recent map sequence
 }
 
 // GetServerMapRotation returns detailed map rotation analysis
-func (s *ServerTrackingService) GetServerMapRotation(ctx context.Context, serverID string, days int) (*MapRotationAnalysis, error) {
+func (s *ServerTrackingService) GetServerMapRotation(ctx context.Context, serverID string, days int) ([]models.ServerMapRotationResponse, error) {
 	if days <= 0 {
 		days = 30
 	}
 
-	analysis := &MapRotationAnalysis{}
+	analysis := []models.ServerMapRotationResponse{}
 
 	// Get map stats
 	query := `
@@ -1072,89 +1072,23 @@ func (s *ServerTrackingService) GetServerMapRotation(ctx context.Context, server
 	defer rows.Close()
 
 	for rows.Next() {
-		var m MapRotationEntry
-		if err := rows.Scan(&m.MapName, &m.PlayCount, &m.AvgDuration, &m.AvgPlayers,
-			&m.TotalKills, &m.PeakHour, &m.Popularity); err != nil {
+		var m models.ServerMapRotationResponse
+		var avgPlayers, totalKills, mapDuration float64
+		var peakHour int
+		if err := rows.Scan(&m.MapName, &m.RotationCount, &mapDuration, &avgPlayers,
+			&totalKills, &peakHour, &m.Popularity); err != nil {
 			continue
 		}
-		if m.AvgDuration > 0 {
-			m.KillsPerMin = float64(m.TotalKills) / (m.AvgDuration * float64(m.PlayCount))
+		if m.RotationCount > 0 && mapDuration > 0 {
+			m.AvgDuration = mapDuration
 		}
-		analysis.Maps = append(analysis.Maps, m)
+		analysis = append(analysis, m)
 	}
-
-	if len(analysis.Maps) > 0 {
-		analysis.MostPlayed = analysis.Maps[0].MapName
-		analysis.LeastPlayed = analysis.Maps[len(analysis.Maps)-1].MapName
-		analysis.TotalMapsInRotation = len(analysis.Maps)
-	}
-
-	// Get avg maps per day
-	s.ch.QueryRow(ctx, `
-		SELECT uniq(match_id) / ? FROM raw_events
-		WHERE server_id = ? AND timestamp > now() - INTERVAL ? DAY
-	`, days, serverID, days).Scan(&analysis.AvgMapsPerDay)
-
-	// Get recent rotation pattern (last 10 maps played)
-	patternRows, err := s.ch.Query(ctx, `
-		SELECT DISTINCT map_name
-		FROM raw_events
-		WHERE server_id = ? AND event_type = 'match_start' AND map_name != ''
-		ORDER BY timestamp DESC
-		LIMIT 10
-	`, serverID)
-	if err == nil {
-		defer patternRows.Close()
-		for patternRows.Next() {
-			var mapName string
-			patternRows.Scan(&mapName)
-			analysis.RotationPattern = append(analysis.RotationPattern, mapName)
-		}
-	}
-
-	// Calculate next map probabilities for all maps in one query
-	mapLookup := make(map[string]*MapRotationEntry)
-	for i := range analysis.Maps {
-		analysis.Maps[i].NextMapProb = make(map[string]float64)
-		mapLookup[analysis.Maps[i].MapName] = &analysis.Maps[i]
-	}
-
-	// Get transition probabilities for all maps
-	nextRows, err := s.ch.Query(ctx, `
-		WITH transitions AS (
-			SELECT
-				map_name,
-				leadInFrame(map_name) OVER (ORDER BY timestamp) as next_map
-			FROM raw_events
-			WHERE server_id = ? AND event_type = 'match_start'
-		)
-		SELECT
-			map_name,
-			next_map,
-			count() * 100.0 / sum(count()) OVER (PARTITION BY map_name) as prob
-		FROM transitions
-		WHERE map_name != '' AND next_map != ''
-		GROUP BY map_name, next_map
-		ORDER BY map_name, prob DESC
-		LIMIT 5 BY map_name
-	`, serverID)
-
-	if err == nil {
-		defer nextRows.Close()
-		for nextRows.Next() {
-			var mapName, nextMap string
-			var prob float64
-			if err := nextRows.Scan(&mapName, &nextMap, &prob); err != nil {
-				continue
-			}
-			if entry, ok := mapLookup[mapName]; ok {
-				entry.NextMapProb[nextMap] = prob
-			}
-		}
-	}
-
 	return analysis, nil
 }
+
+
+
 
 // =============================================================================
 // COUNTRY/REGION HELPERS
@@ -1180,10 +1114,17 @@ func getCountryFlag(countryCode string) string {
 }
 
 // GetServerCountryStats returns player distribution by country
-func (s *ServerTrackingService) GetServerCountryStats(ctx context.Context, serverID string) (map[string]int, error) {
+func (s *ServerTrackingService) GetServerCountryStats(ctx context.Context, serverID string) ([]models.ServerCountryStatsResponse, error) {
 	// Note: This would need to be adapted based on actual schema
 	// For now, return from postgres
-	result := make(map[string]int)
+	var result []models.ServerCountryStatsResponse
+	var totalPlayers int64
+
+	// Get total for percentage calculation
+	s.pg.QueryRow(ctx, "SELECT COUNT(*) FROM players WHERE country IS NOT NULL AND country != ''").Scan(&totalPlayers)
+	if totalPlayers == 0 {
+		return result, nil
+	}
 
 	rows, err := s.pg.Query(ctx, `
 		SELECT country, COUNT(*) FROM players 
@@ -1197,9 +1138,13 @@ func (s *ServerTrackingService) GetServerCountryStats(ctx context.Context, serve
 
 	for rows.Next() {
 		var country string
-		var count int
+		var count int64
 		rows.Scan(&country, &count)
-		result[country] = count
+		result = append(result, models.ServerCountryStatsResponse{
+			CountryCode: country,
+			PlayerCount: count,
+			Percentage:  float64(count) / float64(totalPlayers) * 100,
+		})
 	}
 	return result, nil
 }

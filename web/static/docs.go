@@ -24,6 +24,205 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/achievements/match/{match_id}": {
+            "get": {
+                "description": "Returns achievements earned during a specific match",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Achievements"
+                ],
+                "summary": "Get Match Achievements",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Match ID",
+                        "name": "match_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "player_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Achievements",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Achievement"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Params",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/achievements/player/{smf_id}/progress": {
+            "get": {
+                "description": "Returns all unlocked achievements for a player by SMF ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Achievements"
+                ],
+                "summary": "Get Player Achievement Progress",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "SMF Member ID",
+                        "name": "smf_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Achievement Progress",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlayerAchievementProgressResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Database Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/achievements/player/{smf_id}/stats": {
+            "get": {
+                "description": "Returns achievement totals and points for a player",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Achievements"
+                ],
+                "summary": "Get Player Achievement Stats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "SMF Member ID",
+                        "name": "smf_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Achievement Stats",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlayerAchievementStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/achievements/tournament/{tournament_id}": {
+            "get": {
+                "description": "Returns achievements earned during a specific tournament",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Achievements"
+                ],
+                "summary": "Get Tournament Achievements",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tournament ID",
+                        "name": "tournament_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "player_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Achievements",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Achievement"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Params",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/auth/device": {
             "post": {
                 "consumes": [
@@ -839,8 +1038,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "object",
-                                "additionalProperties": true
+                                "$ref": "#/definitions/models.ActivityTimelinePoint"
                             }
                         }
                     },
@@ -880,8 +1078,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "object",
-                                "additionalProperties": true
+                                "$ref": "#/definitions/models.ServerCountryStatsResponse"
                             }
                         }
                     },
@@ -1065,8 +1262,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Live Status",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/models.ServerLiveStatusResponse"
                         }
                     },
                     "400": {
@@ -1121,8 +1317,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "object",
-                                "additionalProperties": true
+                                "$ref": "#/definitions/models.ServerMapRotationResponse"
                             }
                         }
                     },
@@ -1300,8 +1495,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "object",
-                                "additionalProperties": true
+                                "$ref": "#/definitions/models.PlayerHistoryPoint"
                             }
                         }
                     },
@@ -1455,6 +1649,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/stats/drilldown/options": {
+            "get": {
+                "description": "Returns available dimensions for drilling down into a stat",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Advanced Stats"
+                ],
+                "summary": "Get drilldown options",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "kd",
+                        "description": "Stat",
+                        "name": "stat",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DrilldownOptionsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/stats/leaderboard": {
             "get": {
                 "produces": [
@@ -1500,6 +1735,191 @@ const docTemplate = `{
                 }
             }
         },
+        "/stats/leaderboard/combos": {
+            "get": {
+                "description": "Get leaderboard for derived combo metrics (run_gun, clutch, consistency)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboards"
+                ],
+                "summary": "Combo leaderboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Metric (run_gun, clutch, consistency)",
+                        "name": "metric",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Max items to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ComboLeaderboardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/leaderboard/contextual": {
+            "get": {
+                "description": "Get best players for a specific context (e.g. Best Snipers on Mohdm6)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboards"
+                ],
+                "summary": "Contextual leaderboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "kd",
+                        "description": "Stat to rank by",
+                        "name": "stat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Context dimension (e.g. map, weapon)",
+                        "name": "dimension",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Context value (e.g. mohdm6, Thompson)",
+                        "name": "value",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Max items to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ContextualLeaderboardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/leaderboard/peak": {
+            "get": {
+                "description": "Get players who excel in specific time windows (morning, night, weekend)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboards"
+                ],
+                "summary": "Peak performance leaderboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "evening",
+                        "description": "Time Dimension (morning, afternoon, evening, night, weekend)",
+                        "name": "dimension",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Max items to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PeakLeaderboardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/stats/matches": {
             "get": {
                 "produces": [
@@ -1530,6 +1950,432 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}": {
+            "get": {
+                "description": "Fetch detailed statistics for a player using their GUID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Player"
+                ],
+                "summary": "Get Player Stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Player Stats",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlayerStatsResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/combos": {
+            "get": {
+                "description": "Returns complex cross-referenced stats like best weapon per map, victim/killer patterns, etc.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Advanced Stats"
+                ],
+                "summary": "Get player combo metrics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ComboMetrics"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/drilldown": {
+            "get": {
+                "description": "Allows drilling down into a specific stat by a dimension (e.g. K/D by Weapon)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Advanced Stats"
+                ],
+                "summary": "Drill down into player stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "kd",
+                        "description": "Stat to analyze",
+                        "name": "stat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "weapon",
+                        "description": "Dimension to group by",
+                        "name": "dimension",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Max items to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DrillDownResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/drilldown/{dimension}/{value}": {
+            "get": {
+                "description": "Provides a second level of breakdown (e.g. K/D with Thompson on Mohdm6)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Advanced Stats"
+                ],
+                "summary": "Nested drill down",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Parent Dimension (e.g. weapon)",
+                        "name": "dimension",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Parent Value (e.g. Thompson)",
+                        "name": "value",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Child Dimension (e.g. map)",
+                        "name": "child_dimension",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "kd",
+                        "description": "Stat to analyze",
+                        "name": "stat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Max items to return",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DrillDownNestedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/gametype": {
+            "get": {
+                "description": "Returns player statistics grouped by gametype",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Player"
+                ],
+                "summary": "Get Player Stats by Gametype",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Gametype Stats",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.GametypeStats"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/maps": {
+            "get": {
+                "description": "Returns player statistics grouped by map",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Player"
+                ],
+                "summary": "Get Player Stats by Map",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Map Stats",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.PlayerMapStats"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/peak-performance": {
+            "get": {
+                "description": "Returns stats showing when and where a player performs best (best hour, day, map, weapon)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Advanced Stats"
+                ],
+                "summary": "Get player peak performance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PeakPerformance"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/war-room": {
+            "get": {
+                "description": "Returns comprehensive stats for the war room dashboard",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Advanced Stats"
+                ],
+                "summary": "Get war room data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.WarRoomDataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1662,6 +2508,352 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.AccuracyStats": {
+            "type": "object",
+            "properties": {
+                "avg_distance": {
+                    "type": "number"
+                },
+                "head_hit_pct": {
+                    "type": "number"
+                },
+                "overall": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.Achievement": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "condition": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "description": "Unlock criteria",
+                    "type": "string"
+                },
+                "icon_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_hidden": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "progress": {
+                    "description": "Computed/Transient",
+                    "type": "integer"
+                },
+                "target": {
+                    "type": "integer"
+                },
+                "threshold": {
+                    "type": "integer"
+                },
+                "tier": {
+                    "type": "integer"
+                },
+                "unlock_count": {
+                    "description": "Rarity",
+                    "type": "integer"
+                },
+                "unlock_rate": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.ActivityTimelinePoint": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "match_starts": {
+                    "type": "integer"
+                },
+                "players": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BestConditions": {
+            "type": "object",
+            "properties": {
+                "best_day": {
+                    "type": "string"
+                },
+                "best_hour_label": {
+                    "type": "string"
+                },
+                "best_map": {
+                    "type": "string"
+                },
+                "optimal_session_mins": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.CombatStats": {
+            "type": "object",
+            "properties": {
+                "backstabs": {
+                    "type": "integer"
+                },
+                "bash_kills": {
+                    "type": "integer"
+                },
+                "damage_dealt": {
+                    "type": "integer"
+                },
+                "damage_taken": {
+                    "type": "integer"
+                },
+                "deaths": {
+                    "type": "integer"
+                },
+                "first_bloods": {
+                    "type": "integer"
+                },
+                "gibs": {
+                    "type": "integer"
+                },
+                "grenade_kills": {
+                    "type": "integer"
+                },
+                "grenades_thrown": {
+                    "type": "integer"
+                },
+                "headshot_percent": {
+                    "type": "number"
+                },
+                "headshots": {
+                    "type": "integer"
+                },
+                "highest_streak": {
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "limb_kills": {
+                    "type": "integer"
+                },
+                "longshots": {
+                    "type": "integer"
+                },
+                "melee_kills": {
+                    "type": "integer"
+                },
+                "nutshots": {
+                    "type": "integer"
+                },
+                "revenge_kills": {
+                    "type": "integer"
+                },
+                "roadkills": {
+                    "type": "integer"
+                },
+                "suicides": {
+                    "type": "integer"
+                },
+                "team_kills": {
+                    "type": "integer"
+                },
+                "torso_kills": {
+                    "type": "integer"
+                },
+                "trading_kills": {
+                    "description": "Killed within 3s of tm death",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ComboLeaderboardResponse": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LeaderboardEntry"
+                    }
+                },
+                "metric": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ComboMetrics": {
+            "type": "object",
+            "properties": {
+                "distance_by_weapon": {
+                    "description": "Avg kill distance per weapon",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DistanceWeapon"
+                    }
+                },
+                "hitloc_by_weapon": {
+                    "description": "Accuracy zone per weapon",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.HitlocWeapon"
+                    }
+                },
+                "killer_patterns": {
+                    "description": "Who dominates you",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KillerPattern"
+                    }
+                },
+                "movement_combat": {
+                    "$ref": "#/definitions/models.MovementCombat"
+                },
+                "signature": {
+                    "$ref": "#/definitions/models.SignatureStats"
+                },
+                "stance_by_map": {
+                    "description": "Playstyle per map",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.StanceMapCombo"
+                    }
+                },
+                "time_of_day_weapon": {
+                    "description": "Best weapon by time",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.TimeWeaponCombo"
+                    }
+                },
+                "victim_patterns": {
+                    "description": "Who you dominate",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.VictimPattern"
+                    }
+                },
+                "weapon_on_map": {
+                    "description": "Best weapon per map",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WeaponMapCombo"
+                    }
+                },
+                "weapon_progression": {
+                    "description": "Skill improvement over time",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WeaponProgress"
+                    }
+                }
+            }
+        },
+        "models.ContextualLeaderboardResponse": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "string"
+                },
+                "leaders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LeaderboardEntry"
+                    }
+                },
+                "stat": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DayStats": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "day_num": {
+                    "description": "0=Sunday",
+                    "type": "integer"
+                },
+                "day_of_week": {
+                    "type": "string"
+                },
+                "deaths": {
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "playtime_hours": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.DeepStats": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "$ref": "#/definitions/models.AccuracyStats"
+                },
+                "combat": {
+                    "$ref": "#/definitions/models.CombatStats"
+                },
+                "interaction": {
+                    "$ref": "#/definitions/models.InteractionStats"
+                },
+                "movement": {
+                    "$ref": "#/definitions/models.MovementStats"
+                },
+                "rivals": {
+                    "$ref": "#/definitions/models.RivalStats"
+                },
+                "session": {
+                    "$ref": "#/definitions/models.SessionStats"
+                },
+                "stance": {
+                    "$ref": "#/definitions/models.StanceStats"
+                },
+                "weapons": {
+                    "description": "Renamed to PlayerWeaponStats to avoid conflict if needed, or keep WeaponStats",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlayerWeaponStats"
+                    }
+                }
+            }
+        },
         "models.DeviceAuthRequest": {
             "type": "object",
             "properties": {
@@ -1707,6 +2899,94 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "device_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DistanceWeapon": {
+            "type": "object",
+            "properties": {
+                "avg_distance": {
+                    "type": "number"
+                },
+                "max_distance": {
+                    "type": "number"
+                },
+                "min_distance": {
+                    "type": "number"
+                },
+                "weapon_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DrillDownItem": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "sublabel": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.DrillDownNestedResponse": {
+            "type": "object",
+            "properties": {
+                "child_dimension": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DrillDownItem"
+                    }
+                },
+                "parent_dimension": {
+                    "type": "string"
+                },
+                "parent_value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DrillDownResult": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DrillDownItem"
+                    }
+                },
+                "stat": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.DrilldownOptionsResponse": {
+            "type": "object",
+            "properties": {
+                "dimensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "stat": {
                     "type": "string"
                 }
             }
@@ -2039,6 +3319,149 @@ const docTemplate = `{
                 "EventIdentityClaim"
             ]
         },
+        "models.GametypeStats": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "gametype": {
+                    "type": "string"
+                },
+                "headshots": {
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "matches_played": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.HitlocWeapon": {
+            "type": "object",
+            "properties": {
+                "head_pct": {
+                    "type": "number"
+                },
+                "limb_pct": {
+                    "type": "number"
+                },
+                "torso_pct": {
+                    "type": "number"
+                },
+                "weapon_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.HourStats": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "deaths": {
+                    "type": "integer"
+                },
+                "hour": {
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "losses": {
+                    "type": "integer"
+                },
+                "wins": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.InteractionStats": {
+            "type": "object",
+            "properties": {
+                "chat_messages": {
+                    "type": "integer"
+                },
+                "pickups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PickupStat"
+                    }
+                },
+                "turret_uses": {
+                    "type": "integer"
+                },
+                "vehicle_uses": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.KillerPattern": {
+            "type": "object",
+            "properties": {
+                "deaths_to": {
+                    "type": "integer"
+                },
+                "killer_name": {
+                    "type": "string"
+                },
+                "kills_against": {
+                    "type": "integer"
+                },
+                "most_used_weapon": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LeaderboardEntry": {
+            "type": "object",
+            "properties": {
+                "player_id": {
+                    "type": "string"
+                },
+                "player_name": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "secondary": {
+                    "type": "number"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.MapPeakStats": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "map_name": {
+                    "type": "string"
+                },
+                "win_rate": {
+                    "type": "number"
+                }
+            }
+        },
         "models.MapStats": {
             "type": "object",
             "properties": {
@@ -2115,6 +3538,37 @@ const docTemplate = `{
                 }
             }
         },
+        "models.MovementCombat": {
+            "type": "object",
+            "properties": {
+                "bunny_hop_efficiency": {
+                    "type": "number"
+                },
+                "run_gun_index": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.MovementStats": {
+            "type": "object",
+            "properties": {
+                "crouch_time_sec": {
+                    "type": "number"
+                },
+                "jump_count": {
+                    "type": "integer"
+                },
+                "prone_time_sec": {
+                    "type": "number"
+                },
+                "sprint_time_sec": {
+                    "type": "number"
+                },
+                "total_distance_km": {
+                    "type": "number"
+                }
+            }
+        },
         "models.PeakHoursHeatmap": {
             "type": "object",
             "properties": {
@@ -2161,57 +3615,243 @@ const docTemplate = `{
                 }
             }
         },
+        "models.PeakLeaderboardEntry": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "kd": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "player_id": {
+                    "type": "string"
+                },
+                "player_name": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PeakLeaderboardResponse": {
+            "type": "object",
+            "properties": {
+                "dimension": {
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PeakLeaderboardEntry"
+                    }
+                }
+            }
+        },
+        "models.PeakPerformance": {
+            "type": "object",
+            "properties": {
+                "best_conditions": {
+                    "$ref": "#/definitions/models.BestConditions"
+                },
+                "best_day": {
+                    "$ref": "#/definitions/models.DayStats"
+                },
+                "best_hour": {
+                    "$ref": "#/definitions/models.HourStats"
+                },
+                "best_map": {
+                    "$ref": "#/definitions/models.MapPeakStats"
+                },
+                "best_weapon": {
+                    "$ref": "#/definitions/models.WeaponPeak"
+                },
+                "daily_breakdown": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DayStats"
+                    }
+                },
+                "hourly_breakdown": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.HourStats"
+                    }
+                },
+                "most_accurate_at": {
+                    "type": "string"
+                },
+                "most_losses_at": {
+                    "type": "string"
+                },
+                "most_wins_at": {
+                    "type": "string"
+                },
+                "streaks": {
+                    "$ref": "#/definitions/models.StreakStats"
+                }
+            }
+        },
+        "models.PerformancePoint": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "kd": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "match_id": {
+                    "type": "string"
+                },
+                "played_at": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PickupStat": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "item_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PlayerAchievementProgressResponse": {
+            "type": "object",
+            "properties": {
+                "achievements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.UnlockedAchievement"
+                    }
+                },
+                "smf_member_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PlayerAchievementStatsResponse": {
+            "type": "object",
+            "properties": {
+                "smf_member_id": {
+                    "type": "integer"
+                },
+                "total_achievements": {
+                    "type": "integer"
+                },
+                "total_points": {
+                    "type": "integer"
+                },
+                "unlocked_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PlayerHistoryPoint": {
+            "type": "object",
+            "properties": {
+                "avg": {
+                    "type": "number"
+                },
+                "hour": {
+                    "type": "integer"
+                },
+                "peak": {
+                    "type": "integer"
+                },
+                "players": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PlayerMapStats": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "map_name": {
+                    "type": "string"
+                },
+                "matches_played": {
+                    "type": "integer"
+                },
+                "matches_won": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.PlayerStats": {
             "type": "object",
             "properties": {
                 "accuracy": {
                     "type": "number"
                 },
-                "close_range_kills": {
-                    "description": "\u003c5m",
+                "achievements": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "bash_kills": {
                     "type": "integer"
                 },
-                "collateral_kills": {
+                "crouching_kills": {
                     "type": "integer"
                 },
-                "crouch_time_seconds": {
+                "damage_dealt": {
+                    "type": "integer"
+                },
+                "damage_taken": {
+                    "type": "integer"
+                },
+                "deaths": {
+                    "type": "integer"
+                },
+                "distance_traveled": {
+                    "description": "Note: meters",
                     "type": "number"
                 },
-                "headshot_percent": {
-                    "type": "number"
+                "guid": {
+                    "type": "string"
                 },
-                "jump_count": {
+                "headshots": {
+                    "type": "integer"
+                },
+                "jumps": {
                     "type": "integer"
                 },
                 "kd_ratio": {
-                    "description": "Computed",
                     "type": "number"
                 },
-                "kills_per_minute": {
-                    "type": "number"
-                },
-                "kills_while_crouching": {
+                "kills": {
                     "type": "integer"
                 },
-                "kills_while_moving": {
+                "limb_kills": {
                     "type": "integer"
                 },
-                "kills_while_prone": {
-                    "description": "Stance Metrics",
-                    "type": "integer"
-                },
-                "kills_while_standing": {
-                    "type": "integer"
-                },
-                "kills_while_stationary": {
-                    "type": "integer"
-                },
-                "last_active": {
-                    "type": "string"
-                },
-                "long_range_kills": {
-                    "description": "Granular Combat Metrics",
-                    "type": "integer"
+                "maps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlayerMapStats"
+                    }
                 },
                 "matches_played": {
                     "type": "integer"
@@ -2220,51 +3860,101 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "description": "Alias for PHP",
                     "type": "string"
                 },
-                "play_time_seconds": {
-                    "type": "number"
-                },
-                "player_id": {
-                    "type": "string"
+                "performance": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PerformancePoint"
+                    }
                 },
                 "player_name": {
+                    "description": "Duplicate for legacy",
                     "type": "string"
                 },
-                "prone_time_seconds": {
+                "playtime_seconds": {
                     "type": "number"
                 },
-                "shots_fired": {
+                "prone_kills": {
                     "type": "integer"
                 },
-                "shots_hit": {
+                "recent_matches": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RecentMatch"
+                    }
+                },
+                "standing_kills": {
                     "type": "integer"
                 },
-                "sprint_distance_km": {
-                    "type": "number"
-                },
-                "total_damage": {
+                "suicides": {
                     "type": "integer"
                 },
-                "total_deaths": {
+                "team_kills": {
                     "type": "integer"
                 },
-                "total_distance_km": {
-                    "description": "Movement Metrics",
-                    "type": "number"
-                },
-                "total_headshots": {
+                "torso_kills": {
                     "type": "integer"
                 },
-                "total_kills": {
-                    "type": "integer"
-                },
-                "wallbang_kills": {
-                    "type": "integer"
+                "weapons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PlayerWeaponStats"
+                    }
                 },
                 "win_rate": {
                     "type": "number"
+                }
+            }
+        },
+        "models.PlayerStatsResponse": {
+            "type": "object",
+            "properties": {
+                "player": {
+                    "$ref": "#/definitions/models.PlayerStats"
+                }
+            }
+        },
+        "models.PlayerWeaponStats": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "damage": {
+                    "type": "integer"
+                },
+                "deaths": {
+                    "type": "integer"
+                },
+                "headshots": {
+                    "type": "integer"
+                },
+                "hits": {
+                    "type": "integer"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "shots": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PlaystyleBadge": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -2523,6 +4213,26 @@ const docTemplate = `{
                 }
             }
         },
+        "models.RecentMatch": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "integer"
+                },
+                "deaths": {
+                    "type": "integer"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "map_name": {
+                    "type": "string"
+                },
+                "match_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.RegisterServerRequest": {
             "type": "object",
             "properties": {
@@ -2561,6 +4271,82 @@ const docTemplate = `{
                 "label": {
                     "description": "Optional label",
                     "type": "string"
+                }
+            }
+        },
+        "models.RivalStats": {
+            "type": "object",
+            "properties": {
+                "nemesis_kills": {
+                    "description": "How many times they killed me",
+                    "type": "integer"
+                },
+                "nemesis_name": {
+                    "type": "string"
+                },
+                "victim_kills": {
+                    "description": "How many times I killed them",
+                    "type": "integer"
+                },
+                "victim_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServerCountryStatsResponse": {
+            "type": "object",
+            "properties": {
+                "country_code": {
+                    "type": "string"
+                },
+                "country_name": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "player_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ServerLiveStatusResponse": {
+            "type": "object",
+            "properties": {
+                "current_map": {
+                    "type": "string"
+                },
+                "current_players": {
+                    "type": "integer"
+                },
+                "gametype": {
+                    "type": "string"
+                },
+                "is_online": {
+                    "type": "boolean"
+                },
+                "last_update": {
+                    "type": "string"
+                },
+                "max_players": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ServerMapRotationResponse": {
+            "type": "object",
+            "properties": {
+                "avg_duration_mins": {
+                    "type": "number"
+                },
+                "map_name": {
+                    "type": "string"
+                },
+                "popularity_pct": {
+                    "type": "number"
+                },
+                "rotation_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -2656,6 +4442,138 @@ const docTemplate = `{
                 }
             }
         },
+        "models.SessionStats": {
+            "type": "object",
+            "properties": {
+                "matches_played": {
+                    "type": "integer"
+                },
+                "playtime_hours": {
+                    "type": "number"
+                },
+                "win_rate": {
+                    "type": "number"
+                },
+                "wins": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.SignatureStats": {
+            "type": "object",
+            "properties": {
+                "clutch_rate": {
+                    "type": "number"
+                },
+                "first_blood_rate": {
+                    "type": "number"
+                },
+                "play_style": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.StanceMapCombo": {
+            "type": "object",
+            "properties": {
+                "crouch_pct": {
+                    "type": "number"
+                },
+                "map_name": {
+                    "type": "string"
+                },
+                "prone_pct": {
+                    "type": "number"
+                },
+                "standing_pct": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.StanceStats": {
+            "type": "object",
+            "properties": {
+                "crouch_kills": {
+                    "type": "integer"
+                },
+                "crouch_pct": {
+                    "type": "number"
+                },
+                "prone_kills": {
+                    "type": "integer"
+                },
+                "prone_pct": {
+                    "type": "number"
+                },
+                "standing_kills": {
+                    "type": "integer"
+                },
+                "standing_pct": {
+                    "type": "number"
+                }
+            }
+        },
+        "models.StreakStats": {
+            "type": "object",
+            "properties": {
+                "best_kill_streak": {
+                    "type": "integer"
+                },
+                "best_win_streak": {
+                    "type": "integer"
+                },
+                "current_streak": {
+                    "type": "integer"
+                },
+                "worst_loss_streak": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.TimeWeaponCombo": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "time_slot": {
+                    "description": "\"Morning\", \"Afternoon\", \"Evening\", \"Night\"",
+                    "type": "string"
+                },
+                "weapon_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UnlockedAchievement": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "tier": {
+                    "type": "string"
+                },
+                "unlocked_at": {
+                    "type": "string"
+                }
+            }
+        },
         "models.VerifyTokenRequest": {
             "type": "object",
             "properties": {
@@ -2672,6 +4590,100 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.VictimPattern": {
+            "type": "object",
+            "properties": {
+                "deaths_to": {
+                    "type": "integer"
+                },
+                "favorite_weapon": {
+                    "type": "string"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "ratio": {
+                    "type": "number"
+                },
+                "victim_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WarRoomDataResponse": {
+            "type": "object",
+            "properties": {
+                "combo_metrics": {
+                    "$ref": "#/definitions/models.ComboMetrics"
+                },
+                "deep_stats": {
+                    "$ref": "#/definitions/models.DeepStats"
+                },
+                "kd_drilldown": {
+                    "$ref": "#/definitions/models.DrillDownResult"
+                },
+                "peak_performance": {
+                    "$ref": "#/definitions/models.PeakPerformance"
+                },
+                "playstyle": {
+                    "$ref": "#/definitions/models.PlaystyleBadge"
+                }
+            }
+        },
+        "models.WeaponMapCombo": {
+            "type": "object",
+            "properties": {
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "map_name": {
+                    "type": "string"
+                },
+                "weapon_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WeaponPeak": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "headshots": {
+                    "type": "integer"
+                },
+                "hs_percent": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "weapon_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.WeaponProgress": {
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "month": {
+                    "type": "string"
+                },
+                "weapon_name": {
                     "type": "string"
                 }
             }

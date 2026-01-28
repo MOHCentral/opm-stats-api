@@ -755,6 +755,14 @@ func (h *Handler) GetMapLeaderboard(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPlayerStats returns comprehensive stats for a player
+// @Summary Get Player Stats
+// @Description Fetch detailed statistics for a player using their GUID
+// @Tags Player
+// @Produce json
+// @Param guid path string true "Player GUID"
+// @Success 200 {object} models.PlayerStatsResponse "Player Stats"
+// @Failure 404 {object} map[string]string "Not Found"
+// @Router /stats/player/{guid} [get]
 func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	guid := chi.URLParam(r, "guid")
 	ctx := r.Context()
@@ -787,7 +795,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		ORDER BY played_at ASC
 	`, guid, guid, guid, guid)
 
-	performance := make([]map[string]interface{}, 0)
+	performance := make([]models.PerformancePoint, 0)
 	if err == nil {
 		defer perfRows.Close()
 		for perfRows.Next() {
@@ -799,12 +807,12 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 				if d > 0 {
 					kd = float64(k) / float64(d)
 				}
-				performance = append(performance, map[string]interface{}{
-					"match_id":  mid,
-					"kills":     k,
-					"deaths":    d,
-					"kd":        kd,
-					"played_at": t.Unix(),
+				performance = append(performance, models.PerformancePoint{
+					MatchID:  mid,
+					Kills:    k,
+					Deaths:   d,
+					KD:       kd,
+					PlayedAt: t.Unix(),
 				})
 			}
 		}
@@ -825,19 +833,19 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		LIMIT 5
 	`, guid, guid, guid, guid) // Fixed params for OR clause
 
-	maps := make([]map[string]interface{}, 0)
+	maps := make([]models.PlayerMapStats, 0)
 	if err == nil {
 		defer mapRows.Close()
 		for mapRows.Next() {
 			var name string
 			var k, d, m, w uint64
 			if err := mapRows.Scan(&name, &k, &d, &m, &w); err == nil {
-				maps = append(maps, map[string]interface{}{
-					"map_name":       name,
-					"kills":          k,
-					"deaths":         d,
-					"matches_played": m,
-					"matches_won":    w,
+				maps = append(maps, models.PlayerMapStats{
+					MapName:       name,
+					Kills:         k,
+					Deaths:        d,
+					MatchesPlayed: m,
+					MatchesWon:    w,
 				})
 			}
 		}
@@ -858,7 +866,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		LIMIT 10
 	`, guid, guid, guid, guid)
 
-	matches := make([]map[string]interface{}, 0)
+	matches := make([]models.RecentMatch, 0)
 	if err == nil {
 		defer matchRows.Close()
 		for matchRows.Next() {
@@ -866,71 +874,71 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 			var k, d uint64
 			var t time.Time
 			if err := matchRows.Scan(&mid, &mn, &k, &d, &t); err == nil {
-				matches = append(matches, map[string]interface{}{
-					"match_id": mid,
-					"map_name": mn,
-					"kills":    k,
-					"deaths":   d,
-					"date":     t.Unix(),
+				matches = append(matches, models.RecentMatch{
+					MatchID: mid,
+					MapName: mn,
+					Kills:   k,
+					Deaths:  d,
+					Date:    t.Unix(),
 				})
 			}
 		}
 	}
 
 	// Construct Flat Player Object
-	player := map[string]interface{}{
-		"guid": guid,
+	player := models.PlayerStats{
+		GUID:       guid,
+		Name:       "Unknown Soldier",
+		PlayerName: "Unknown Soldier",
 
 		// Combat
-		"kills":        deepStats.Combat.Kills,
-		"deaths":       deepStats.Combat.Deaths,
-		"kd_ratio":     deepStats.Combat.KDRatio,
-		"headshots":    deepStats.Combat.Headshots,
-		"accuracy":     deepStats.Accuracy.Overall,
-		"damage_dealt": deepStats.Combat.DamageDealt,
-		"damage_taken": deepStats.Combat.DamageTaken,
-		"suicides":     deepStats.Combat.Suicides,
-		"team_kills":   deepStats.Combat.TeamKills,
-		"bash_kills":   deepStats.Combat.BashKills,
+		Kills:       deepStats.Combat.Kills,
+		Deaths:      deepStats.Combat.Deaths,
+		KDRatio:     deepStats.Combat.KDRatio,
+		Headshots:   deepStats.Combat.Headshots,
+		Accuracy:    deepStats.Accuracy.Overall,
+		DamageDealt: deepStats.Combat.DamageDealt,
+		DamageTaken: deepStats.Combat.DamageTaken,
+		Suicides:    deepStats.Combat.Suicides,
+		TeamKills:   deepStats.Combat.TeamKills,
+		BashKills:   deepStats.Combat.BashKills,
 
 		// Body Parts
-		"torso_kills": deepStats.Combat.TorsoKills,
-		"limb_kills":  deepStats.Combat.LimbKills,
+		TorsoKills: deepStats.Combat.TorsoKills,
+		LimbKills:  deepStats.Combat.LimbKills,
 
 		// Session
-		"matches_played":   deepStats.Session.MatchesPlayed,
-		"matches_won":      deepStats.Session.Wins,
-		"win_rate":         deepStats.Session.WinRate,
-		"playtime_seconds": deepStats.Session.PlaytimeHours * 3600,
+		MatchesPlayed:   deepStats.Session.MatchesPlayed,
+		MatchesWon:      deepStats.Session.Wins,
+		WinRate:         deepStats.Session.WinRate,
+		PlaytimeSeconds: deepStats.Session.PlaytimeHours * 3600,
 
 		// Movement
-		"distance_traveled": deepStats.Movement.TotalDistanceKm * 1000, // Return meters
-		"jumps":             deepStats.Movement.JumpCount,
+		DistanceMeters: deepStats.Movement.TotalDistanceKm * 1000, // Return meters
+		Jumps:          deepStats.Movement.JumpCount,
 
 		// Stance
-		"standing_kills":  deepStats.Stance.StandingKills,
-		"crouching_kills": deepStats.Stance.CrouchKills,
-		"prone_kills":     deepStats.Stance.ProneKills,
+		StandingKills:  deepStats.Stance.StandingKills,
+		CrouchingKills: deepStats.Stance.CrouchKills,
+		ProneKills:     deepStats.Stance.ProneKills,
 
 		// Lists
-		"weapons":        deepStats.Weapons,
-		"maps":           maps,
-		"performance":    performance,
-		"recent_matches": matches,
-		"achievements":   []string{},
-
-		"name": "Unknown Soldier",
+		Weapons:       deepStats.Weapons,
+		Maps:          maps,
+		Performance:   performance,
+		RecentMatches: matches,
+		Achievements:  []string{},
 	}
 
 	// Try to get name
 	var name string
 	if err := h.ch.QueryRow(ctx, "SELECT any(actor_name) FROM mohaa_stats.raw_events WHERE actor_id = ?", guid).Scan(&name); err == nil && name != "" {
-		player["name"] = name
-		player["player_name"] = name
+		player.Name = name
+		player.PlayerName = name
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"player": player,
+	h.jsonResponse(w, http.StatusOK, models.PlayerStatsResponse{
+		Player: player,
 	})
 }
 

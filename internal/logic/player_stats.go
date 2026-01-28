@@ -17,108 +17,11 @@ func NewPlayerStatsService(ch driver.Conn) PlayerStatsService {
 	return &playerStatsService{ch: ch}
 }
 
-// DeepStats represents the massive aggregated stats object
-type DeepStats struct {
-	Combat      CombatStats      `json:"combat"`
-	Weapons     []WeaponStats    `json:"weapons"`
-	Movement    MovementStats    `json:"movement"`
-	Accuracy    AccuracyStats    `json:"accuracy"`
-	Session     SessionStats     `json:"session"`
-	Rivals      RivalStats       `json:"rivals"`
-	Stance      StanceStats      `json:"stance"`
-	Interaction InteractionStats `json:"interaction"`
-}
 
-type RivalStats struct {
-	NemesisName  string `json:"nemesis_name,omitempty"`
-	NemesisKills uint64 `json:"nemesis_kills"` // How many times they killed me
-	VictimName   string `json:"victim_name,omitempty"`
-	VictimKills  uint64 `json:"victim_kills"` // How many times I killed them
-}
-
-type StanceStats struct {
-	StandingKills uint64  `json:"standing_kills"`
-	CrouchKills   uint64  `json:"crouch_kills"`
-	ProneKills    uint64  `json:"prone_kills"`
-	StandingPct   float64 `json:"standing_pct"`
-	CrouchPct     float64 `json:"crouch_pct"`
-	PronePct      float64 `json:"prone_pct"`
-}
-
-type CombatStats struct {
-	Kills           uint64  `json:"kills"`
-	Deaths          uint64  `json:"deaths"`
-	KDRatio         float64 `json:"kd_ratio"`
-	Headshots       uint64  `json:"headshots"`
-	HeadshotPercent float64 `json:"headshot_percent"`
-	TorsoKills      uint64  `json:"torso_kills"`
-	LimbKills       uint64  `json:"limb_kills"`
-	MeleeKills      uint64  `json:"melee_kills"`
-	Gibs            uint64  `json:"gibs"`
-	Suicides        uint64  `json:"suicides"`
-	TeamKills       uint64  `json:"team_kills"`
-	TradingKills    uint64  `json:"trading_kills"` // Killed within 3s of tm death
-	RevengeKills    uint64  `json:"revenge_kills"`
-	HighestStreak   uint64  `json:"highest_streak"`
-	Nutshots        uint64  `json:"nutshots"`
-	Backstabs       uint64  `json:"backstabs"`
-	FirstBloods     uint64  `json:"first_bloods"`
-	Longshots       uint64  `json:"longshots"`
-	Roadkills       uint64  `json:"roadkills"`
-	BashKills       uint64  `json:"bash_kills"`
-	GrenadeKills    uint64  `json:"grenade_kills"`
-	GrenadesThrown  uint64  `json:"grenades_thrown"`
-	DamageDealt     uint64  `json:"damage_dealt"`
-	DamageTaken     uint64  `json:"damage_taken"`
-}
-
-type WeaponStats struct {
-	Name      string  `json:"name"`
-	Kills     uint64  `json:"kills"`
-	Deaths    uint64  `json:"deaths"`
-	Headshots uint64  `json:"headshots"`
-	Accuracy  float64 `json:"accuracy"`
-	Shots     uint64  `json:"shots"`
-	Hits      uint64  `json:"hits"`
-	Damage    uint64  `json:"damage"`
-}
-
-type MovementStats struct {
-	TotalDistanceKm float64 `json:"total_distance_km"`
-	JumpCount       uint64  `json:"jump_count"`
-	CrouchTimeSec   float64 `json:"crouch_time_sec"`
-	ProneTimeSec    float64 `json:"prone_time_sec"`
-	SprintTimeSec   float64 `json:"sprint_time_sec"`
-}
-
-type AccuracyStats struct {
-	Overall     float64 `json:"overall"`
-	HeadHitPct  float64 `json:"head_hit_pct"`
-	AvgDistance float64 `json:"avg_distance"`
-}
-
-type SessionStats struct {
-	PlaytimeHours float64 `json:"playtime_hours"`
-	MatchesPlayed uint64  `json:"matches_played"`
-	Wins          uint64  `json:"wins"`
-	WinRate       float64 `json:"win_rate"`
-}
-
-type InteractionStats struct {
-	ChatMessages uint64       `json:"chat_messages"`
-	Pickups      []PickupStat `json:"pickups"`
-	VehicleUses  uint64       `json:"vehicle_uses"`
-	TurretUses   uint64       `json:"turret_uses"`
-}
-
-type PickupStat struct {
-	ItemName string `json:"item_name"`
-	Count    uint64 `json:"count"`
-}
 
 // GetDeepStats fetches all categories for a player
-func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*DeepStats, error) {
-	stats := &DeepStats{}
+func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*models.DeepStats, error) {
+	stats := &models.DeepStats{}
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -128,7 +31,7 @@ func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*De
 			return fmt.Errorf("combat stats: %w", err)
 		}
 		if err := s.fillStanceStats(ctx, guid, &stats.Stance, stats.Combat.Kills); err != nil {
-			stats.Stance = StanceStats{}
+			stats.Stance = models.StanceStats{}
 		}
 		return nil
 	})
@@ -164,7 +67,7 @@ func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*De
 	g.Go(func() error {
 		if err := s.fillRivalStats(ctx, guid, &stats.Rivals); err != nil {
 			// Non-critical, log only? For now just return empty
-			stats.Rivals = RivalStats{}
+			stats.Rivals = models.RivalStats{}
 		}
 		return nil
 	})
@@ -172,7 +75,7 @@ func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*De
 	g.Go(func() error {
 		if err := s.fillInteractionStats(ctx, guid, &stats.Interaction); err != nil {
 			// Log or ignore
-			stats.Interaction = InteractionStats{}
+			stats.Interaction = models.InteractionStats{}
 		}
 		return nil
 	})
@@ -184,7 +87,7 @@ func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*De
 	return stats, nil
 }
 
-func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, out *CombatStats) error {
+func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, out *models.CombatStats) error {
 	query := `
 		SELECT 
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
@@ -235,7 +138,7 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 	return nil
 }
 
-func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, out *[]WeaponStats) error {
+func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, out *[]models.PlayerWeaponStats) error {
 	query := `
 		SELECT 
 			actor_weapon as weapon_name,
@@ -256,7 +159,7 @@ func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 	defer rows.Close()
 
 	for rows.Next() {
-		var w WeaponStats
+		var w models.PlayerWeaponStats
 		if err := rows.Scan(&w.Name, &w.Kills, &w.Headshots, &w.Shots, &w.Hits, &w.Damage); err != nil {
 			continue
 		}
@@ -268,7 +171,7 @@ func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 	return nil
 }
 
-func (s *playerStatsService) fillMovementStats(ctx context.Context, guid string, out *MovementStats) error {
+func (s *playerStatsService) fillMovementStats(ctx context.Context, guid string, out *models.MovementStats) error {
 	// Distance event stores walked/sprinted/swam/driven in raw_json
 	// Convert game units to kilometers (divide by 100000)
 	query := `
@@ -295,7 +198,7 @@ func (s *playerStatsService) fillMovementStats(ctx context.Context, guid string,
 	return nil
 }
 
-func (s *playerStatsService) fillAccuracyStats(ctx context.Context, guid string, out *AccuracyStats) error {
+func (s *playerStatsService) fillAccuracyStats(ctx context.Context, guid string, out *models.AccuracyStats) error {
 	var shots, hits, headshots uint64
 	var avgDist *float64
 
@@ -325,7 +228,7 @@ func (s *playerStatsService) fillAccuracyStats(ctx context.Context, guid string,
 	return nil
 }
 
-func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, out *SessionStats) error {
+func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, out *models.SessionStats) error {
 	// Count unique matches
 	query := `SELECT uniq(match_id) as matches FROM mohaa_stats.raw_events WHERE actor_id = ?`
 	if err := s.ch.QueryRow(ctx, query, guid).Scan(&out.MatchesPlayed); err != nil {
@@ -364,7 +267,7 @@ func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, 
 	return nil
 }
 
-func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid string, out *InteractionStats) error {
+func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid string, out *models.InteractionStats) error {
 	// Chat (both player_say and chat events)
 	s.ch.QueryRow(ctx, "SELECT countIf((event_type='player_say' OR event_type='chat') AND actor_id=?) FROM mohaa_stats.raw_events", guid).Scan(&out.ChatMessages)
 
@@ -400,7 +303,7 @@ func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid stri
 	defer rows.Close()
 
 	for rows.Next() {
-		var p PickupStat
+		var p models.PickupStat
 		if err := rows.Scan(&p.ItemName, &p.Count); err == nil {
 			out.Pickups = append(out.Pickups, p)
 		}
@@ -408,7 +311,7 @@ func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid stri
 	return nil
 }
 
-func (s *playerStatsService) fillRivalStats(ctx context.Context, guid string, out *RivalStats) error {
+func (s *playerStatsService) fillRivalStats(ctx context.Context, guid string, out *models.RivalStats) error {
 	// Find Nemesis (Player who killed me most)
 	err := s.ch.QueryRow(ctx, `
 		SELECT actor_name, count() as c 
@@ -433,7 +336,7 @@ func (s *playerStatsService) fillRivalStats(ctx context.Context, guid string, ou
 	return nil
 }
 
-func (s *playerStatsService) fillStanceStats(ctx context.Context, guid string, out *StanceStats, totalKills uint64) error {
+func (s *playerStatsService) fillStanceStats(ctx context.Context, guid string, out *models.StanceStats, totalKills uint64) error {
 	if totalKills == 0 {
 		return nil
 	}
@@ -542,7 +445,7 @@ func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid 
 }
 
 // GetPlayerStatsByMap returns detailed stats grouped by map
-func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid string) ([]models.MapStats, error) {
+func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid string) ([]models.PlayerMapStats, error) {
 	// Query map stats - aggregating kills, deaths, headshots per map
 	rows, err := s.ch.Query(ctx, `
 		SELECT
@@ -564,9 +467,9 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 	}
 	defer rows.Close()
 
-	stats := []models.MapStats{}
+	stats := []models.PlayerMapStats{}
 	for rows.Next() {
-		var s models.MapStats
+		var s models.PlayerMapStats
 		if err := rows.Scan(&s.MapName, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
 			continue
 		}

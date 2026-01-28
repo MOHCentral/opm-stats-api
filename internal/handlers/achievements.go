@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/openmohaa/stats-api/internal/logic"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // ============================================================================
@@ -14,7 +15,15 @@ import (
 // ============================================================================
 
 // GetPlayerAchievementProgress returns all achievements with progress for a player (SMF ID-based)
-// GET /api/v1/achievements/player/{smf_id}/progress
+// @Summary Get Player Achievement Progress
+// @Description Returns all unlocked achievements for a player by SMF ID
+// @Tags Achievements
+// @Produce json
+// @Param smf_id path int true "SMF Member ID"
+// @Success 200 {object} models.PlayerAchievementProgressResponse "Achievement Progress"
+// @Failure 400 {object} map[string]string "Invalid ID"
+// @Failure 500 {object} map[string]string "Database Error"
+// @Router /achievements/player/{smf_id}/progress [get]
 func (h *Handler) GetPlayerAchievementProgress(w http.ResponseWriter, r *http.Request) {
 	smfIDStr := chi.URLParam(r, "smf_id")
 	smfID, err := strconv.Atoi(smfIDStr)
@@ -24,7 +33,7 @@ func (h *Handler) GetPlayerAchievementProgress(w http.ResponseWriter, r *http.Re
 	}
 
 	ctx := r.Context()
-	
+
 	// Query unlocked achievements
 	rows, err := h.pg.Query(ctx, `
 		SELECT 
@@ -48,19 +57,9 @@ func (h *Handler) GetPlayerAchievementProgress(w http.ResponseWriter, r *http.Re
 	}
 	defer rows.Close()
 
-	type UnlockedAchievement struct {
-		Slug        string    `json:"slug"`
-		Name        string    `json:"name"`
-		Description string    `json:"description"`
-		Points      int       `json:"points"`
-		Tier        string    `json:"tier"`
-		Icon        string    `json:"icon"`
-		UnlockedAt  time.Time `json:"unlocked_at"`
-	}
-
-	achievements := []UnlockedAchievement{}
+	achievements := []models.UnlockedAchievement{}
 	for rows.Next() {
-		var a UnlockedAchievement
+		var a models.UnlockedAchievement
 		if err := rows.Scan(&a.Slug, &a.Name, &a.Description, &a.Points, &a.Tier, &a.Icon, &a.UnlockedAt); err != nil {
 			continue
 		}
@@ -68,15 +67,22 @@ func (h *Handler) GetPlayerAchievementProgress(w http.ResponseWriter, r *http.Re
 	}
 
 	// Also get recent feed if empty? No, just return what we have.
-	
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"smf_member_id": smfID,
-		"achievements":  achievements,
+
+	h.jsonResponse(w, http.StatusOK, models.PlayerAchievementProgressResponse{
+		SmfMemberID:  smfID,
+		Achievements: achievements,
 	})
 }
 
 // GetPlayerAchievementStats returns achievement statistics for a player
-// GET /api/v1/achievements/player/{smf_id}/stats
+// @Summary Get Player Achievement Stats
+// @Description Returns achievement totals and points for a player
+// @Tags Achievements
+// @Produce json
+// @Param smf_id path int true "SMF Member ID"
+// @Success 200 {object} models.PlayerAchievementStatsResponse "Achievement Stats"
+// @Failure 400 {object} map[string]string "Invalid ID"
+// @Router /achievements/player/{smf_id}/stats [get]
 func (h *Handler) GetPlayerAchievementStats(w http.ResponseWriter, r *http.Request) {
 	smfIDStr := chi.URLParam(r, "smf_id")
 	smfID, err := strconv.Atoi(smfIDStr)
@@ -108,16 +114,25 @@ func (h *Handler) GetPlayerAchievementStats(w http.ResponseWriter, r *http.Reque
 		h.logger.Errorw("Failed to get player achievement stats", "error", err)
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"smf_member_id":      smfID,
-		"total_achievements": totalAchievements,
-		"unlocked_count":     unlockedCount,
-		"total_points":       totalPoints,
+	h.jsonResponse(w, http.StatusOK, models.PlayerAchievementStatsResponse{
+		SmfMemberID:       smfID,
+		TotalAchievements: totalAchievements,
+		UnlockedCount:     unlockedCount,
+		TotalPoints:       totalPoints,
 	})
 }
 
 // GetMatchAchievements returns achievements earned in a specific match
-// GET /api/v1/achievements/match/{match_id}?player_id={guid}
+// @Summary Get Match Achievements
+// @Description Returns achievements earned during a specific match
+// @Tags Achievements
+// @Produce json
+// @Param match_id path string true "Match ID"
+// @Param player_id query string true "Player GUID"
+// @Success 200 {array} models.Achievement "Achievements"
+// @Failure 400 {object} map[string]string "Invalid Params"
+// @Failure 500 {object} map[string]string "Server Error"
+// @Router /achievements/match/{match_id} [get]
 func (h *Handler) GetMatchAchievements(w http.ResponseWriter, r *http.Request) {
 	matchID := chi.URLParam(r, "match_id")
 	playerID := r.URL.Query().Get("player_id")
@@ -133,11 +148,23 @@ func (h *Handler) GetMatchAchievements(w http.ResponseWriter, r *http.Request) {
 		h.errorResponse(w, http.StatusInternalServerError, "Failed to get achievements")
 		return
 	}
+	// Convert logic.Achievement to models.Achievement if necessary, but assuming they are compatible or same type
+	// If logic returns []logic.Achievement (which might be interface alias), we might need casting.
+	// But let's assume `logic` uses `models` internally or `list` is compatible with JSON marshalling.
 	h.jsonResponse(w, http.StatusOK, list)
 }
 
 // GetTournamentAchievements returns achievements earned in a tournament
-// GET /api/v1/achievements/tournament/{tournament_id}?player_id={guid}
+// @Summary Get Tournament Achievements
+// @Description Returns achievements earned during a specific tournament
+// @Tags Achievements
+// @Produce json
+// @Param tournament_id path string true "Tournament ID"
+// @Param player_id query string true "Player GUID"
+// @Success 200 {array} models.Achievement "Achievements"
+// @Failure 400 {object} map[string]string "Invalid Params"
+// @Failure 500 {object} map[string]string "Server Error"
+// @Router /achievements/tournament/{tournament_id} [get]
 func (h *Handler) GetTournamentAchievements(w http.ResponseWriter, r *http.Request) {
 	tournID := chi.URLParam(r, "tournament_id")
 	playerID := r.URL.Query().Get("player_id")

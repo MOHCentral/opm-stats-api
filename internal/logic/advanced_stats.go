@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // AdvancedStatsService provides comprehensive stats analysis
@@ -16,78 +17,11 @@ func NewAdvancedStatsService(ch driver.Conn) AdvancedStatsService {
 	return &advancedStatsService{ch: ch}
 }
 
-// =============================================================================
-// PEAK PERFORMANCE - "WHEN" ANALYSIS
-// =============================================================================
 
-// PeakPerformance shows when a player performs best
-type PeakPerformance struct {
-	BestHour        HourStats      `json:"best_hour"`
-	BestDay         DayStats       `json:"best_day"`
-	BestMap         MapPeakStats   `json:"best_map"`
-	BestWeapon      WeaponPeak     `json:"best_weapon"`
-	HourlyBreakdown []HourStats    `json:"hourly_breakdown"`
-	DailyBreakdown  []DayStats     `json:"daily_breakdown"`
-	Streaks         StreakStats    `json:"streaks"`
-	MostAccurateAt  string         `json:"most_accurate_at"`
-	MostWinsAt      string         `json:"most_wins_at"`
-	MostLossesAt    string         `json:"most_losses_at"`
-	BestConditions  BestConditions `json:"best_conditions"`
-}
-
-type BestConditions struct {
-	BestHourLabel      string `json:"best_hour_label"`
-	BestDay            string `json:"best_day"`
-	BestMap            string `json:"best_map"`
-	OptimalSessionMins int    `json:"optimal_session_mins"`
-}
-
-type HourStats struct {
-	Hour     int     `json:"hour"`
-	Kills    int64   `json:"kills"`
-	Deaths   int64   `json:"deaths"`
-	KDRatio  float64 `json:"kd_ratio"`
-	Accuracy float64 `json:"accuracy"`
-	Wins     int64   `json:"wins"`
-	Losses   int64   `json:"losses"`
-}
-
-type DayStats struct {
-	DayOfWeek string  `json:"day_of_week"`
-	DayNum    int     `json:"day_num"` // 0=Sunday
-	Kills     int64   `json:"kills"`
-	Deaths    int64   `json:"deaths"`
-	KDRatio   float64 `json:"kd_ratio"`
-	Accuracy  float64 `json:"accuracy"`
-	Playtime  float64 `json:"playtime_hours"`
-}
-
-type MapPeakStats struct {
-	MapName string  `json:"map_name"`
-	Kills   int64   `json:"kills"`
-	Deaths  int64   `json:"deaths"`
-	KDRatio float64 `json:"kd_ratio"`
-	WinRate float64 `json:"win_rate"`
-}
-
-type WeaponPeak struct {
-	WeaponName string  `json:"weapon_name"`
-	Kills      int64   `json:"kills"`
-	Headshots  int64   `json:"headshots"`
-	HSPercent  float64 `json:"hs_percent"`
-	Accuracy   float64 `json:"accuracy"`
-}
-
-type StreakStats struct {
-	CurrentStreak   int64 `json:"current_streak"`
-	BestKillStreak  int64 `json:"best_kill_streak"`
-	BestWinStreak   int64 `json:"best_win_streak"`
-	WorstLossStreak int64 `json:"worst_loss_streak"`
-}
 
 // GetPeakPerformance returns when a player performs best
-func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid string) (*PeakPerformance, error) {
-	peak := &PeakPerformance{}
+func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid string) (*models.PeakPerformance, error) {
+	peak := &models.PeakPerformance{}
 
 	// Hourly breakdown
 	rows, err := s.ch.Query(ctx, `
@@ -117,7 +51,7 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	var mostLosses int64
 
 	for rows.Next() {
-		var h HourStats
+		var h models.HourStats
 		var shots, hits int64
 		if err := rows.Scan(&h.Hour, &h.Kills, &h.Deaths, &shots, &hits, &h.Wins); err != nil {
 			continue
@@ -175,7 +109,7 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 		dayNames := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 		var bestDayKD float64
 		for dayRows.Next() {
-			var d DayStats
+			var d models.DayStats
 			var dow int
 			var shots, hits int64
 			if err := dayRows.Scan(&dow, &d.Kills, &d.Deaths, &shots, &hits); err != nil {
@@ -257,42 +191,18 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	return peak, nil
 }
 
-// =============================================================================
-// DRILL-DOWN STATS - Click any stat to explore deeper
-// =============================================================================
 
-// DrillDownRequest specifies what to drill into
-type DrillDownRequest struct {
-	Stat      string `json:"stat"`      // e.g., "kills", "headshots", "accuracy"
-	Dimension string `json:"dimension"` // e.g., "weapon", "map", "hour", "victim", "hitloc"
-	Limit     int    `json:"limit"`
-}
-
-// DrillDownResult is a breakdown of the stat
-type DrillDownResult struct {
-	Stat      string          `json:"stat"`
-	Dimension string          `json:"dimension"`
-	Total     int64           `json:"total"`
-	Items     []DrillDownItem `json:"items"`
-}
-
-type DrillDownItem struct {
-	Label      string  `json:"label"`
-	Value      int64   `json:"value"`
-	Percentage float64 `json:"percentage"`
-	Sublabel   string  `json:"sublabel,omitempty"`
-}
 
 // GetDrillDown breaks down a stat by a dimension
-func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, stat string, dimension string, limit int) (*DrillDownResult, error) {
+func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, stat string, dimension string, limit int) (*models.DrillDownResult, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 10
 	}
 
-	result := &DrillDownResult{
+	result := &models.DrillDownResult{
 		Stat:      stat,
 		Dimension: dimension,
-		Items:     []DrillDownItem{},
+		Items:     []models.DrillDownItem{},
 	}
 
 	// Build query based on stat and dimension
@@ -366,7 +276,7 @@ func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, st
 
 	var total int64
 	for rows.Next() {
-		var item DrillDownItem
+		var item models.DrillDownItem
 		if err := rows.Scan(&item.Label, &item.Value); err != nil {
 			continue
 		}
@@ -385,95 +295,11 @@ func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, st
 	return result, nil
 }
 
-// =============================================================================
-// COMBO METRICS - Cross-dimensional analysis
-// =============================================================================
 
-// ComboMetrics are creative stat combinations
-type ComboMetrics struct {
-	WeaponOnMap       []WeaponMapCombo  `json:"weapon_on_map"`      // Best weapon per map
-	TimeOfDayWeapon   []TimeWeaponCombo `json:"time_of_day_weapon"` // Best weapon by time
-	VictimPatterns    []VictimPattern   `json:"victim_patterns"`    // Who you dominate
-	KillerPatterns    []KillerPattern   `json:"killer_patterns"`    // Who dominates you
-	DistanceByWeapon  []DistanceWeapon  `json:"distance_by_weapon"` // Avg kill distance per weapon
-	StanceByMap       []StanceMapCombo  `json:"stance_by_map"`      // Playstyle per map
-	HitlocByWeapon    []HitlocWeapon    `json:"hitloc_by_weapon"`   // Accuracy zone per weapon
-	WeaponProgression []WeaponProgress  `json:"weapon_progression"` // Skill improvement over time
-	Signature         SignatureStats    `json:"signature"`
-	MovementCombat    MovementCombat    `json:"movement_combat"`
-}
-
-type SignatureStats struct {
-	PlayStyle      string  `json:"play_style"`
-	ClutchRate     float64 `json:"clutch_rate"`
-	FirstBloodRate float64 `json:"first_blood_rate"`
-}
-
-type MovementCombat struct {
-	RunGunIndex        float64 `json:"run_gun_index"`
-	BunnyHopEfficiency float64 `json:"bunny_hop_efficiency"`
-}
-
-type WeaponMapCombo struct {
-	MapName    string  `json:"map_name"`
-	WeaponName string  `json:"weapon_name"`
-	Kills      int64   `json:"kills"`
-	KDRatio    float64 `json:"kd_ratio"`
-}
-
-type TimeWeaponCombo struct {
-	TimeSlot   string  `json:"time_slot"` // "Morning", "Afternoon", "Evening", "Night"
-	WeaponName string  `json:"weapon_name"`
-	Kills      int64   `json:"kills"`
-	Accuracy   float64 `json:"accuracy"`
-}
-
-type VictimPattern struct {
-	VictimName     string  `json:"victim_name"`
-	Kills          int64   `json:"kills"`
-	DeathsTo       int64   `json:"deaths_to"`
-	Ratio          float64 `json:"ratio"`
-	FavoriteWeapon string  `json:"favorite_weapon"`
-}
-
-type KillerPattern struct {
-	KillerName     string `json:"killer_name"`
-	DeathsTo       int64  `json:"deaths_to"`
-	KillsAgainst   int64  `json:"kills_against"`
-	MostUsedWeapon string `json:"most_used_weapon"`
-}
-
-type DistanceWeapon struct {
-	WeaponName  string  `json:"weapon_name"`
-	AvgDistance float64 `json:"avg_distance"`
-	MaxDistance float64 `json:"max_distance"`
-	MinDistance float64 `json:"min_distance"`
-}
-
-type StanceMapCombo struct {
-	MapName     string  `json:"map_name"`
-	StandingPct float64 `json:"standing_pct"`
-	CrouchPct   float64 `json:"crouch_pct"`
-	PronePct    float64 `json:"prone_pct"`
-}
-
-type HitlocWeapon struct {
-	WeaponName string  `json:"weapon_name"`
-	HeadPct    float64 `json:"head_pct"`
-	TorsoPct   float64 `json:"torso_pct"`
-	LimbPct    float64 `json:"limb_pct"`
-}
-
-type WeaponProgress struct {
-	WeaponName string  `json:"weapon_name"`
-	Month      string  `json:"month"`
-	Kills      int64   `json:"kills"`
-	Accuracy   float64 `json:"accuracy"`
-}
 
 // GetComboMetrics returns cross-dimensional stat combinations
-func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string) (*ComboMetrics, error) {
-	combo := &ComboMetrics{}
+func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string) (*models.ComboMetrics, error) {
+	combo := &models.ComboMetrics{}
 
 	// Weapon on Map (best weapon per map)
 	rows, err := s.ch.Query(ctx, `
@@ -490,7 +316,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 		defer rows.Close()
 		seenMaps := make(map[string]bool)
 		for rows.Next() {
-			var wm WeaponMapCombo
+			var wm models.WeaponMapCombo
 			if err := rows.Scan(&wm.MapName, &wm.WeaponName, &wm.Kills); err != nil {
 				continue
 			}
@@ -529,7 +355,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	if err == nil {
 		defer victimRows.Close()
 		for victimRows.Next() {
-			var vp VictimPattern
+			var vp models.VictimPattern
 			if err := victimRows.Scan(&vp.VictimName, &vp.Kills, &vp.DeathsTo, &vp.FavoriteWeapon); err != nil {
 				continue
 			}
@@ -570,7 +396,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	if err == nil {
 		defer killerRows.Close()
 		for killerRows.Next() {
-			var kp KillerPattern
+			var kp models.KillerPattern
 			if err := killerRows.Scan(&kp.KillerName, &kp.DeathsTo, &kp.KillsAgainst, &kp.MostUsedWeapon); err != nil {
 				continue
 			}
@@ -594,7 +420,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	if err == nil {
 		defer distRows.Close()
 		for distRows.Next() {
-			var dw DistanceWeapon
+			var dw models.DistanceWeapon
 			if err := distRows.Scan(&dw.WeaponName, &dw.AvgDistance, &dw.MaxDistance, &dw.MinDistance); err != nil {
 				continue
 			}
@@ -619,7 +445,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	if err == nil {
 		defer hitlocRows.Close()
 		for hitlocRows.Next() {
-			var hw HitlocWeapon
+			var hw models.HitlocWeapon
 			if err := hitlocRows.Scan(&hw.WeaponName, &hw.HeadPct, &hw.TorsoPct, &hw.LimbPct); err != nil {
 				continue
 			}
@@ -699,37 +525,11 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	return combo, nil
 }
 
-// =============================================================================
-// VEHICLE & TURRET STATS
-// =============================================================================
 
-// VehicleStats represents vehicle-related statistics
-type VehicleStats struct {
-	VehicleUses   int64         `json:"vehicle_uses"`
-	VehicleKills  int64         `json:"vehicle_kills"`
-	VehicleDeaths int64         `json:"vehicle_deaths"`
-	TotalDriven   float64       `json:"total_driven_km"`
-	VehicleTypes  []VehicleType `json:"vehicle_types"`
-	TurretStats   TurretStats   `json:"turret_stats"`
-}
-
-type VehicleType struct {
-	VehicleName string  `json:"vehicle_name"`
-	Uses        int64   `json:"uses"`
-	Kills       int64   `json:"kills"`
-	Deaths      int64   `json:"deaths"`
-	DistanceKm  float64 `json:"distance_km"`
-}
-
-type TurretStats struct {
-	TurretUses   int64 `json:"turret_uses"`
-	TurretKills  int64 `json:"turret_kills"`
-	TurretDeaths int64 `json:"turret_deaths"`
-}
 
 // GetVehicleStats returns vehicle and turret statistics
-func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string) (*VehicleStats, error) {
-	stats := &VehicleStats{}
+func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string) (*models.VehicleStats, error) {
+	stats := &models.VehicleStats{}
 
 	// Basic vehicle stats
 	err := s.ch.QueryRow(ctx, `
@@ -769,7 +569,7 @@ func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var vt VehicleType
+			var vt models.VehicleType
 			if err := rows.Scan(&vt.VehicleName, &vt.Uses); err != nil {
 				continue
 			}
@@ -780,38 +580,11 @@ func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string)
 	return stats, nil
 }
 
-// =============================================================================
-// GAME FLOW STATS
-// =============================================================================
 
-// GameFlowStats represents round/objective/team statistics
-type GameFlowStats struct {
-	RoundsPlayed     int64           `json:"rounds_played"`
-	RoundsWon        int64           `json:"rounds_won"`
-	RoundsLost       int64           `json:"rounds_lost"`
-	RoundWinRate     float64         `json:"round_win_rate"`
-	ObjectivesTotal  int64           `json:"objectives_total"`
-	ObjectivesByType []ObjectiveStat `json:"objectives_by_type"`
-	FirstBloods      int64           `json:"first_bloods"`
-	ClutchWins       int64           `json:"clutch_wins"`
-	TeamStats        TeamStats       `json:"team_stats"`
-}
-
-type ObjectiveStat struct {
-	ObjectiveType string `json:"objective_type"`
-	Count         int64  `json:"count"`
-}
-
-type TeamStats struct {
-	AlliesPlaytime float64 `json:"allies_playtime_pct"`
-	AxisPlaytime   float64 `json:"axis_playtime_pct"`
-	AlliesWins     int64   `json:"allies_wins"`
-	AxisWins       int64   `json:"axis_wins"`
-}
 
 // GetGameFlowStats returns round/objective/team statistics
-func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string) (*GameFlowStats, error) {
-	stats := &GameFlowStats{}
+func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string) (*models.GameFlowStats, error) {
+	stats := &models.GameFlowStats{}
 
 	// Basic round stats
 	err := s.ch.QueryRow(ctx, `
@@ -844,7 +617,7 @@ func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var os ObjectiveStat
+			var os models.ObjectiveStat
 			if err := rows.Scan(&os.ObjectiveType, &os.Count); err != nil {
 				continue
 			}
@@ -864,27 +637,11 @@ func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string
 	return stats, nil
 }
 
-// =============================================================================
-// WORLD INTERACTION STATS
-// =============================================================================
 
-// WorldStats represents world interaction statistics
-type WorldStats struct {
-	LadderMounts    int64   `json:"ladder_mounts"`
-	LadderDistance  float64 `json:"ladder_distance"`
-	DoorsOpened     int64   `json:"doors_opened"`
-	DoorsClosed     int64   `json:"doors_closed"`
-	ItemsPickedUp   int64   `json:"items_picked_up"`
-	ItemsDropped    int64   `json:"items_dropped"`
-	UseInteractions int64   `json:"use_interactions"`
-	ChatMessages    int64   `json:"chat_messages"`
-	FallDamage      int64   `json:"fall_damage"`
-	FallDeaths      int64   `json:"fall_deaths"`
-}
 
 // GetWorldStats returns world interaction statistics
-func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (*WorldStats, error) {
-	stats := &WorldStats{}
+func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (*models.WorldStats, error) {
+	stats := &models.WorldStats{}
 
 	err := s.ch.QueryRow(ctx, `
 		SELECT 
@@ -914,28 +671,11 @@ func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (
 	return stats, nil
 }
 
-// =============================================================================
-// BOT STATS
-// =============================================================================
 
-// BotStats represents bot-related statistics
-type BotStats struct {
-	BotKills       int64         `json:"bot_kills"`
-	DeathsToBots   int64         `json:"deaths_to_bots"`
-	BotKDRatio     float64       `json:"bot_kd_ratio"`
-	BotsByType     []BotTypeStat `json:"bots_by_type"`
-	AvgBotKillDist float64       `json:"avg_bot_kill_distance"`
-}
-
-type BotTypeStat struct {
-	BotType string `json:"bot_type"`
-	Kills   int64  `json:"kills"`
-	Deaths  int64  `json:"deaths"`
-}
 
 // GetBotStats returns bot-related statistics
-func (s *advancedStatsService) GetBotStats(ctx context.Context, guid string) (*BotStats, error) {
-	stats := &BotStats{}
+func (s *advancedStatsService) GetBotStats(ctx context.Context, guid string) (*models.BotStats, error) {
+	stats := &models.BotStats{}
 
 	// Bot kills/deaths (assuming bots have 'bot' in their name or a flag)
 	err := s.ch.QueryRow(ctx, `
@@ -964,7 +704,7 @@ func (s *advancedStatsService) GetBotStats(ctx context.Context, guid string) (*B
 // =============================================================================
 
 // GetDrillDownNested returns a second-level breakdown
-func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, stat, parentDim, parentValue, childDim string, limit int) ([]DrillDownItem, error) {
+func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, stat, parentDim, parentValue, childDim string, limit int) ([]models.DrillDownItem, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1009,10 +749,10 @@ func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, sta
 	}
 	defer rows.Close()
 
-	var items []DrillDownItem
+	var items []models.DrillDownItem
 	var total int64
 	for rows.Next() {
-		var item DrillDownItem
+		var item models.DrillDownItem
 		if err := rows.Scan(&item.Label, &item.Value); err != nil {
 			continue
 		}
@@ -1029,7 +769,7 @@ func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, sta
 }
 
 // GetStatLeaders returns players ranked by a stat in a specific context (e.g. Best with MP40)
-func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]map[string]interface{}, error) {
+func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]models.LeaderboardEntry, error) {
 	if limit <= 0 {
 		limit = 25
 	}
@@ -1066,7 +806,7 @@ func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimensi
 	}
 	defer rows.Close()
 
-	var leaders []map[string]interface{}
+	var leaders []models.LeaderboardEntry
 	rank := 1
 	for rows.Next() {
 		var id, name string
@@ -1074,11 +814,11 @@ func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimensi
 		if err := rows.Scan(&id, &name, &val); err != nil {
 			continue
 		}
-		leaders = append(leaders, map[string]interface{}{
-			"rank":        rank,
-			"player_id":   id,
-			"player_name": name,
-			"value":       val,
+		leaders = append(leaders, models.LeaderboardEntry{
+			Rank:       rank,
+			PlayerID:   id,
+			PlayerName: name,
+			Value:      float64(val),
 		})
 		rank++
 	}

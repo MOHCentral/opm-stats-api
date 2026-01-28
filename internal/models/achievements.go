@@ -82,3 +82,36 @@ type PlayerAchievement struct {
 // NOTE: Achievement definitions are stored in SMF MariaDB (smf_mohaa_achievement_defs table)
 // The Go API does NOT manage achievement definitions - PHP/SMF is the source of truth.
 // This API only provides player stats that PHP uses to calculate achievement progress.
+
+type UnlockedAchievement struct {
+	Slug        string    `json:"slug"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Points      int       `json:"points"`
+	Tier        string    `json:"tier"`
+	Icon        string    `json:"icon"`
+	UnlockedAt  time.Time `json:"unlocked_at"`
+}
+
+type PlayerAchievementProgressResponse struct {
+	SmfMemberID  int                   `json:"smf_member_id"`
+	Achievements []UnlockedAchievement `json:"achievements"`
+}
+
+type PlayerAchievementStatsResponse struct {
+	SmfMemberID       int `json:"smf_member_id"`
+	TotalAchievements int `json:"total_achievements"`
+	UnlockedCount     int `json:"unlocked_count"`
+	TotalPoints       int `json:"total_points"`
+}
+
+type ContextualAchievement struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	Tier        string `json:"tier"` // "gold", "silver", "bronze"
+	IsUnlocked  bool   `json:"is_unlocked"`
+	Progress    int    `json:"progress,omitempty"`
+	MaxProgress int    `json:"max_progress,omitempty"`
+}

@@ -240,3 +240,26 @@ type ServerPulse struct {
 	MeatGrinderMap   string  `json:"meat_grinder_map"`   // Map with most deaths/minute
 	ActivePlayers    int64   `json:"active_players"`     // Currently online (approx)
 }
+
+type ServerLiveStatusResponse struct {
+	IsOnline       bool   `json:"is_online"`
+	CurrentMap     string `json:"current_map"`
+	CurrentPlayers int    `json:"current_players"`
+	MaxPlayers     int    `json:"max_players"`
+	Gametype       string `json:"gametype"`
+	LastUpdate     string `json:"last_update"`
+}
+
+type ServerCountryStatsResponse struct {
+	CountryCode string  `json:"country_code"`
+	CountryName string  `json:"country_name"`
+	PlayerCount int64   `json:"player_count"`
+	Percentage  float64 `json:"percentage"`
+}
+
+type ServerMapRotationResponse struct {
+	MapName       string  `json:"map_name"`
+	RotationCount int64   `json:"rotation_count"`
+	AvgDuration   float64 `json:"avg_duration_mins"`
+	Popularity    float64 `json:"popularity_pct"`
+}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 type gamificationService struct {
@@ -15,15 +16,8 @@ func NewGamificationService(ch driver.Conn) GamificationService {
 	return &gamificationService{ch: ch}
 }
 
-type PlaystyleBadge struct {
-	Style       string  `json:"style"`      // "Rusher", "Sniper", "Camper", "Versatile"
-	Confidence  float64 `json:"confidence"` // 0-100%
-	Icon        string  `json:"icon"`       // Icon name for frontend
-	Description string  `json:"description"`
-}
-
 // GetPlaystyle analyzes player stats to determine their dominant playstyle
-func (s *gamificationService) GetPlaystyle(ctx context.Context, playerID string) (*PlaystyleBadge, error) {
+func (s *gamificationService) GetPlaystyle(ctx context.Context, playerID string) (*models.PlaystyleBadge, error) {
 	// Query aggregates needed for classification
 	var avgDist float64
 	var topWeapon string
@@ -44,7 +38,7 @@ func (s *gamificationService) GetPlaystyle(ctx context.Context, playerID string)
 	}
 
 	if totalKills < 10 {
-		return &PlaystyleBadge{Style: "Rookie", Description: "Too early to tell!", Icon: "recruit"}, nil
+		return &models.PlaystyleBadge{Name: "Rookie", Description: "Too early to tell!", Icon: "recruit"}, nil
 	}
 
 	// 2. Classify
@@ -79,10 +73,10 @@ func (s *gamificationService) GetPlaystyle(ctx context.Context, playerID string)
 		icon = "running"
 	}
 
-	return &PlaystyleBadge{
-		Style:       style,
+	return &models.PlaystyleBadge{
+		Name:        style,
 		Description: desc,
 		Icon:        icon,
-		Confidence:  85.0, // Static for now
+		// Confidence:  85.0, // Removed from model or needs adding?
 	}, nil
 }

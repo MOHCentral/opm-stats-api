@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // ============================================================================
@@ -12,7 +13,16 @@ import (
 // ============================================================================
 
 // GetPlayerPeakPerformance returns when/where a player performs best
-// GET /api/v1/stats/player/{guid}/peak-performance
+// @Summary Get player peak performance
+// @Description Returns stats showing when and where a player performs best (best hour, day, map, weapon)
+// @Tags Advanced Stats
+// @Accept json
+// @Produce json
+// @Param guid path string true "Player GUID"
+// @Success 200 {object} models.PeakPerformance
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/player/{guid}/peak-performance [get]
 func (h *Handler) GetPlayerPeakPerformance(w http.ResponseWriter, r *http.Request) {
 	guid := chi.URLParam(r, "guid")
 	if guid == "" {
@@ -31,7 +41,16 @@ func (h *Handler) GetPlayerPeakPerformance(w http.ResponseWriter, r *http.Reques
 }
 
 // GetPlayerComboMetrics returns cross-event correlation metrics
-// GET /api/v1/stats/player/{guid}/combos
+// @Summary Get player combo metrics
+// @Description Returns complex cross-referenced stats like best weapon per map, victim/killer patterns, etc.
+// @Tags Advanced Stats
+// @Accept json
+// @Produce json
+// @Param guid path string true "Player GUID"
+// @Success 200 {object} models.ComboMetrics
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/player/{guid}/combos [get]
 func (h *Handler) GetPlayerComboMetrics(w http.ResponseWriter, r *http.Request) {
 	guid := chi.URLParam(r, "guid")
 	if guid == "" {
@@ -50,7 +69,19 @@ func (h *Handler) GetPlayerComboMetrics(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetPlayerDrillDown provides hierarchical stat exploration
-// GET /api/v1/stats/player/{guid}/drilldown?stat=kd&dimensions[]=weapon&dimensions[]=map
+// @Summary Drill down into player stats
+// @Description Allows drilling down into a specific stat by a dimension (e.g. K/D by Weapon)
+// @Tags Advanced Stats
+// @Accept json
+// @Produce json
+// @Param guid path string true "Player GUID"
+// @Param stat query string false "Stat to analyze" default(kd)
+// @Param dimension query string false "Dimension to group by" default(weapon)
+// @Param limit query int false "Max items to return" default(10)
+// @Success 200 {object} models.DrillDownResult
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/player/{guid}/drilldown [get]
 func (h *Handler) GetPlayerDrillDown(w http.ResponseWriter, r *http.Request) {
 	guid := chi.URLParam(r, "guid")
 	if guid == "" {
@@ -87,7 +118,21 @@ func (h *Handler) GetPlayerDrillDown(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPlayerDrillDownNested gets second-level breakdown within a dimension
-// GET /api/v1/stats/player/{guid}/drilldown/{dimension}/{value}?child_dimension=map
+// @Summary Nested drill down
+// @Description Provides a second level of breakdown (e.g. K/D with Thompson on Mohdm6)
+// @Tags Advanced Stats
+// @Accept json
+// @Produce json
+// @Param guid path string true "Player GUID"
+// @Param dimension path string true "Parent Dimension (e.g. weapon)"
+// @Param value path string true "Parent Value (e.g. Thompson)"
+// @Param child_dimension query string true "Child Dimension (e.g. map)"
+// @Param stat query string false "Stat to analyze" default(kd)
+// @Param limit query int false "Max items to return" default(10)
+// @Success 200 {object} models.DrillDownNestedResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/player/{guid}/drilldown/{dimension}/{value} [get]
 func (h *Handler) GetPlayerDrillDownNested(w http.ResponseWriter, r *http.Request) {
 	guid := chi.URLParam(r, "guid")
 	parentDim := chi.URLParam(r, "dimension")
@@ -123,16 +168,29 @@ func (h *Handler) GetPlayerDrillDownNested(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"parent_dimension": parentDim,
-		"parent_value":     parentValue,
-		"child_dimension":  childDim,
-		"items":            items,
+	// ...
+	h.jsonResponse(w, http.StatusOK, models.DrillDownNestedResponse{
+		ParentDimension: parentDim,
+		ParentValue:     parentValue,
+		ChildDimension:  childDim,
+		Items:           items,
 	})
 }
 
 // GetContextualLeaderboard returns top players for a specific context
-// GET /api/v1/stats/leaderboard/contextual?stat=kd&dimension=map&value=mohdm6
+// @Summary Contextual leaderboard
+// @Description Get best players for a specific context (e.g. Best Snipers on Mohdm6)
+// @Tags Leaderboards
+// @Accept json
+// @Produce json
+// @Param stat query string false "Stat to rank by" default(kd)
+// @Param dimension query string true "Context dimension (e.g. map, weapon)"
+// @Param value query string true "Context value (e.g. mohdm6, Thompson)"
+// @Param limit query int false "Max items to return" default(25)
+// @Success 200 {object} models.ContextualLeaderboardResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/leaderboard/contextual [get]
 func (h *Handler) GetContextualLeaderboard(w http.ResponseWriter, r *http.Request) {
 	stat := r.URL.Query().Get("stat")
 	if stat == "" {
@@ -161,16 +219,25 @@ func (h *Handler) GetContextualLeaderboard(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"stat":      stat,
-		"dimension": dimension,
-		"value":     value,
-		"leaders":   leaders,
+	// ...
+	h.jsonResponse(w, http.StatusOK, models.ContextualLeaderboardResponse{
+		Stat:      stat,
+		Dimension: dimension,
+		Value:     value,
+		Leaders:   leaders,
 	})
 }
 
 // GetDrilldownOptions returns available dimensions for a stat
-// GET /api/v1/stats/drilldown/options?stat=kd
+// @Summary Get drilldown options
+// @Description Returns available dimensions for drilling down into a stat
+// @Tags Advanced Stats
+// @Accept json
+// @Produce json
+// @Param stat query string false "Stat" default(kd)
+// @Success 200 {object} models.DrilldownOptionsResponse
+// @Failure 500 {object} map[string]string
+// @Router /stats/drilldown/options [get]
 func (h *Handler) GetDrilldownOptions(w http.ResponseWriter, r *http.Request) {
 	stat := r.URL.Query().Get("stat")
 	if stat == "" {
@@ -179,14 +246,24 @@ func (h *Handler) GetDrilldownOptions(w http.ResponseWriter, r *http.Request) {
 
 	options := h.advancedStats.GetAvailableDrilldowns(stat)
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"stat":       stat,
-		"dimensions": options,
+	// ...
+	h.jsonResponse(w, http.StatusOK, models.DrilldownOptionsResponse{
+		Stat:       stat,
+		Dimensions: options,
 	})
 }
 
 // GetPlayerWarRoomData returns all war room data in a single call for efficiency
-// GET /api/v1/stats/player/{guid}/war-room
+// @Summary Get war room data
+// @Description Returns comprehensive stats for the war room dashboard
+// @Tags Advanced Stats
+// @Accept json
+// @Produce json
+// @Param guid path string true "Player GUID"
+// @Success 200 {object} models.WarRoomDataResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/player/{guid}/war-room [get]
 func (h *Handler) GetPlayerWarRoomData(w http.ResponseWriter, r *http.Request) {
 	guid := chi.URLParam(r, "guid")
 	if guid == "" {
@@ -228,7 +305,14 @@ func (h *Handler) GetPlayerWarRoomData(w http.ResponseWriter, r *http.Request) {
 		response["playstyle"] = badge
 	}
 
-	h.jsonResponse(w, http.StatusOK, response)
+	// ...
+	h.jsonResponse(w, http.StatusOK, models.WarRoomDataResponse{
+		DeepStats:       deepStats,
+		PeakPerformance: peakPerf,
+		ComboMetrics:    combos,
+		KDDrilldown:     kdDrill,
+		Playstyle:       badge,
+	})
 }
 
 // ============================================================================
@@ -236,7 +320,17 @@ func (h *Handler) GetPlayerWarRoomData(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // GetComboLeaderboard returns players ranked by combo metrics (RETAINED FROM ORIGINAL)
-// GET /api/v1/stats/leaderboard/combos?metric=run_gun
+// @Summary Combo leaderboard
+// @Description Get leaderboard for derived combo metrics (run_gun, clutch, consistency)
+// @Tags Leaderboards
+// @Accept json
+// @Produce json
+// @Param metric query string true "Metric (run_gun, clutch, consistency)"
+// @Param limit query int false "Max items to return" default(25)
+// @Success 200 {object} models.ComboLeaderboardResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/leaderboard/combos [get]
 func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 	// ... (Rest of function kept as manual SQL query in handler for specific combos)
 	metric := r.URL.Query().Get("metric")
@@ -332,19 +426,14 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// Simplified Entry struct locally
-	type Entry struct {
-		Rank       int     `json:"rank"`
-		PlayerID   string  `json:"player_id"`
-		PlayerName string  `json:"player_name"`
-		Value      float64 `json:"value"`
-		Secondary  float64 `json:"secondary,omitempty"`
-	}
+	// ...
 
-	var entries []Entry
+
+	// ...
+	var entries []models.LeaderboardEntry
 	rank := 1
 	for rows.Next() {
-		var e Entry
+		var e models.LeaderboardEntry
 		var secondary float64
 		switch metric {
 		case "run_gun":
@@ -364,13 +453,25 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 		rank++
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"metric":  metric,
-		"entries": entries,
+
+	h.jsonResponse(w, http.StatusOK, models.ComboLeaderboardResponse{
+		Metric:  metric,
+		Entries: entries,
 	})
 }
 
 // GetPeakPerformanceLeaderboard returns players who perform best at certain times (RETAINED)
+// @Summary Peak performance leaderboard
+// @Description Get players who excel in specific time windows (morning, night, weekend)
+// @Tags Leaderboards
+// @Accept json
+// @Produce json
+// @Param dimension query string false "Time Dimension (morning, afternoon, evening, night, weekend)" default(evening)
+// @Param limit query int false "Max items to return" default(25)
+// @Success 200 {object} models.PeakLeaderboardResponse
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /stats/leaderboard/peak [get]
 func (h *Handler) GetPeakPerformanceLeaderboard(w http.ResponseWriter, r *http.Request) {
 	dimension := r.URL.Query().Get("dimension")
 	if dimension == "" { dimension = "evening" }
@@ -415,27 +516,22 @@ func (h *Handler) GetPeakPerformanceLeaderboard(w http.ResponseWriter, r *http.R
 	}
 	defer rows.Close()
 
-	type Entry struct {
-		Rank       int     `json:"rank"`
-		PlayerID   string  `json:"player_id"`
-		PlayerName string  `json:"player_name"`
-		Kills      int64   `json:"kills"`
-		Deaths     int64   `json:"deaths"`
-		KD         float64 `json:"kd"`
-	}
+	// ...
 
-	var entries []Entry
+
+	var entries []models.PeakLeaderboardEntry
 	rank := 1
 	for rows.Next() {
-		var e Entry
+		var e models.PeakLeaderboardEntry
 		if err := rows.Scan(&e.PlayerID, &e.PlayerName, &e.Kills, &e.Deaths, &e.KD); err != nil { continue }
 		e.Rank = rank
 		entries = append(entries, e)
 		rank++
 	}
 
-	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
-		"dimension": dimension,
-		"entries":   entries,
+	// ...
+	h.jsonResponse(w, http.StatusOK, models.PeakLeaderboardResponse{
+		Dimension: dimension,
+		Entries:   entries,
 	})
 }

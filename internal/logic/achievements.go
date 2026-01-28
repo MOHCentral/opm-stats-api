@@ -17,16 +17,7 @@ func NewAchievementsService(ch driver.Conn, pg PgPool) AchievementsService {
 	return &achievementsService{ch: ch, pg: pg}
 }
 
-type Achievement struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	Tier        string `json:"tier"` // "gold", "silver", "bronze"
-	IsUnlocked  bool   `json:"is_unlocked"`
-	Progress    int    `json:"progress,omitempty"`
-	MaxProgress int    `json:"max_progress,omitempty"`
-}
+
 
 type AchievementScope string
 
@@ -38,7 +29,7 @@ const (
 
 // GetAchievements calculates achievements for a specific scope (match, tournament, etc.)
 // contextID is the match_id or tournament_id
-func (s *achievementsService) GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]Achievement, error) {
+func (s *achievementsService) GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]models.ContextualAchievement, error) {
 	switch scope {
 	case ScopeMatch:
 		return s.getMatchAchievements(ctx, contextID, playerID)
@@ -49,8 +40,8 @@ func (s *achievementsService) GetAchievements(ctx context.Context, scope Achieve
 	}
 }
 
-func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID, playerID string) ([]Achievement, error) {
-	list := []Achievement{}
+func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID, playerID string) ([]models.ContextualAchievement, error) {
+	list := []models.ContextualAchievement{}
 
 	// 1. Fetch Stats for this match
 	var (
@@ -80,7 +71,7 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 	// ------------------------------------------------------------------
 	// A. "Untouchable" (Gold): 0 deaths, min 10 kills
 	// ------------------------------------------------------------------
-	untouchable := Achievement{
+	untouchable := models.ContextualAchievement{
 		ID: "match_untouchable", Name: "Untouchable", Description: "Finish a match with 0 deaths (min 10 kills)",
 		Icon: "shield", Tier: "gold", MaxProgress: 1, IsUnlocked: false,
 	}
@@ -95,7 +86,7 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 	// Actually typical pacifist is 0 stats. Let's say check time played?
 	// For now: 0 kills, >= 1 death (participated) or shots > 0
 	// ------------------------------------------------------------------
-	pacifist := Achievement{
+	pacifist := models.ContextualAchievement{
 		ID: "match_pacifist", Name: "Pacifist", Description: "Finish a match with 0 kills",
 		Icon: "dove", Tier: "silver", MaxProgress: 1, IsUnlocked: false,
 	}
@@ -108,7 +99,7 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 	// ------------------------------------------------------------------
 	// C. "Sharpshooter" (Silver): Accuracy > 50% (min 10 shots)
 	// ------------------------------------------------------------------
-	sharpshooter := Achievement{
+	sharpshooter := models.ContextualAchievement{
 		ID: "match_sharpshooter", Name: "Sharpshooter", Description: "Achieve > 50% accuracy (min 10 shots)",
 		Icon: "crosshair", Tier: "silver", MaxProgress: 100, IsUnlocked: false,
 	}
@@ -127,8 +118,8 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 	return list, nil
 }
 
-func (s *achievementsService) getTournamentAchievements(ctx context.Context, tournamentID, playerID string) ([]Achievement, error) {
-	list := []Achievement{}
+func (s *achievementsService) getTournamentAchievements(ctx context.Context, tournamentID, playerID string) ([]models.ContextualAchievement, error) {
+	list := []models.ContextualAchievement{}
 
 	// Query tournament aggregated stats
 	var (
@@ -151,7 +142,7 @@ func (s *achievementsService) getTournamentAchievements(ctx context.Context, tou
 	// ------------------------------------------------------------------
 	// A. "Grand Slam" (Gold): Win 100% of matches (min 3)
 	// ------------------------------------------------------------------
-	grandSlam := Achievement{
+	grandSlam := models.ContextualAchievement{
 		ID: "tourn_grand_slam", Name: "Grand Slam", Description: "Win all matches in a tournament (min 3)",
 		Icon: "trophy", Tier: "gold", MaxProgress: 100, IsUnlocked: false,
 	}
@@ -166,7 +157,7 @@ func (s *achievementsService) getTournamentAchievements(ctx context.Context, tou
 	// ------------------------------------------------------------------
 	// B. "Survivor" (Bronze): Play at least 5 matches
 	// ------------------------------------------------------------------
-	survivor := Achievement{
+	survivor := models.ContextualAchievement{
 		ID: "tourn_survivor", Name: "Survivor", Description: "Play at least 5 matches in a tournament",
 		Icon: "boot", Tier: "bronze", MaxProgress: 5, IsUnlocked: false,
 	}
