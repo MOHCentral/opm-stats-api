@@ -39,6 +39,8 @@ type ServerMapStat struct {
 	AvgDuration float64 `json:"avg_duration_seconds"`
 }
 
+type ActivityPoint struct {
+	Timestamp time.Time `json:"timestamp"`
 	Players   int       `json:"players"`
 }
 

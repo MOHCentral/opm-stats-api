@@ -1,5 +1,38 @@
 basePath: /api/v1
 definitions:
+  models.DeviceAuthRequest:
+    properties:
+      device_code:
+        type: string
+      expires_at:
+        type: string
+      interval:
+        description: Polling interval in seconds
+        type: integer
+      user_code:
+        description: Short code for user to enter
+        type: string
+      verification_uri:
+        description: URL to visit
+        type: string
+    type: object
+  models.DeviceAuthResponse:
+    properties:
+      expires_at:
+        description: ISO8601
+        type: string
+      expires_in:
+        type: integer
+      is_new:
+        type: boolean
+      user_code:
+        type: string
+    type: object
+  models.DevicePollRequest:
+    properties:
+      device_code:
+        type: string
+    type: object
   models.EventType:
     enum:
     - game_init
@@ -323,6 +356,160 @@ definitions:
     - EventReload
     - EventTeamWin
     - EventIdentityClaim
+  models.MapStats:
+    properties:
+      deaths:
+        type: integer
+      headshots:
+        type: integer
+      kd_ratio:
+        type: number
+      kills:
+        type: integer
+      map_name:
+        type: string
+      matches_played:
+        type: integer
+    type: object
+  models.MarkNotifiedRequest:
+    properties:
+      forum_user_id:
+        type: integer
+      ids:
+        items:
+          type: string
+        type: array
+    type: object
+  models.MatchResult:
+    properties:
+      allies_score:
+        type: integer
+      axis_score:
+        type: integer
+      bracket_match:
+        type: string
+      duration:
+        type: number
+      gametype:
+        type: string
+      map_name:
+        type: string
+      match_id:
+        type: string
+      server_id:
+        type: string
+      total_rounds:
+        type: integer
+      tournament_id:
+        description: Tournament context (optional)
+        type: string
+      winning_team:
+        type: string
+    type: object
+  models.PeakHoursHeatmap:
+    properties:
+      data:
+        description: '[day][hour] = player count'
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+      days:
+        description: Mon-Sun
+        items:
+          type: string
+        type: array
+      hours:
+        description: 0-23
+        items:
+          type: string
+        type: array
+      peak:
+        $ref: '#/definitions/models.PeakInfo'
+    type: object
+  models.PeakInfo:
+    properties:
+      day:
+        type: string
+      hour:
+        type: integer
+      players:
+        type: integer
+    type: object
+  models.PlayerStats:
+    properties:
+      accuracy:
+        type: number
+      close_range_kills:
+        description: <5m
+        type: integer
+      collateral_kills:
+        type: integer
+      crouch_time_seconds:
+        type: number
+      headshot_percent:
+        type: number
+      jump_count:
+        type: integer
+      kd_ratio:
+        description: Computed
+        type: number
+      kills_per_minute:
+        type: number
+      kills_while_crouching:
+        type: integer
+      kills_while_moving:
+        type: integer
+      kills_while_prone:
+        description: Stance Metrics
+        type: integer
+      kills_while_standing:
+        type: integer
+      kills_while_stationary:
+        type: integer
+      last_active:
+        type: string
+      long_range_kills:
+        description: Granular Combat Metrics
+        type: integer
+      matches_played:
+        type: integer
+      matches_won:
+        type: integer
+      name:
+        description: Alias for PHP
+        type: string
+      play_time_seconds:
+        type: number
+      player_id:
+        type: string
+      player_name:
+        type: string
+      prone_time_seconds:
+        type: number
+      shots_fired:
+        type: integer
+      shots_hit:
+        type: integer
+      sprint_distance_km:
+        type: number
+      total_damage:
+        type: integer
+      total_deaths:
+        type: integer
+      total_distance_km:
+        description: Movement Metrics
+        type: number
+      total_headshots:
+        type: integer
+      total_kills:
+        type: integer
+      wallbang_kills:
+        type: integer
+      win_rate:
+        type: number
+    type: object
   models.RawEvent:
     properties:
       aim_pitch:
@@ -499,6 +686,128 @@ definitions:
       winning_team:
         type: string
     type: object
+  models.RegisterServerRequest:
+    properties:
+      ip_address:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+    type: object
+  models.RegisterServerResponse:
+    properties:
+      server_id:
+        type: string
+      token:
+        type: string
+    type: object
+  models.ResolveIPRequest:
+    properties:
+      action:
+        description: '"approve" or "deny"'
+        type: string
+      forum_user_id:
+        type: integer
+      label:
+        description: Optional label
+        type: string
+    type: object
+  models.ServerOverview:
+    properties:
+      address:
+        type: string
+      avg_players_24h:
+        type: number
+      country:
+        type: string
+      current_map:
+        type: string
+      current_players:
+        type: integer
+      display_name:
+        description: Name:Port format
+        type: string
+      gametype:
+        type: string
+      id:
+        type: string
+      is_online:
+        type: boolean
+      last_seen:
+        type: string
+      max_players:
+        type: integer
+      name:
+        type: string
+      peak_players_24h:
+        type: integer
+      port:
+        type: integer
+      rank:
+        description: Server ranking
+        type: integer
+      region:
+        type: string
+      total_kills:
+        type: integer
+      total_matches:
+        type: integer
+      unique_players:
+        type: integer
+      uptime_percent:
+        type: number
+    type: object
+  models.ServerPulse:
+    properties:
+      active_players:
+        description: Currently online (approx)
+        type: integer
+      lead_exchange_rate:
+        description: Estimated lead changes per match
+        type: number
+      lethality_rating:
+        description: Kills per minute
+        type: number
+      meat_grinder_map:
+        description: Map with most deaths/minute
+        type: string
+      total_lead_poured:
+        description: Total bullets hit
+        type: integer
+    type: object
+  models.VerifyTokenRequest:
+    properties:
+      player_guid:
+        type: string
+      player_ip:
+        type: string
+      server_address:
+        type: string
+      server_name:
+        type: string
+      token:
+        type: string
+    type: object
+  models.WeaponStats:
+    properties:
+      accuracy:
+        type: number
+      damage:
+        type: integer
+      deaths:
+        type: integer
+      headshots:
+        type: integer
+      kills:
+        type: integer
+      shots_fired:
+        type: integer
+      shots_hit:
+        type: integer
+      weapon:
+        type: string
+    type: object
 host: api.moh-central.net
 info:
   contact:
@@ -514,6 +823,285 @@ info:
   title: OpenMOHAA Stats API
   version: 1.0.0
 paths:
+  /auth/device:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Auth Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DeviceAuthRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token Info
+          schema:
+            $ref: '#/definitions/models.DeviceAuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Init Device Auth
+      tags:
+      - Auth
+  /auth/device/poll:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Poll Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.DevicePollRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access Token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Pending/Expired
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Poll Device Token
+      tags:
+      - Auth
+  /auth/history:
+    get:
+      parameters:
+      - description: Forum User ID
+        in: query
+        name: forum_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: History
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Login History
+      tags:
+      - Auth
+  /auth/pending-ips:
+    get:
+      parameters:
+      - description: Forum User ID
+        in: query
+        name: forum_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pending IPs
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Pending IPs
+      tags:
+      - Auth
+  /auth/pending-ips/{id}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Approval ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Action
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResolveIPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Resolve Pending IP
+      tags:
+      - Auth
+  /auth/pending-ips/mark-notified:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MarkNotifiedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Mark IPs Notified
+      tags:
+      - Auth
+  /auth/smf-verify:
+    post:
+      parameters:
+      - description: Token
+        in: formData
+        name: token
+        required: true
+        type: string
+      - description: GUID
+        in: formData
+        name: guid
+        required: true
+        type: string
+      - description: Player Name
+        in: formData
+        name: player_name
+        required: true
+        type: string
+      - description: Server ID
+        in: formData
+        name: server_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify SMF Token (Legacy)
+      tags:
+      - Auth
+  /auth/trusted-ips:
+    get:
+      parameters:
+      - description: Forum User ID
+        in: query
+        name: forum_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Trusted IPs
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Trusted IPs
+      tags:
+      - Auth
+  /auth/trusted-ips/{id}:
+    delete:
+      parameters:
+      - description: IP ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Forum User ID
+        in: query
+        name: forum_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Remove Trusted IP
+      tags:
+      - Auth
+  /auth/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Verify Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.VerifyTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Verification Result
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Pending Approval
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify Game Token
+      tags:
+      - Auth
   /ingest/events:
     post:
       consumes:
@@ -548,6 +1136,760 @@ paths:
       summary: Ingest Game Events
       tags:
       - Ingestion
+  /ingest/match-result:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Match Result
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.MatchResult'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Processed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ServerToken: []
+      summary: Ingest Match Result
+      tags:
+      - Ingestion
+  /servers:
+    get:
+      description: List active servers with status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server List
+          schema:
+            items:
+              $ref: '#/definitions/models.ServerOverview'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List All Servers
+      tags:
+      - Server
+  /servers/{id}:
+    get:
+      description: Detailed server info including lifetime stats
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server Detail
+          schema:
+            $ref: '#/definitions/models.ServerOverview'
+        "400":
+          description: Missing ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Details
+      tags:
+      - Server
+  /servers/{id}/activity-timeline:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 7
+        description: Days
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Timeline
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Activity Timeline
+      tags:
+      - Server
+  /servers/{id}/countries:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Country Data
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Country Stats
+      tags:
+      - Server
+  /servers/{id}/favorite:
+    delete:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Remove Favorite Server
+      tags:
+      - Server
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Check Favorite Status
+      tags:
+      - Server
+    post:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Nickname
+        in: query
+        name: nickname
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add Favorite Server
+      tags:
+      - Server
+  /servers/{id}/live:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Live Status
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Missing ID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Server Live Status
+      tags:
+      - Server
+  /servers/{id}/map-rotation:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 30
+        description: Days
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rotation Data
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Map Rotation
+      tags:
+      - Server
+  /servers/{id}/maps:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Map Stats
+          schema:
+            items:
+              $ref: '#/definitions/models.MapStats'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Map Stats
+      tags:
+      - Server
+  /servers/{id}/matches:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 20
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Matches
+          schema:
+            items:
+              $ref: '#/definitions/models.MatchResult'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Recent Matches
+      tags:
+      - Server
+  /servers/{id}/peak-hours:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 30
+        description: Days
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Heatmap Data
+          schema:
+            $ref: '#/definitions/models.PeakHoursHeatmap'
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Peak Hours Heatmap
+      tags:
+      - Server
+  /servers/{id}/player-history:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 24
+        description: Hours
+        in: query
+        name: hours
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: History Data
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Player History
+      tags:
+      - Server
+  /servers/{id}/players:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Players List
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Historical Players
+      tags:
+      - Server
+  /servers/{id}/top-players:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 25
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Top Players
+          schema:
+            items:
+              $ref: '#/definitions/models.PlayerStats'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Top Players
+      tags:
+      - Server
+  /servers/{id}/weapons:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Weapon Stats
+          schema:
+            items:
+              $ref: '#/definitions/models.WeaponStats'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Weapon Stats
+      tags:
+      - Server
+  /servers/favorites:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Favorites
+          schema:
+            items:
+              $ref: '#/definitions/models.ServerOverview'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get User Favorites
+      tags:
+      - Server
+  /servers/rankings:
+    get:
+      parameters:
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rankings
+          schema:
+            items:
+              $ref: '#/definitions/models.ServerOverview'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Server Rankings
+      tags:
+      - Server
+  /servers/register:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new game server
+      parameters:
+      - description: Server Info
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterServerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Server Credentials
+          schema:
+            $ref: '#/definitions/models.RegisterServerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register Server
+      tags:
+      - Server
+  /servers/stats:
+    get:
+      description: Aggregate stats across all servers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Network Stats
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Global Network Stats
+      tags:
+      - Server
+  /stats/leaderboard:
+    get:
+      parameters:
+      - default: 25
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Page
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Leaderboard
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Global Leaderboard
+      tags:
+      - Leaderboards
+  /stats/matches:
+    get:
+      parameters:
+      - default: 25
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Matches
+          schema:
+            items:
+              $ref: '#/definitions/models.MatchResult'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Recent Matches
+      tags:
+      - Match
+  /stats/server/activity:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Activity Data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Global Server Activity
+      tags:
+      - Server
+  /stats/server/maps:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Map Stats
+          schema:
+            items:
+              $ref: '#/definitions/models.MapStats'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Global Map Stats
+      tags:
+      - Server
+  /stats/server/pulse:
+    get:
+      description: Real-time heartbeat of server activity and chaos
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Pulse Data
+          schema:
+            $ref: '#/definitions/models.ServerPulse'
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Server Pulse (Main)
+      tags:
+      - Server
+  /stats/weapons:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Weapon Stats
+          schema:
+            items:
+              $ref: '#/definitions/models.WeaponStats'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Global Weapon Stats
+      tags:
+      - Server
 securityDefinitions:
   BearerAuth:
     in: header
