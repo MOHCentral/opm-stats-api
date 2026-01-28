@@ -159,6 +159,8 @@ func main() {
 			r.Post("/match-result", h.IngestMatchResult)
 		})
 
+		r.Post("/servers/register", h.RegisterServer)
+
 		// Stats endpoints (for frontend)
 		r.Route("/stats", func(r chi.Router) {
 			r.Get("/global", h.GetGlobalStats)

@@ -4,7 +4,10 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
 # Install dependencies
-RUN apk update && apk add --no-cache git ca-certificates
+RUN echo "@edge http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
+    echo "@main http://dl-cdn.alpinelinux.org/alpine/v3.19/main" >> /etc/apk/repositories && \
+    echo "@community http://dl-cdn.alpinelinux.org/alpine/v3.19/community" >> /etc/apk/repositories && \
+    apk update && apk add --no-cache git ca-certificates
 
 # Copy go mod files
 COPY go.mod go.sum ./
