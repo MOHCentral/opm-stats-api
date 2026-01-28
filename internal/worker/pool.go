@@ -276,7 +276,7 @@ func (p *Pool) processBatch(batch []Job) error {
 	ctx := context.Background()
 
 	chBatch, err := p.config.ClickHouse.PrepareBatch(ctx, `
-		INSERT INTO raw_events (
+		INSERT INTO mohaa_stats.raw_events (
 			timestamp, match_id, server_id, map_name, event_type,
 			actor_id, actor_name, actor_team, actor_weapon,
 			actor_pos_x, actor_pos_y, actor_pos_z, actor_pitch, actor_yaw, actor_stance,
@@ -557,10 +557,10 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 	}
 
 	ch := &models.ClickHouseEvent{
-		Timestamp: time.Unix(int64(event.Timestamp), 0),
-		MatchID:   matchID,
-		ServerID:  event.ServerID,
-		MapName:   event.MapName,
+		Timestamp:    time.Unix(int64(event.Timestamp), 0),
+		MatchID:      matchID,
+		ServerID:     event.ServerID,
+		MapName:      event.MapName,
 		EventType:    string(event.Type),
 		Damage:       uint32(event.Damage),
 		Hitloc:       event.Hitloc,
