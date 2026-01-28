@@ -13,16 +13,18 @@ services:
       - "com.mohaa.description=OpenMOHAA Stats REST API"
     ports:
       - "8084:8080"
+    env_file:
+      - .env
     environment:
-      - PORT=${PORT:-8080}
-      - POSTGRES_URL=${POSTGRES_URL:-postgres://mohaa:admin123@postgres:5432/mohaa_stats?sslmode=disable}
-      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-clickhouse://clickhouse:9000/mohaa_stats}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
-      - WORKER_COUNT=${WORKER_COUNT:-8}
-      - WORKER_QUEUE_SIZE=${WORKER_QUEUE_SIZE:-50000}
-      - WORKER_BATCH_SIZE=${WORKER_BATCH_SIZE:-1000}
-      - WORKER_FLUSH_INTERVAL=${WORKER_FLUSH_INTERVAL:-1s}
-      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+      - PORT=${PORT}
+      - POSTGRES_URL=${POSTGRES_URL}
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - WORKER_COUNT=${WORKER_COUNT}
+      - WORKER_QUEUE_SIZE=${WORKER_QUEUE_SIZE}
+      - WORKER_BATCH_SIZE=${WORKER_BATCH_SIZE}
+      - WORKER_FLUSH_INTERVAL=${WORKER_FLUSH_INTERVAL}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,17 +47,19 @@ services:
     labels:
       - "com.mohaa.service=postgres"
       - "com.mohaa.description=Player profiles, tournaments, achievements"
+    env_file:
+      - .env
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-mohaa}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
-      - POSTGRES_DB=${POSTGRES_DB:-mohaa_stats}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./migrations/postgres:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mohaa -d mohaa_stats"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -75,10 +79,12 @@ services:
     ports:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native interface
+    env_file:
+      - .env
     environment:
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-mohaa_stats}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./migrations/clickhouse:/docker-entrypoint-initdb.d
