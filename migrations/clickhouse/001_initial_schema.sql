@@ -62,26 +62,58 @@ TTL _partition_date + INTERVAL 2 YEAR
 SETTINGS index_granularity = 8192;
 
 -- ============================================================================
+-- Player Identity & Session Tables
+-- ============================================================================
+
+-- Player sessions table - tracks every player connection with identity info
+CREATE TABLE IF NOT EXISTS mohaa_stats.player_sessions (
+    session_id String,
+    server_id String,
+    match_id String DEFAULT '',
+    player_guid String,
+    player_name String,
+    smf_member_id UInt64 DEFAULT 0,
+    auth_token String DEFAULT '',
+    authenticated_at DateTime64(3) DEFAULT toDateTime64(0, 3),
+    connected_at DateTime,
+    disconnected_at DateTime DEFAULT toDateTime(0),
+    last_activity DateTime,
+    team String DEFAULT '',
+    is_active UInt8 DEFAULT 1,
+    client_ip String DEFAULT '',
+    _partition_date Date DEFAULT toDate(connected_at)
+) ENGINE = ReplacingMergeTree(last_activity)
+ORDER BY (server_id, player_guid, connected_at)
+PARTITION BY toYYYYMM(_partition_date)
+TTL _partition_date + INTERVAL 1 YEAR;
+
+-- Player GUID registry
+CREATE TABLE IF NOT EXISTS mohaa_stats.player_guid_registry (
+    player_guid String,
+    smf_member_id UInt64,
+    last_known_name String,
+    verified_at DateTime64(3),
+    last_seen DateTime64(3),
+    login_count UInt32 DEFAULT 1
+) ENGINE = ReplacingMergeTree(last_seen)
+ORDER BY (player_guid);
+
+-- Name history table
+CREATE TABLE IF NOT EXISTS mohaa_stats.player_name_history (
+    player_guid String,
+    player_name String,
+    smf_member_id UInt64 DEFAULT 0,
+    first_seen DateTime64(3),
+    last_seen DateTime64(3),
+    use_count UInt32 DEFAULT 1
+) ENGINE = ReplacingMergeTree(last_seen)
+ORDER BY (player_guid, player_name);
+
+-- ============================================================================
 -- Materialized Views for Pre-Aggregation
 -- ============================================================================
 
--- Hourly player kill aggregates
-CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.player_kills_hourly_mv
-ENGINE = SummingMergeTree()
-PARTITION BY toYYYYMM(hour)
-ORDER BY (actor_id, actor_name, map_name, hour)
-AS SELECT
-    toStartOfHour(timestamp) AS hour,
-    actor_id,
-    argMax(actor_name, timestamp) AS actor_name,
-    map_name,
-    count() AS kills,
-    countIf(hitloc = 'head') AS headshots
-FROM mohaa_stats.raw_events
-WHERE event_type = 'kill' AND actor_id != '' AND actor_id != 'world'
-GROUP BY hour, actor_id, map_name;
-
--- Daily player stats (comprehensive)
+-- Daily player stats (comprehensive - 38 categories)
 CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.player_stats_daily_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(day)
@@ -90,28 +122,55 @@ AS SELECT
     toStartOfDay(timestamp) AS day,
     actor_id,
     argMax(actor_name, timestamp) AS actor_name,
+    
+    -- Combat
     countIf(event_type = 'kill') AS kills,
-    0 AS deaths,
     countIf(event_type = 'headshot') AS headshots,
     countIf(event_type = 'weapon_fire') AS shots_fired,
     countIf(event_type = 'weapon_hit') AS shots_hit,
     sumIf(damage, event_type = 'damage') AS total_damage,
-    sum(
-        JSONExtractFloat(raw_json, 'walked') + 
-        JSONExtractFloat(raw_json, 'sprinted') + 
-        JSONExtractFloat(raw_json, 'swam') + 
-        JSONExtractFloat(raw_json, 'driven')
-    ) / 100000.0 AS distance_km,
+    
+    -- Special Kills
+    countIf(event_type IN ('player_bash', 'bash')) AS bash_kills,
+    countIf(event_type IN ('grenade_throw', 'explosion', 'grenade_explode', 'kill') AND actor_weapon IN ('grenade', 'm2_grenade', 'steielhandgranate')) AS grenade_kills,
+    countIf(event_type IN ('player_roadkill', 'roadkill')) AS roadkills,
+    countIf(event_type = 'player_telefragged') AS telefrags,
+    countIf(event_type IN ('player_crushed', 'crushed')) AS crushed,
+    countIf(event_type IN ('player_teamkill', 'teamkill')) AS teamkills,
+    countIf(event_type IN ('player_suicide', 'suicide')) AS suicides,
+    
+    -- Weapons
+    countIf(event_type IN ('weapon_reload', 'reload')) AS reloads,
+    countIf(event_type IN ('weapon_change', 'weapon_swap')) AS weapon_swaps,
+    countIf(event_type = 'weapon_no_ammo') AS no_ammo,
+    
+    -- Movement
+    sum(JSONExtractFloat(raw_json, 'walked')) + sum(JSONExtractFloat(raw_json, 'sprinted')) + sum(JSONExtractFloat(raw_json, 'swam')) + sum(JSONExtractFloat(raw_json, 'driven')) AS distance_units,
+    sum(JSONExtractFloat(raw_json, 'sprinted')) AS sprinted,
+    sum(JSONExtractFloat(raw_json, 'swam')) AS swam,
+    sum(JSONExtractFloat(raw_json, 'driven')) AS driven,
     countIf(event_type = 'jump') AS jumps,
+    countIf(event_type = 'crouch') AS crouch_events,
+    countIf(event_type = 'prone') AS prone_events,
+    countIf(event_type = 'ladder_mount') AS ladders,
+    
+    -- Survival
+    countIf(event_type = 'health_pickup') AS health_picked,
+    countIf(event_type = 'ammo_pickup') AS ammo_picked,
+    countIf(event_type = 'armor_pickup') AS armor_picked,
+    countIf(event_type = 'item_pickup') AS items_picked,
+    
+    -- Results
     uniqExact(match_id) AS matches_played,
-    countIf(event_type = 'match_outcome' AND match_outcome = 1) AS matches_won,
-    0 AS playtime_seconds,
+    countIf((event_type = 'match_outcome') AND (match_outcome = 1)) AS matches_won,
+    countIf((event_type = 'match_outcome')) AS games_finished,
+    
     max(timestamp) AS last_active
 FROM mohaa_stats.raw_events
 WHERE actor_id != '' AND actor_id != 'world'
 GROUP BY day, actor_id;
 
--- Deaths MV (separate aggregation by target_id)
+-- Deaths MV
 CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.player_deaths_daily_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(day)
@@ -157,7 +216,7 @@ FROM mohaa_stats.raw_events
 WHERE map_name != ''
 GROUP BY day, map_name;
 
--- Kill position heatmap data (bucketed)
+-- Kill/Death heatmap
 CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.kill_heatmap_mv
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(day)
@@ -172,72 +231,44 @@ FROM mohaa_stats.raw_events
 WHERE event_type = 'kill' AND map_name != '' AND actor_pos_x != 0
 GROUP BY day, map_name, bucket_x, bucket_y;
 
--- Death position heatmap data (bucketed) - where players die
-CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.death_heatmap_mv
-ENGINE = SummingMergeTree()
-PARTITION BY toYYYYMM(day)
-ORDER BY (map_name, bucket_x, bucket_y, day)
+-- Identity Materilized Views
+CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.mv_player_auth_registry
+TO mohaa_stats.player_guid_registry
 AS SELECT
-    toStartOfDay(timestamp) AS day,
-    map_name,
-    round(target_pos_x / 100) * 100 AS bucket_x,
-    round(target_pos_y / 100) * 100 AS bucket_y,
-    count() AS death_count
+    actor_id AS player_guid,
+    actor_smf_id AS smf_member_id,
+    actor_name AS last_known_name,
+    timestamp AS verified_at,
+    timestamp AS last_seen,
+    toUInt32(1) AS login_count
 FROM mohaa_stats.raw_events
-WHERE event_type = 'kill' AND map_name != '' AND target_pos_x != 0
-GROUP BY day, map_name, bucket_x, bucket_y;
+WHERE event_type = 'player_auth' AND actor_smf_id > 0;
 
--- Match summaries
-CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.match_summary_mv
-ENGINE = ReplacingMergeTree(last_event)
-PARTITION BY toYYYYMM(started_at)
-ORDER BY (match_id)
+CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.mv_player_name_history
+TO mohaa_stats.player_name_history
 AS SELECT
-    match_id,
-    argMin(server_id, timestamp) AS server_id,
-    argMin(map_name, timestamp) AS map_name,
-    min(timestamp) AS started_at,
-    max(timestamp) AS last_event,
-    countIf(event_type = 'kill') AS total_kills,
-    uniqExact(actor_id) AS unique_players
+    actor_id AS player_guid,
+    actor_name AS player_name,
+    actor_smf_id AS smf_member_id,
+    timestamp AS first_seen,
+    timestamp AS last_seen,
+    toUInt32(1) AS use_count
 FROM mohaa_stats.raw_events
-WHERE match_id != toUUID('00000000-0000-0000-0000-000000000000')
-GROUP BY match_id;
-
--- Server activity
-CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.server_activity_mv
-ENGINE = SummingMergeTree()
-PARTITION BY toYYYYMM(day)
-ORDER BY (server_id, day)
-AS SELECT
-    toStartOfDay(timestamp) AS day,
-    server_id,
-    count() AS total_events,
-    countIf(event_type = 'kill') AS total_kills,
-    uniqExact(match_id) AS matches,
-    uniqExact(actor_id) AS unique_players
-FROM mohaa_stats.raw_events
-WHERE server_id != ''
-GROUP BY day, server_id;
+WHERE actor_id != '' AND actor_name != '';
 
 -- ============================================================================
 -- Indexes for common query patterns
 -- ============================================================================
-
--- Skip index on player ID for fast lookups
-ALTER TABLE raw_events ADD INDEX IF NOT EXISTS idx_actor_id actor_id TYPE bloom_filter() GRANULARITY 4;
-ALTER TABLE raw_events ADD INDEX IF NOT EXISTS idx_target_id target_id TYPE bloom_filter() GRANULARITY 4;
-ALTER TABLE raw_events ADD INDEX IF NOT EXISTS idx_match_id match_id TYPE bloom_filter() GRANULARITY 4;
+ALTER TABLE mohaa_stats.raw_events ADD INDEX IF NOT EXISTS idx_actor_id actor_id TYPE bloom_filter() GRANULARITY 4;
+ALTER TABLE mohaa_stats.raw_events ADD INDEX IF NOT EXISTS idx_target_id target_id TYPE bloom_filter() GRANULARITY 4;
+ALTER TABLE mohaa_stats.raw_events ADD INDEX IF NOT EXISTS idx_match_id match_id TYPE bloom_filter() GRANULARITY 4;
 
 -- ============================================================================
--- Aggregate tables for leaderboards (final computed tables)
+-- Leaderboard Tables
 -- ============================================================================
-
--- Global all-time leaderboard (updated periodically by scheduled job)
-CREATE TABLE IF NOT EXISTS leaderboard_global
-(
-    player_id String CODEC(ZSTD(1)),
-    player_name String CODEC(ZSTD(1)),
+CREATE TABLE IF NOT EXISTS mohaa_stats.leaderboard_global (
+    player_id String,
+    player_name String,
     total_kills UInt64,
     total_deaths UInt64,
     total_headshots UInt64,
@@ -248,55 +279,4 @@ CREATE TABLE IF NOT EXISTS leaderboard_global
     last_active DateTime64(3),
     rank UInt32,
     updated_at DateTime64(3) DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(updated_at)
-ORDER BY (rank)
-SETTINGS index_granularity = 8192;
-
--- Weekly leaderboard
-CREATE TABLE IF NOT EXISTS leaderboard_weekly
-(
-    week_start Date,
-    player_id String CODEC(ZSTD(1)),
-    player_name String CODEC(ZSTD(1)),
-    kills UInt64,
-    deaths UInt64,
-    headshots UInt64,
-    rank UInt32,
-    updated_at DateTime64(3) DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(updated_at)
-PARTITION BY week_start
-ORDER BY (week_start, rank)
-TTL week_start + INTERVAL 12 WEEK
-SETTINGS index_granularity = 8192;
-
--- Weapon-specific leaderboard
-CREATE TABLE IF NOT EXISTS leaderboard_weapon
-(
-    weapon LowCardinality(String),
-    player_id String CODEC(ZSTD(1)),
-    player_name String CODEC(ZSTD(1)),
-    kills UInt64,
-    headshots UInt64,
-    rank UInt32,
-    updated_at DateTime64(3) DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(updated_at)
-ORDER BY (weapon, rank)
-SETTINGS index_granularity = 8192;
-
--- Map-specific leaderboard
-CREATE TABLE IF NOT EXISTS leaderboard_map
-(
-    map_name LowCardinality(String),
-    player_id String CODEC(ZSTD(1)),
-    player_name String CODEC(ZSTD(1)),
-    kills UInt64,
-    deaths UInt64,
-    rank UInt32,
-    updated_at DateTime64(3) DEFAULT now()
-)
-ENGINE = ReplacingMergeTree(updated_at)
-ORDER BY (map_name, rank)
-SETTINGS index_granularity = 8192;
+) ENGINE = ReplacingMergeTree(updated_at) ORDER BY (rank);

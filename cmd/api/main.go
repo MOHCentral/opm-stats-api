@@ -136,7 +136,6 @@ func main() {
 		ClickHouse:    chConn,
 		Redis:         redisClient,
 		Logger:        logger,
-		JWTSecret:     cfg.JWTSecret,
 		PlayerStats:   playerStats,
 		ServerStats:   serverStats,
 		Gamification:  gamification,
@@ -310,7 +309,6 @@ func main() {
 
 		// User endpoints
 		r.Route("/users", func(r chi.Router) {
-			r.Use(h.UserAuthMiddleware)
 			r.Get("/me", h.GetCurrentUser)
 			r.Put("/me", h.UpdateCurrentUser)
 			r.Get("/me/identities", h.GetUserIdentities)

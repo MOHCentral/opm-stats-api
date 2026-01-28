@@ -23,7 +23,6 @@ type Config struct {
 	FlushInterval time.Duration
 
 	// Auth
-	JWTSecret      string
 	DeviceCodeTTL  time.Duration
 	AccessTokenTTL time.Duration
 
@@ -46,7 +45,6 @@ func Load() *Config {
 		BatchSize:     getEnvInt("BATCH_SIZE", 500),
 		FlushInterval: getEnvDuration("FLUSH_INTERVAL", 1*time.Second),
 
-		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-change-in-production"),
 		DeviceCodeTTL:  getEnvDuration("DEVICE_CODE_TTL", 10*time.Minute),
 		AccessTokenTTL: getEnvDuration("ACCESS_TOKEN_TTL", 24*time.Hour),
 

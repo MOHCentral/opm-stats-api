@@ -12,12 +12,29 @@ import (
 
 func main() {
 	ctx := context.Background()
+	chAddr := os.Getenv("CH_HOST")
+	if chAddr == "" {
+		chAddr = "localhost:9000"
+	}
+	chDB := os.Getenv("CH_DATABASE")
+	if chDB == "" {
+		chDB = "mohaa_stats"
+	}
+	chUser := os.Getenv("CH_USER")
+	if chUser == "" {
+		chUser = "default"
+	}
+	chPass := os.Getenv("CH_PASSWORD")
+	if chPass == "" {
+		chPass = "AvWq6gPAlSfbdpGH"
+	}
+
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"localhost:9000"},
+		Addr: []string{chAddr},
 		Auth: clickhouse.Auth{
-			Database: "mohaa_stats",
-			Username: "default",
-			Password: "AvWq6gPAlSfbdpGH",
+			Database: chDB,
+			Username: chUser,
+			Password: chPass,
 		},
 	})
 	if err != nil {

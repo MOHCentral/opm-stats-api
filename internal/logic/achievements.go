@@ -177,10 +177,10 @@ func (s *achievementsService) GetPlayerAchievements(ctx context.Context, playerG
 	// Schema 001: player_achievements (player_guid, achievement_id) -> achievements (id)
 	query := `
 		SELECT
-			pa.id, pa.player_guid, pa.achievement_id, pa.unlocked_at,
-			a.id, a.name, a.description, a.category, a.points, a.icon_url
-		FROM player_achievements pa
-		JOIN achievements a ON pa.achievement_id = a.id
+			pa.player_achievement_id, pa.player_guid, pa.achievement_id, pa.unlocked_at,
+			a.achievement_id, a.achievement_name, a.description, a.category, a.points, a.icon_url
+		FROM mohaa_player_achievements pa
+		JOIN mohaa_achievements a ON pa.achievement_id = a.achievement_id
 		WHERE pa.player_guid = $1
 	`
 	rows, err := s.pg.Query(ctx, query, playerGUID)

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
 	"github.com/openmohaa/stats-api/internal/models"
@@ -152,16 +151,9 @@ func (h *Handler) PollDeviceToken(w http.ResponseWriter, r *http.Request) {
 	case "pending":
 		h.errorResponse(w, http.StatusBadRequest, "authorization_pending")
 	case "authorized":
-		// Generate JWT
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user_id": state.UserID.String(),
-			"exp":     time.Now().Add(24 * time.Hour).Unix(),
-		})
-		tokenString, _ := token.SignedString(h.jwtSecret)
-
 		h.jsonResponse(w, http.StatusOK, map[string]string{
-			"access_token": tokenString,
-			"token_type":   "Bearer",
+			"status":  "authorized",
+			"user_id": state.UserID.String(),
 		})
 
 		// Clean up

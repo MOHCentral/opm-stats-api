@@ -15,8 +15,6 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -47,8 +45,6 @@ type Config struct {
 	ClickHouse driver.Conn
 	Redis      *redis.Client
 	Logger     *zap.Logger
-	JWTSecret  string
-
 	// Services
 	PlayerStats   logic.PlayerStatsService
 	ServerStats   logic.ServerStatsService
@@ -74,7 +70,6 @@ type Handler struct {
 	teamStats     logic.TeamStatsService
 	tournament    logic.TournamentService
 	achievements  logic.AchievementsService
-	jwtSecret     []byte
 }
 
 func New(cfg Config) *Handler {
@@ -92,7 +87,6 @@ func New(cfg Config) *Handler {
 		teamStats:     cfg.TeamStats,
 		tournament:    cfg.Tournament,
 		achievements:  cfg.Achievements,
-		jwtSecret:     []byte(cfg.JWTSecret),
 	}
 }
 
@@ -525,6 +519,10 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	limit := 25
 	page := 1
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		period = "all"
+	}
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
 			limit = parsed
@@ -583,6 +581,16 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	default: orderExpr = "kills"
 	}
 
+	whereExpr := "actor_id != ''"
+	switch period {
+	case "week":
+		whereExpr += " AND day >= now() - INTERVAL 7 DAY"
+	case "month":
+		whereExpr += " AND day >= now() - INTERVAL 30 DAY"
+	case "year":
+		whereExpr += " AND day >= now() - INTERVAL 365 DAY"
+	}
+
 	query := fmt.Sprintf(`
 		SELECT 
 			actor_id,
@@ -621,12 +629,12 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			sum(playtime_seconds) as playtime,
 			max(last_active) as last_active
 		FROM mohaa_stats.player_stats_daily_mv
-		WHERE actor_id != ''
+		WHERE %s
 		GROUP BY actor_id
 		HAVING %s
 		ORDER BY %s DESC
 		LIMIT ? OFFSET ?
-	`, havingExpr, orderExpr)
+	`, whereExpr, havingExpr, orderExpr)
 
 	rows, err := h.ch.Query(ctx, query, limit, offset)
 	if err != nil {
@@ -1839,79 +1847,8 @@ func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// UserAuthMiddleware validates user JWT tokens
-func (h *Handler) UserAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			h.errorResponse(w, http.StatusUnauthorized, "Missing authorization header")
-			return
-		}
-
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return h.jwtSecret, nil
-		})
-
-		if err != nil || !token.Valid {
-			h.errorResponse(w, http.StatusUnauthorized, "Invalid token")
-			return
-		}
-
-		// Extract user claims from token and add to context
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			userID := claims["user_id"]
-			if userID != nil {
-				if uid, err := uuid.Parse(userID.(string)); err == nil {
-					ctx := context.WithValue(r.Context(), "user_id", uid)
-					r = r.WithContext(ctx)
-				}
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// AdminAuthMiddleware validates admin access
-func (h *Handler) AdminAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check admin role from JWT claims in context
-		userID := r.Context().Value("user_id")
-		if userID == nil {
-			h.errorResponse(w, http.StatusForbidden, "Admin access required")
-			return
-		}
-
-		// Verify user is admin in database
-		var isAdmin bool
-		err := h.pg.QueryRow(r.Context(),
-			"SELECT is_admin FROM users WHERE id = $1", userID).Scan(&isAdmin)
-		if err != nil || !isAdmin {
-			h.errorResponse(w, http.StatusForbidden, "Admin access required")
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-// getUserIDFromContext extracts user ID from request context
+// getUserIDFromContext extracts user ID from request context (currently unused since JWT removal)
 func (h *Handler) getUserIDFromContext(ctx context.Context) int {
-	if userID := ctx.Value("user_id"); userID != nil {
-		switch v := userID.(type) {
-		case int:
-			return v
-		case int64:
-			return int(v)
-		case float64:
-			return int(v)
-		case uuid.UUID:
-			// For UUID-based user IDs, we'd need a lookup
-			// For now, return 0 (unauthenticated)
-			return 0
-		}
-	}
 	return 0
 }
 
@@ -2002,7 +1939,7 @@ func (h *Handler) GetMapsList(w http.ResponseWriter, r *http.Request) {
 			DisplayName: formatMapName(m.Name),
 		}
 	}
-	h.jsonResponse(w, http.StatusOK, result)
+	h.jsonResponse(w, http.StatusOK, map[string]interface{}{"maps": result})
 }
 
 // GetMapDetail returns detailed statistics for a single map
@@ -2233,7 +2170,7 @@ func (h *Handler) GetGameTypesList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.jsonResponse(w, http.StatusOK, result)
+	h.jsonResponse(w, http.StatusOK, map[string]interface{}{"gametypes": result})
 }
 
 // GetGameTypeDetail returns detailed statistics for a single game type
@@ -2467,7 +2404,7 @@ func (h *Handler) GetWeaponsList(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
-	h.jsonResponse(w, http.StatusOK, result)
+	h.jsonResponse(w, http.StatusOK, map[string]interface{}{"weapons": result})
 }
 
 // GetWeaponDetail returns detailed statistics for a single weapon
