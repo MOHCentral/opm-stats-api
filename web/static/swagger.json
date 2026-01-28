@@ -2469,6 +2469,44 @@
                 }
             }
         },
+        "/stats/teams/performance": {
+            "get": {
+                "description": "Get consolidated stats for Axis vs Allies over a period",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Teams"
+                ],
+                "summary": "Faction Performance Stats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 30,
+                        "description": "Days to look back",
+                        "name": "days",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.FactionStats"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/stats/weapons": {
             "get": {
                 "produces": [
@@ -2490,6 +2528,112 @@
                     },
                     "500": {
                         "description": "Internal Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tournaments": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tournaments"
+                ],
+                "summary": "List Tournaments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Tournament"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tournaments/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tournaments"
+                ],
+                "summary": "Get Tournament Details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tournament ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Tournament"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tournaments/{id}/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tournaments"
+                ],
+                "summary": "Get Tournament Stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tournament ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Stats",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2693,7 +2837,7 @@
                 "entries": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.LeaderboardEntry"
+                        "$ref": "#/definitions/models.StatLeaderboardEntry"
                     }
                 },
                 "metric": {
@@ -2777,7 +2921,7 @@
                 "leaders": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.LeaderboardEntry"
+                        "$ref": "#/definitions/models.StatLeaderboardEntry"
                     }
                 },
                 "stat": {
@@ -2851,23 +2995,14 @@
         "models.DeviceAuthRequest": {
             "type": "object",
             "properties": {
-                "device_code": {
+                "client_ip": {
                     "type": "string"
                 },
-                "expires_at": {
-                    "type": "string"
-                },
-                "interval": {
-                    "description": "Polling interval in seconds",
+                "forum_user_id": {
                     "type": "integer"
                 },
-                "user_code": {
-                    "description": "Short code for user to enter",
-                    "type": "string"
-                },
-                "verification_uri": {
-                    "description": "URL to visit",
-                    "type": "string"
+                "regenerate": {
+                    "type": "boolean"
                 }
             }
         },
@@ -3313,6 +3448,17 @@
                 "EventIdentityClaim"
             ]
         },
+        "models.FactionStats": {
+            "type": "object",
+            "properties": {
+                "allies": {
+                    "$ref": "#/definitions/models.TeamMetrics"
+                },
+                "axis": {
+                    "$ref": "#/definitions/models.TeamMetrics"
+                }
+            }
+        },
         "models.GametypeStats": {
             "type": "object",
             "properties": {
@@ -3413,26 +3559,6 @@
                 },
                 "most_used_weapon": {
                     "type": "string"
-                }
-            }
-        },
-        "models.LeaderboardEntry": {
-            "type": "object",
-            "properties": {
-                "player_id": {
-                    "type": "string"
-                },
-                "player_name": {
-                    "type": "string"
-                },
-                "rank": {
-                    "type": "integer"
-                },
-                "secondary": {
-                    "type": "number"
-                },
-                "value": {
-                    "type": "number"
                 }
             }
         },
@@ -3777,6 +3903,14 @@
             "properties": {
                 "deaths": {
                     "type": "integer"
+                },
+                "headshots": {
+                    "description": "Added",
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "description": "Added",
+                    "type": "number"
                 },
                 "kills": {
                     "type": "integer"
@@ -4507,6 +4641,26 @@
                 }
             }
         },
+        "models.StatLeaderboardEntry": {
+            "type": "object",
+            "properties": {
+                "player_id": {
+                    "type": "string"
+                },
+                "player_name": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "secondary": {
+                    "type": "number"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
         "models.StreakStats": {
             "type": "object",
             "properties": {
@@ -4520,6 +4674,35 @@
                     "type": "integer"
                 },
                 "worst_loss_streak": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.TeamMetrics": {
+            "type": "object",
+            "properties": {
+                "deaths": {
+                    "type": "integer"
+                },
+                "kd_ratio": {
+                    "type": "number"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "losses": {
+                    "type": "integer"
+                },
+                "objectives_done": {
+                    "type": "integer"
+                },
+                "top_weapon": {
+                    "type": "string"
+                },
+                "win_rate": {
+                    "type": "number"
+                },
+                "wins": {
                     "type": "integer"
                 }
             }
@@ -4541,6 +4724,133 @@
                     "type": "string"
                 }
             }
+        },
+        "models.Tournament": {
+            "type": "object",
+            "properties": {
+                "best_of": {
+                    "type": "integer"
+                },
+                "checkin_end": {
+                    "type": "string"
+                },
+                "checkin_start": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "current_round": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "format": {
+                    "$ref": "#/definitions/models.TournamentFormat"
+                },
+                "fraglimit": {
+                    "type": "integer"
+                },
+                "game_mode": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "map_pool": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_participants": {
+                    "description": "Configuration",
+                    "type": "integer"
+                },
+                "min_participants": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "organizer_id": {
+                    "description": "Ownership",
+                    "type": "string"
+                },
+                "participant_count": {
+                    "description": "Stats",
+                    "type": "integer"
+                },
+                "registration_end": {
+                    "type": "string"
+                },
+                "registration_start": {
+                    "description": "Schedule",
+                    "type": "string"
+                },
+                "roundlimit": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.TournamentStatus"
+                },
+                "team_size": {
+                    "description": "1 for solo, 2+ for teams",
+                    "type": "integer"
+                },
+                "timelimit": {
+                    "description": "Match settings (sent to game servers)",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.TournamentFormat": {
+            "type": "string",
+            "enum": [
+                "single_elimination",
+                "double_elimination",
+                "swiss",
+                "round_robin",
+                "group_stage"
+            ],
+            "x-enum-varnames": [
+                "FormatSingleElim",
+                "FormatDoubleElim",
+                "FormatSwiss",
+                "FormatRoundRobin",
+                "FormatGroupStage"
+            ]
+        },
+        "models.TournamentStatus": {
+            "type": "string",
+            "enum": [
+                "draft",
+                "registration_open",
+                "registration_closed",
+                "checkin",
+                "in_progress",
+                "completed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "TournamentStatusDraft",
+                "TournamentStatusOpen",
+                "TournamentStatusClosed",
+                "TournamentStatusCheckin",
+                "TournamentStatusInProgress",
+                "TournamentStatusCompleted",
+                "TournamentStatusCancelled"
+            ]
         },
         "models.UnlockedAchievement": {
             "type": "object",

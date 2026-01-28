@@ -168,5 +168,29 @@ type PlayerMapStats struct {
 	Deaths        uint64  `json:"deaths"`
 	MatchesPlayed uint64  `json:"matches_played"`
 	MatchesWon    uint64  `json:"matches_won"`
+	Headshots     uint64  `json:"headshots"` // Added
+	KDRatio       float64 `json:"kd_ratio"`  // Added
+}
+
+// MapStats per-map statistics (Legacy/General)
+type MapStats struct {
+	MapName       string  `json:"map_name"`
+	Kills         uint64  `json:"kills"`
+	Deaths        uint64  `json:"deaths"`
+	KDRatio       float64 `json:"kd_ratio"`
+	Headshots     uint64  `json:"headshots"`
+	MatchesPlayed uint64  `json:"matches_played"`
+}
+
+// WeaponStats per-weapon statistics (Legacy/General)
+type WeaponStats struct {
+	Weapon     string  `json:"weapon"`
+	Kills      uint64  `json:"kills"`
+	Deaths     uint64  `json:"deaths"`
+	Damage     uint64  `json:"damage"`
+	Headshots  uint64  `json:"headshots"`
+	ShotsFired uint64  `json:"shots_fired"`
+	ShotsHit   uint64  `json:"shots_hit"`
+	Accuracy   float64 `json:"accuracy"`
 }
 

@@ -841,7 +841,7 @@ func (s *ServerTrackingService) RemoveServerFavorite(ctx context.Context, userID
 }
 
 // GetUserFavoriteServers returns user's favorite servers
-func (s *ServerTrackingService) GetUserFavoriteServers(ctx context.Context, userID int) ([]ServerOverview, error) {
+func (s *ServerTrackingService) GetUserFavoriteServers(ctx context.Context, userID int) ([]models.ServerOverview, error) {
 	rows, err := s.pg.Query(ctx, `
 		SELECT s.id, s.name, s.address, s.port, s.region, s.max_players,
 		       s.total_matches, s.total_players, s.last_seen, s.is_active,
@@ -856,9 +856,9 @@ func (s *ServerTrackingService) GetUserFavoriteServers(ctx context.Context, user
 	}
 	defer rows.Close()
 
-	var servers []ServerOverview
+	var servers []models.ServerOverview
 	for rows.Next() {
-		var srv ServerOverview
+		var srv models.ServerOverview
 		var nickname string
 		var addedAt time.Time
 		var maxPlayers int
@@ -1160,7 +1160,7 @@ func LookupCountryFromIP(ip string) string {
 // HELPER FUNCTIONS
 // =============================================================================
 
-func parseServerLiveData(data string, srv *ServerOverview) {
+func parseServerLiveData(data string, srv *models.ServerOverview) {
 	// Parse format: "players:5,map:mohdm6,gametype:dm"
 	if srv == nil {
 		return

@@ -275,7 +275,7 @@ type BotTypeStat struct {
 	Deaths  int64  `json:"deaths"`
 }
 
-type LeaderboardEntry struct {
+type StatLeaderboardEntry struct {
 	Rank       int     `json:"rank"`
 	PlayerID   string  `json:"player_id"`
 	PlayerName string  `json:"player_name"`
@@ -313,12 +313,12 @@ type ContextualLeaderboardResponse struct {
 	Stat      string             `json:"stat"`
 	Dimension string             `json:"dimension"`
 	Value     string             `json:"value"`
-	Leaders   []LeaderboardEntry `json:"leaders"`
+	Leaders   []StatLeaderboardEntry `json:"leaders"`
 }
 
 type ComboLeaderboardResponse struct {
 	Metric  string             `json:"metric"`
-	Entries []LeaderboardEntry `json:"entries"`
+	Entries []StatLeaderboardEntry `json:"entries"`
 }
 
 type PeakLeaderboardResponse struct {

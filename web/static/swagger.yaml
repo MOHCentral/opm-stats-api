@@ -127,7 +127,7 @@ definitions:
     properties:
       entries:
         items:
-          $ref: '#/definitions/models.LeaderboardEntry'
+          $ref: '#/definitions/models.StatLeaderboardEntry'
         type: array
       metric:
         type: string
@@ -185,7 +185,7 @@ definitions:
         type: string
       leaders:
         items:
-          $ref: '#/definitions/models.LeaderboardEntry'
+          $ref: '#/definitions/models.StatLeaderboardEntry'
         type: array
       stat:
         type: string
@@ -235,19 +235,12 @@ definitions:
     type: object
   models.DeviceAuthRequest:
     properties:
-      device_code:
+      client_ip:
         type: string
-      expires_at:
-        type: string
-      interval:
-        description: Polling interval in seconds
+      forum_user_id:
         type: integer
-      user_code:
-        description: Short code for user to enter
-        type: string
-      verification_uri:
-        description: URL to visit
-        type: string
+      regenerate:
+        type: boolean
     type: object
   models.DeviceAuthResponse:
     properties:
@@ -646,6 +639,13 @@ definitions:
     - EventReload
     - EventTeamWin
     - EventIdentityClaim
+  models.FactionStats:
+    properties:
+      allies:
+        $ref: '#/definitions/models.TeamMetrics'
+      axis:
+        $ref: '#/definitions/models.TeamMetrics'
+    type: object
   models.GametypeStats:
     properties:
       deaths:
@@ -712,19 +712,6 @@ definitions:
         type: integer
       most_used_weapon:
         type: string
-    type: object
-  models.LeaderboardEntry:
-    properties:
-      player_id:
-        type: string
-      player_name:
-        type: string
-      rank:
-        type: integer
-      secondary:
-        type: number
-      value:
-        type: number
     type: object
   models.MapPeakStats:
     properties:
@@ -950,6 +937,12 @@ definitions:
     properties:
       deaths:
         type: integer
+      headshots:
+        description: Added
+        type: integer
+      kd_ratio:
+        description: Added
+        type: number
       kills:
         type: integer
       map_name:
@@ -1440,6 +1433,19 @@ definitions:
       standing_pct:
         type: number
     type: object
+  models.StatLeaderboardEntry:
+    properties:
+      player_id:
+        type: string
+      player_name:
+        type: string
+      rank:
+        type: integer
+      secondary:
+        type: number
+      value:
+        type: number
+    type: object
   models.StreakStats:
     properties:
       best_kill_streak:
@@ -1449,6 +1455,25 @@ definitions:
       current_streak:
         type: integer
       worst_loss_streak:
+        type: integer
+    type: object
+  models.TeamMetrics:
+    properties:
+      deaths:
+        type: integer
+      kd_ratio:
+        type: number
+      kills:
+        type: integer
+      losses:
+        type: integer
+      objectives_done:
+        type: integer
+      top_weapon:
+        type: string
+      win_rate:
+        type: number
+      wins:
         type: integer
     type: object
   models.TimeWeaponCombo:
@@ -1463,6 +1488,99 @@ definitions:
       weapon_name:
         type: string
     type: object
+  models.Tournament:
+    properties:
+      best_of:
+        type: integer
+      checkin_end:
+        type: string
+      checkin_start:
+        type: string
+      created_at:
+        type: string
+      current_round:
+        type: integer
+      description:
+        type: string
+      end_time:
+        type: string
+      format:
+        $ref: '#/definitions/models.TournamentFormat'
+      fraglimit:
+        type: integer
+      game_mode:
+        type: string
+      id:
+        type: string
+      map_pool:
+        items:
+          type: string
+        type: array
+      max_participants:
+        description: Configuration
+        type: integer
+      min_participants:
+        type: integer
+      name:
+        type: string
+      organizer_id:
+        description: Ownership
+        type: string
+      participant_count:
+        description: Stats
+        type: integer
+      registration_end:
+        type: string
+      registration_start:
+        description: Schedule
+        type: string
+      roundlimit:
+        type: integer
+      start_time:
+        type: string
+      status:
+        $ref: '#/definitions/models.TournamentStatus'
+      team_size:
+        description: 1 for solo, 2+ for teams
+        type: integer
+      timelimit:
+        description: Match settings (sent to game servers)
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.TournamentFormat:
+    enum:
+    - single_elimination
+    - double_elimination
+    - swiss
+    - round_robin
+    - group_stage
+    type: string
+    x-enum-varnames:
+    - FormatSingleElim
+    - FormatDoubleElim
+    - FormatSwiss
+    - FormatRoundRobin
+    - FormatGroupStage
+  models.TournamentStatus:
+    enum:
+    - draft
+    - registration_open
+    - registration_closed
+    - checkin
+    - in_progress
+    - completed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - TournamentStatusDraft
+    - TournamentStatusOpen
+    - TournamentStatusClosed
+    - TournamentStatusCheckin
+    - TournamentStatusInProgress
+    - TournamentStatusCompleted
+    - TournamentStatusCancelled
   models.UnlockedAchievement:
     properties:
       description:
@@ -3202,6 +3320,31 @@ paths:
       summary: Server Pulse (Main)
       tags:
       - Server
+  /stats/teams/performance:
+    get:
+      description: Get consolidated stats for Axis vs Allies over a period
+      parameters:
+      - default: 30
+        description: Days to look back
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.FactionStats'
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Faction Performance Stats
+      tags:
+      - Teams
   /stats/weapons:
     get:
       produces:
@@ -3222,6 +3365,75 @@ paths:
       summary: Get Global Weapon Stats
       tags:
       - Server
+  /tournaments:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Tournament'
+            type: array
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List Tournaments
+      tags:
+      - Tournaments
+  /tournaments/{id}:
+    get:
+      parameters:
+      - description: Tournament ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Tournament'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Tournament Details
+      tags:
+      - Tournaments
+  /tournaments/{id}/stats:
+    get:
+      parameters:
+      - description: Tournament ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stats
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Tournament Stats
+      tags:
+      - Tournaments
 securityDefinitions:
   BearerAuth:
     in: header

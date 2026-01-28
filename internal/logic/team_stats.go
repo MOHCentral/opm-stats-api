@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 type teamStatsService struct {
@@ -15,30 +16,23 @@ func NewTeamStatsService(ch driver.Conn) TeamStatsService {
 	return &teamStatsService{ch: ch}
 }
 
-// FactionStats comparison
-type FactionStats struct {
-	Axis   TeamMetrics `json:"axis"`
-	Allies TeamMetrics `json:"allies"`
-}
 
-type TeamMetrics struct {
-	Kills          uint64  `json:"kills"`
-	Deaths         uint64  `json:"deaths"`
-	Wins           uint64  `json:"wins"`
-	Losses         uint64  `json:"losses"`
-	KDRatio        float64 `json:"kd_ratio"`
-	WinRate        float64 `json:"win_rate"`
-	ObjectivesDone uint64  `json:"objectives_done"`
-	TopWeapon      string  `json:"top_weapon"`
-}
 
-// GetFactionComparison returns aggregated stats for Axis vs Allies over the last N days
-func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (*FactionStats, error) {
+// GetFactionPerformance returns aggregated stats for Axis vs Allies
+// @Summary Faction Performance Stats
+// @Description Get consolidated stats for Axis vs Allies over a period
+// @Tags Teams
+// @Produce json
+// @Param days query int false "Days to look back" default(30)
+// @Success 200 {object} models.FactionStats
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/teams/performance [get]
+func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (*models.FactionStats, error) {
 	if days <= 0 {
 		days = 30
 	}
 
-	stats := &FactionStats{}
+	stats := &models.FactionStats{}
 
 	// Query 1: Metrics (Kills, Deaths, Objectives)
 	// We combine both teams into one query using countIf with conditions

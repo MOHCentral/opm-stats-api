@@ -10,7 +10,14 @@ import (
 // ============================================================================
 
 // GetFactionPerformance returns aggregated stats for Axis vs Allies
-// GET /api/v1/stats/teams/performance?days=30
+// @Summary Faction Performance Stats
+// @Description Get consolidated stats for Axis vs Allies over a period
+// @Tags Teams
+// @Produce json
+// @Param days query int false "Days to look back" default(30)
+// @Success 200 {object} models.FactionStats
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/teams/performance [get]
 func (h *Handler) GetFactionPerformance(w http.ResponseWriter, r *http.Request) {
 	daysStr := r.URL.Query().Get("days")
 	days := 30

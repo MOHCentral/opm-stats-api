@@ -430,10 +430,10 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 
 	// ...
-	var entries []models.LeaderboardEntry
+	var entries []models.StatLeaderboardEntry
 	rank := 1
 	for rows.Next() {
-		var e models.LeaderboardEntry
+		var e models.StatLeaderboardEntry
 		var secondary float64
 		switch metric {
 		case "run_gun":

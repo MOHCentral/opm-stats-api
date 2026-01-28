@@ -772,7 +772,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Errorw("Failed to get deep stats", "guid", guid, "error", err)
 		// Fallback to empty if failed, but try to proceed
-		deepStats = &logic.DeepStats{}
+		deepStats = &models.DeepStats{}
 	}
 
 	// 2. Get Performance History (Trend)

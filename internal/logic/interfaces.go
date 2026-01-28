@@ -53,12 +53,12 @@ type AdvancedStatsService interface {
 	GetWorldStats(ctx context.Context, guid string) (*models.WorldStats, error)
 	GetBotStats(ctx context.Context, guid string) (*models.BotStats, error)
 	GetDrillDownNested(ctx context.Context, guid, stat, parentDim, parentValue, childDim string, limit int) ([]models.DrillDownItem, error)
-	GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]models.LeaderboardEntry, error)
+	GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]models.StatLeaderboardEntry, error)
 	GetAvailableDrilldowns(stat string) []string
 }
 
 type TeamStatsService interface {
-	GetFactionComparison(ctx context.Context, days int) (*FactionStats, error)
+	GetFactionComparison(ctx context.Context, days int) (*models.FactionStats, error)
 }
 
 type TournamentService interface {
@@ -68,6 +68,6 @@ type TournamentService interface {
 }
 
 type AchievementsService interface {
-	GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]models.Achievement, error)
+	GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]models.ContextualAchievement, error)
 	GetPlayerAchievements(ctx context.Context, playerGUID string) ([]models.PlayerAchievement, error)
 }

@@ -769,7 +769,7 @@ func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, sta
 }
 
 // GetStatLeaders returns players ranked by a stat in a specific context (e.g. Best with MP40)
-func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]models.LeaderboardEntry, error) {
+func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimension, value string, limit int) ([]models.StatLeaderboardEntry, error) {
 	if limit <= 0 {
 		limit = 25
 	}
@@ -806,7 +806,7 @@ func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimensi
 	}
 	defer rows.Close()
 
-	var leaders []models.LeaderboardEntry
+	var leaders []models.StatLeaderboardEntry
 	rank := 1
 	for rows.Next() {
 		var id, name string
@@ -814,7 +814,7 @@ func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimensi
 		if err := rows.Scan(&id, &name, &val); err != nil {
 			continue
 		}
-		leaders = append(leaders, models.LeaderboardEntry{
+		leaders = append(leaders, models.StatLeaderboardEntry{
 			Rank:       rank,
 			PlayerID:   id,
 			PlayerName: name,

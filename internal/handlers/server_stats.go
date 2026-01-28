@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/openmohaa/stats-api/internal/logic"
-	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // ============================================================================

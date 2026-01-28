@@ -62,14 +62,7 @@ type IdentityClaim struct {
 	VerifiedAt *time.Time `json:"verified_at,omitempty" db:"verified_at"`
 }
 
-// DeviceAuthRequest for Device Code Flow (in-game identity verification)
-type DeviceAuthRequest struct {
-	DeviceCode      string    `json:"device_code"`
-	UserCode        string    `json:"user_code"`        // Short code for user to enter
-	VerificationURI string    `json:"verification_uri"` // URL to visit
-	ExpiresAt       time.Time `json:"expires_at"`
-	Interval        int       `json:"interval"` // Polling interval in seconds
-}
+
 
 // DeviceAuthState stored in Redis
 type DeviceAuthState struct {
