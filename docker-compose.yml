@@ -121,3 +121,4 @@ volumes:
 networks:
   opm-stats-network:
     driver: bridge
+    name: opm-stats-network
