@@ -2,15 +2,15 @@ services:
   # ============================================================================
   # API Server
   # ============================================================================
-  api:
+  opm-stats-api:
     build:
       context: .
       dockerfile: Dockerfile
-    image: mohaa-stats-api:latest
-    container_name: mohaa-api
+    image: opm-stats-api:latest
+    container_name: opm-stats-api
     labels:
-      - "com.mohaa.service=api"
-      - "com.mohaa.description=OpenMOHAA Stats REST API"
+      - "com.opm.service=opm-stats-api"
+      - "com.opm.description=Openopm Stats REST API"
     ports:
       - "8084:8080"
     environment:
@@ -24,27 +24,27 @@ services:
       - WORKER_FLUSH_INTERVAL=${WORKER_FLUSH_INTERVAL}
       - JWT_SECRET=${JWT_SECRET}
     depends_on:
-      postgres:
+      opm-stats-postgres:
         condition: service_healthy
-      clickhouse:
+      opm-stats-clickhouse:
         condition: service_healthy
-      redis:
+      opm-stats-redis:
         condition: service_healthy
     restart: unless-stopped
     dns:
       - 127.0.0.11
     networks:
-      - mohaa-network
+      - opm-stats-network
 
   # ============================================================================
   # PostgreSQL - OLTP (Users, Tournaments, State)
   # ============================================================================
-  postgres:
+  opm-stats-postgres:
     image: postgres:16-alpine
-    container_name: mohaa-postgres
+    container_name: opm-stats-postgres
     labels:
-      - "com.mohaa.service=postgres"
-      - "com.mohaa.description=Player profiles, tournaments, achievements"
+      - "com.opm.service=opm-stats-postgres"
+      - "com.opm.description=Player profiles, tournaments, achievements"
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -52,7 +52,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - opm-stats-postgres-data:/var/lib/postgresql/data
       - ./migrations/postgres:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -61,17 +61,17 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - mohaa-network
+      - opm-stats-network
 
   # ============================================================================
   # ClickHouse - OLAP (Events, Analytics)
   # ============================================================================
-  clickhouse:
+  opm-stats-clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
-    container_name: mohaa-clickhouse
+    container_name: opm-stats-clickhouse
     labels:
-      - "com.mohaa.service=clickhouse"
-      - "com.mohaa.description=Event storage and analytics (1M+ events)"
+      - "com.opm.service=opm-stats-clickhouse"
+      - "com.opm.description=Event storage and analytics (1M+ events)"
     ports:
       - "8123:8123"  # HTTP interface
       - "9000:9000"  # Native interface
@@ -80,7 +80,7 @@ services:
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DB=${CLICKHOUSE_DB}
     volumes:
-      - clickhouse-data:/var/lib/clickhouse
+      - opm-stats-clickhouse-data:/var/lib/clickhouse
       - ./migrations/clickhouse:/docker-entrypoint-initdb.d
       - ./config/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom.xml
     healthcheck:
@@ -90,21 +90,21 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - mohaa-network
+      - opm-stats-network
 
   # ============================================================================
   # Redis - Caching, Rate Limiting, Real-time State
   # ============================================================================
-  redis:
+  opm-stats-redis:
     image: redis:7-alpine
-    container_name: mohaa-redis
+    container_name: opm-stats-redis
     labels:
-      - "com.mohaa.service=redis"
-      - "com.mohaa.description=Caching and real-time state"
+      - "com.opm.service=opm-stats-redis"
+      - "com.opm.description=Caching and real-time state"
     ports:
       - "6380:6379"  # Use 6380 externally to avoid conflict with host Redis
     volumes:
-      - redis-data:/data
+      - opm-stats-redis-data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -113,13 +113,13 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - mohaa-network
+      - opm-stats-network
 
 volumes:
-  postgres-data:
-  clickhouse-data:
-  redis-data:
+  opm-stats-postgres-data:
+  opm-stats-clickhouse-data:
+  opm-stats-redis-data:
 
 networks:
-  mohaa-network:
+  opm-stats-network:
     driver: bridge
