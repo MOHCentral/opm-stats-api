@@ -197,7 +197,7 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 			countIf(event_type = 'kill' AND actor_id = ? AND actor_team != '' AND actor_team = target_team AND actor_id != target_id) as team_kills,
 			countIf(event_type = 'player_roadkill' AND actor_id = ?) as roadkills,
 			countIf((event_type = 'bash' OR event_type = 'player_bash') AND actor_id = ?) as bash_kills,
-			countIf(event_type = 'grenade_kill' AND actor_id = ?) as grenade_kills,
+			countIf(event_type = 'kill' AND actor_weapon LIKE '%grenade%' AND actor_id = ?) as grenade_kills,
 			countIf(event_type = 'grenade_throw' AND actor_id = ?) as grenades_thrown,
 			sumIf(damage, event_type = 'damage' AND target_id = ?) as damage_dealt,
 			sumIf(damage, event_type = 'damage' AND actor_id = ?) as damage_taken

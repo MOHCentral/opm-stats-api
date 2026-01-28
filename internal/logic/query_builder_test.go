@@ -31,7 +31,7 @@ func TestBuildStatsQuery(t *testing.T) {
 				Metric:    "kdr",
 				Limit:     5,
 			},
-			wantQueryPart: "GROUP BY extract(extra, 'weapon_([a-zA-Z0-9_]+)')",
+			wantQueryPart: "GROUP BY actor_weapon",
 			wantArgsCount: 0,
 			wantErr:       false,
 		},
