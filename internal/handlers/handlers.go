@@ -1707,7 +1707,7 @@ func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		var serverID string
 		err := h.pg.QueryRow(ctx,
-			"SELECT id FROM servers WHERE token_hash = $1 AND is_active = true",
+			"SELECT id FROM servers WHERE token = $1 AND is_active = true",
 			hashToken(token)).Scan(&serverID)
 		if err != nil || serverID == "" {
 			h.errorResponse(w, http.StatusUnauthorized, "Invalid server token")
