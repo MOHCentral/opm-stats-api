@@ -354,6 +354,45 @@ components:
         kdr: { type: number }
         accuracy: { type: number }
 
+    RegisterServerRequest:
+      type: object
+      required: [name, ip_address]
+      properties:
+        name: { type: string }
+        ip_address: { type: string }
+        port: { type: integer }
+
+    RegisterServerResponse:
+      type: object
+      properties:
+        server_id: { type: string }
+        token: { type: string }
+
+    MatchResult:
+      type: object
+      properties:
+        match_id: { type: string }
+        server_id: { type: string }
+        map_name: { type: string }
+        gametype: { type: string }
+        duration: { type: number }
+        winning_team: { type: string }
+        allies_score: { type: integer }
+        axis_score: { type: integer }
+        total_rounds: { type: integer }
+        tournament_id: { type: string }
+        bracket_match: { type: string }
+
+    ServerLiveStatus:
+      type: object
+      properties:
+        server_id: { type: string }
+        is_online: { type: boolean }
+        map: { type: string }
+        gametype: { type: string }
+        players: { type: integer }
+        max_players: { type: integer }
+
 paths:
   /health:
     get:
@@ -381,6 +420,20 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/ServerOverview' }
+
+    post:
+      summary: Register Server
+      tags: [Server]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterServerRequest' }
+      responses:
+        '200':
+          description: Server registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterServerResponse' }
 
   /api/v1/servers/stats:
     get:
@@ -428,6 +481,54 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PeakHoursHeatmap' }
+
+  /api/v1/servers/register:
+    post:
+      summary: Register Server
+      tags: [Server]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterServerRequest' }
+      responses:
+        '200':
+          description: Server registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterServerResponse' }
+
+  /api/v1/servers/{id}/live:
+    get:
+      summary: Get Server Live Status
+      tags: [Server]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Live status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerLiveStatus' }
+
+  /api/v1/servers/rankings:
+    get:
+      summary: Get Server Rankings
+      tags: [Server]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Ranked server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ServerOverview' }
 
   /api/v1/stats/server/pulse:
     get:
@@ -778,3 +879,17 @@ paths:
       responses:
         '202':
           description: Accepted
+
+  /api/v1/ingest/match-result:
+    post:
+      summary: Ingest Match Result
+      tags: [Ingestion]
+      security:
+        - ServerToken: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MatchResult' }
+      responses:
+        '200':
+          description: Processed

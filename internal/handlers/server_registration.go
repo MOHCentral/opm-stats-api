@@ -3,26 +3,26 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
-type RegisterServerRequest struct {
-	Name      string `json:"name"`
-	IPAddress string `json:"ip_address"`
-	Port      int    `json:"port"`
-}
 
-type RegisterServerResponse struct {
-	ServerID string `json:"server_id"`
-	Token    string `json:"token"`
-}
 
 // RegisterServer handles new server registration
-// POST /api/v1/servers/register
+// @Summary Register Server
+// @Description Registers a new game server
+// @Tags Server
+// @Accept json
+// @Produce json
+// @Param body body models.RegisterServerRequest true "Server Info"
+// @Success 200 {object} models.RegisterServerResponse "Server Credentials"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/register [post]
 func (h *Handler) RegisterServer(w http.ResponseWriter, r *http.Request) {
-	var req RegisterServerRequest
+	var req models.RegisterServerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.errorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -40,12 +40,12 @@ func (h *Handler) RegisterServer(w http.ResponseWriter, r *http.Request) {
 
 	// Store in Postgres
 	_, err := h.pg.Exec(r.Context(), `
-		INSERT INTO servers (id, name, ip_address, port, server_token_hash, is_active, last_seen)
+		INSERT INTO servers (id, name, ip_address, port, token, is_active, last_seen)
 		VALUES ($1, $2, $3, $4, $5, true, NOW())
 		ON CONFLICT (ip_address, port) 
 		DO UPDATE SET 
 			name = EXCLUDED.name,
-			server_token_hash = EXCLUDED.server_token_hash,
+			token = EXCLUDED.token,
 			is_active = true,
 			last_seen = NOW()
 		RETURNING id
@@ -58,7 +58,7 @@ func (h *Handler) RegisterServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return credentials
-	h.jsonResponse(w, http.StatusOK, RegisterServerResponse{
+	h.jsonResponse(w, http.StatusOK, models.RegisterServerResponse{
 		ServerID: serverID,
 		Token:    token,
 	})

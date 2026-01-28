@@ -141,7 +141,16 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // IngestEvents handles POST /api/v1/ingest/events
-// Accepts URL-encoded or JSON events from game servers
+// @Summary Ingest Game Events
+// @Description Accepts newline-separated JSON events from game servers
+// @Tags Ingestion
+// @Accept json
+// @Produce json
+// @Security ServerToken
+// @Param body body []models.RawEvent true "Events"
+// @Success 202 {object} map[string]string "Accepted"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Router /ingest/events [post]
 func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	// Limit request body to 1MB to prevent DoS
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodySize)
@@ -323,6 +332,15 @@ func parseFloat32(s string) float32 {
 
 // IngestMatchResult handles POST /api/v1/ingest/match-result
 // Synchronous processing for tournament integration
+// @Summary Ingest Match Result
+// @Tags Ingestion
+// @Security ServerToken
+// @Accept json
+// @Produce json
+// @Param body body models.MatchResult true "Match Result"
+// @Success 200 {object} map[string]string "Processed"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Router /ingest/match-result [post]
 func (h *Handler) IngestMatchResult(w http.ResponseWriter, r *http.Request) {
 	var result models.MatchResult
 
@@ -345,6 +363,12 @@ func (h *Handler) IngestMatchResult(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // GetGlobalStats returns aggregate statistics for the dashboard
+// @Summary Global Network Stats
+// @Tags Server
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Global Stats"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/stats [get]
 func (h *Handler) GetGlobalStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.serverStats.GetGlobalStats(r.Context())
 	if err != nil {
@@ -361,6 +385,13 @@ func (h *Handler) GetGlobalStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetMatches returns a list of recent matches
+// @Summary Get Recent Matches
+// @Tags Match
+// @Produce json
+// @Param limit query int false "Limit" default(25)
+// @Success 200 {array} models.MatchResult "Matches"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/matches [get]
 func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	limit := 20
@@ -422,6 +453,12 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetGlobalWeaponStats returns weapon usage statistics
+// @Summary Get Global Weapon Stats
+// @Tags Server
+// @Produce json
+// @Success 200 {array} models.WeaponStats "Weapon Stats"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/weapons [get]
 func (h *Handler) GetGlobalWeaponStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -462,6 +499,14 @@ func (h *Handler) GetGlobalWeaponStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLeaderboard returns rankings based on various criteria
+// @Summary Get Global Leaderboard
+// @Tags Leaderboards
+// @Produce json
+// @Param limit query int false "Limit" default(25)
+// @Param page query int false "Page" default(1)
+// @Success 200 {object} map[string]interface{} "Leaderboard"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/leaderboard [get]
 func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

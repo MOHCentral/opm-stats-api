@@ -13,7 +13,13 @@ import (
 // ============================================================================
 
 // GetServerPulse returns high-level "vital signs" of the server
-// GET /api/v1/stats/server/pulse
+// @Summary Server Pulse (Main)
+// @Description Real-time heartbeat of server activity and chaos
+// @Tags Server
+// @Produce json
+// @Success 200 {object} models.ServerPulse "Pulse Data"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/server/pulse [get]
 func (h *Handler) GetServerPulse(w http.ResponseWriter, r *http.Request) {
 	pulse, err := h.serverStats.GetServerPulse(r.Context())
 	if err != nil {
@@ -25,7 +31,12 @@ func (h *Handler) GetServerPulse(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerActivity returns a heatmap of activity
-// GET /api/v1/stats/server/activity
+// @Summary Global Server Activity
+// @Tags Server
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Activity Data"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/server/activity [get]
 func (h *Handler) GetServerActivity(w http.ResponseWriter, r *http.Request) {
 	activity, err := h.serverStats.GetGlobalActivity(r.Context())
 	if err != nil {
@@ -37,7 +48,12 @@ func (h *Handler) GetServerActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerMaps returns map popularity stats
-// GET /api/v1/stats/server/maps
+// @Summary Global Map Stats
+// @Tags Server
+// @Produce json
+// @Success 200 {object} []models.MapStats "Map Stats"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /stats/server/maps [get]
 func (h *Handler) GetServerMaps(w http.ResponseWriter, r *http.Request) {
 	maps, err := h.serverStats.GetMapPopularity(r.Context())
 	if err != nil {
@@ -58,7 +74,13 @@ func (h *Handler) getServerTracking() *logic.ServerTrackingService {
 }
 
 // GetAllServers returns list of all registered servers with live status
-// GET /api/v1/servers
+// @Summary List All Servers
+// @Description List active servers with status
+// @Tags Server
+// @Produce json
+// @Success 200 {array} models.ServerOverview "Server List"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers [get]
 func (h *Handler) GetAllServers(w http.ResponseWriter, r *http.Request) {
 	svc := h.getServerTracking()
 	servers, err := svc.GetServerList(r.Context())
@@ -71,7 +93,13 @@ func (h *Handler) GetAllServers(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServersGlobalStats returns aggregate stats across all servers
-// GET /api/v1/servers/stats
+// @Summary Global Network Stats
+// @Description Aggregate stats across all servers
+// @Tags Server
+// @Produce json
+// @Success 200 {object} map[string]interface{} "Network Stats"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/stats [get]
 func (h *Handler) GetServersGlobalStats(w http.ResponseWriter, r *http.Request) {
 	svc := h.getServerTracking()
 	stats, err := svc.GetServerGlobalStats(r.Context())
@@ -84,7 +112,13 @@ func (h *Handler) GetServersGlobalStats(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetServerRankings returns ranked list of servers
-// GET /api/v1/servers/rankings
+// @Summary Get Server Rankings
+// @Tags Server
+// @Produce json
+// @Param limit query int false "Limit" default(50)
+// @Success 200 {array} models.ServerOverview "Rankings"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/rankings [get]
 func (h *Handler) GetServerRankings(w http.ResponseWriter, r *http.Request) {
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -104,7 +138,16 @@ func (h *Handler) GetServerRankings(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerDetail returns comprehensive details for a specific server
-// GET /api/v1/servers/{id}
+// @Summary Server Details
+// @Description Detailed server info including lifetime stats
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {object} models.ServerOverview "Server Detail"
+// @Failure 400 {object} map[string]string "Missing ID"
+// @Failure 404 {object} map[string]string "Not Found"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id} [get]
 func (h *Handler) GetServerDetail(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	if serverID == "" {
@@ -123,7 +166,14 @@ func (h *Handler) GetServerDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerLiveStatus returns real-time status for a server
-// GET /api/v1/servers/{id}/live
+// @Summary Get Server Live Status
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {object} map[string]interface{} "Live Status"
+// @Failure 400 {object} map[string]string "Missing ID"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/live [get]
 func (h *Handler) GetServerLiveStatus(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	if serverID == "" {
@@ -142,7 +192,14 @@ func (h *Handler) GetServerLiveStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerPlayerHistory returns player count history for charts
-// GET /api/v1/servers/{id}/player-history
+// @Summary Server Player History
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param hours query int false "Hours" default(24)
+// @Success 200 {array} map[string]interface{} "History Data"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/player-history [get]
 func (h *Handler) GetServerPlayerHistory(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	hours := 24
@@ -163,7 +220,14 @@ func (h *Handler) GetServerPlayerHistory(w http.ResponseWriter, r *http.Request)
 }
 
 // GetServerPeakHours returns activity heatmap by day/hour
-// GET /api/v1/servers/{id}/peak-hours
+// @Summary Server Peak Hours Heatmap
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param days query int false "Days" default(30)
+// @Success 200 {object} models.PeakHoursHeatmap "Heatmap Data"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/peak-hours [get]
 func (h *Handler) GetServerPeakHours(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	days := 30
@@ -184,7 +248,14 @@ func (h *Handler) GetServerPeakHours(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerTopPlayers returns top players for a specific server
-// GET /api/v1/servers/{id}/top-players
+// @Summary Server Top Players
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param limit query int false "Limit" default(25)
+// @Success 200 {array} models.PlayerStats "Top Players"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/top-players [get]
 func (h *Handler) GetServerTopPlayers(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	limit := 25
@@ -205,7 +276,13 @@ func (h *Handler) GetServerTopPlayers(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerMapStats returns map statistics for a server
-// GET /api/v1/servers/{id}/maps
+// @Summary Server Map Stats
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {array} models.MapStats "Map Stats"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/maps [get]
 func (h *Handler) GetServerMapStats(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 
@@ -220,7 +297,13 @@ func (h *Handler) GetServerMapStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerWeaponStats returns weapon statistics for a server
-// GET /api/v1/servers/{id}/weapons
+// @Summary Server Weapon Stats
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {array} models.WeaponStats "Weapon Stats"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/weapons [get]
 func (h *Handler) GetServerWeaponStats(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 
@@ -235,7 +318,14 @@ func (h *Handler) GetServerWeaponStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetServerRecentMatches returns recent matches for a server
-// GET /api/v1/servers/{id}/matches
+// @Summary Server Recent Matches
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param limit query int false "Limit" default(20)
+// @Success 200 {array} models.MatchResult "Matches"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/matches [get]
 func (h *Handler) GetServerRecentMatches(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	limit := 20
@@ -256,7 +346,14 @@ func (h *Handler) GetServerRecentMatches(w http.ResponseWriter, r *http.Request)
 }
 
 // GetServerActivityTimeline returns hourly activity timeline
-// GET /api/v1/servers/{id}/activity-timeline
+// @Summary Server Activity Timeline
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param days query int false "Days" default(7)
+// @Success 200 {array} map[string]interface{} "Timeline"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/activity-timeline [get]
 func (h *Handler) GetServerActivityTimeline(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	days := 7
@@ -281,7 +378,16 @@ func (h *Handler) GetServerActivityTimeline(w http.ResponseWriter, r *http.Reque
 // ============================================================================
 
 // AddServerFavorite adds a server to user's favorites
-// POST /api/v1/servers/{id}/favorite
+// @Summary Add Favorite Server
+// @Tags Server
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param nickname query string false "Nickname"
+// @Success 200 {object} map[string]bool "Success"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/favorite [post]
 func (h *Handler) AddServerFavorite(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	userID := h.getUserIDFromContext(r.Context())
@@ -303,7 +409,15 @@ func (h *Handler) AddServerFavorite(w http.ResponseWriter, r *http.Request) {
 }
 
 // RemoveServerFavorite removes a server from user's favorites
-// DELETE /api/v1/servers/{id}/favorite
+// @Summary Remove Favorite Server
+// @Tags Server
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {object} map[string]bool "Success"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/favorite [delete]
 func (h *Handler) RemoveServerFavorite(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	userID := h.getUserIDFromContext(r.Context())
@@ -323,7 +437,14 @@ func (h *Handler) RemoveServerFavorite(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserFavoriteServers returns user's favorite servers
-// GET /api/v1/servers/favorites
+// @Summary Get User Favorites
+// @Tags Server
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {array} models.ServerOverview "Favorites"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/favorites [get]
 func (h *Handler) GetUserFavoriteServers(w http.ResponseWriter, r *http.Request) {
 	userID := h.getUserIDFromContext(r.Context())
 	if userID == 0 {
@@ -342,7 +463,13 @@ func (h *Handler) GetUserFavoriteServers(w http.ResponseWriter, r *http.Request)
 }
 
 // CheckServerFavorite checks if server is in user's favorites
-// GET /api/v1/servers/{id}/favorite
+// @Summary Check Favorite Status
+// @Tags Server
+// @Security BearerAuth
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {object} map[string]bool "Status"
+// @Router /servers/{id}/favorite [get]
 func (h *Handler) CheckServerFavorite(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	userID := h.getUserIDFromContext(r.Context())
@@ -361,7 +488,15 @@ func (h *Handler) CheckServerFavorite(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // GetServerHistoricalPlayers returns all players with historical data for a server
-// GET /api/v1/servers/{id}/players
+// @Summary Server Historical Players
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param limit query int false "Limit" default(50)
+// @Param offset query int false "Offset"
+// @Success 200 {object} map[string]interface{} "Players List"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/players [get]
 func (h *Handler) GetServerHistoricalPlayers(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	limit := 50
@@ -397,7 +532,14 @@ func (h *Handler) GetServerHistoricalPlayers(w http.ResponseWriter, r *http.Requ
 // ============================================================================
 
 // GetServerMapRotation returns detailed map rotation analysis
-// GET /api/v1/servers/{id}/map-rotation
+// @Summary Server Map Rotation
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Param days query int false "Days" default(30)
+// @Success 200 {array} map[string]interface{} "Rotation Data"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/map-rotation [get]
 func (h *Handler) GetServerMapRotation(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 	days := 30
@@ -422,7 +564,13 @@ func (h *Handler) GetServerMapRotation(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // GetServerCountryStats returns player distribution by country
-// GET /api/v1/servers/{id}/countries
+// @Summary Server Country Stats
+// @Tags Server
+// @Produce json
+// @Param id path string true "Server ID"
+// @Success 200 {array} map[string]interface{} "Country Data"
+// @Failure 500 {object} map[string]string "Internal Error"
+// @Router /servers/{id}/countries [get]
 func (h *Handler) GetServerCountryStats(w http.ResponseWriter, r *http.Request) {
 	serverID := chi.URLParam(r, "id")
 

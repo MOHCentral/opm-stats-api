@@ -42,6 +42,29 @@ func main() {
 
 	sugar.Info("OpenMOHAA Stats API starting up...")
 
+	// @title           OpenMOHAA Stats API
+	// @version         1.0.0
+	// @description     High-throughput competitive statistics and tournament infrastructure for Medal of Honor: Allied Assault.
+	// @termsOfService  http://swagger.io/terms/
+
+	// @contact.name    API Support
+	// @contact.url     http://www.swagger.io/support
+	// @contact.email   support@moh-central.net
+
+	// @license.name    Apache 2.0
+	// @license.url     http://www.apache.org/licenses/LICENSE-2.0.html
+
+	// @host      api.moh-central.net
+	// @BasePath  /api/v1
+
+	// @securityDefinitions.apikey ServerToken
+	// @in header
+	// @name X-Server-Token
+
+	// @securityDefinitions.apikey BearerAuth
+	// @in header
+	// @name Authorization
+
 	// Load configuration
 	cfg := config.Load()
 	sugar.Infow("Configuration loaded",

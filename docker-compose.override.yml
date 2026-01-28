@@ -1,0 +1,6 @@
+version: '3.8'
+
+services:
+  opm-stats-api:
+    build: .
+    image: opm-stats-api:latest

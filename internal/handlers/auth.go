@@ -20,17 +20,18 @@ import (
 // ============================================================================
 
 // InitDeviceAuth generates a unique login token for SMF forum users
-// POST /api/v1/auth/device
-// Body: {"forum_user_id": 123, "client_ip": "1.2.3.4"} or {"forum_user_id": 123, "regenerate": true, "client_ip": "1.2.3.4"}
-// The client_ip is automatically added to trusted_ips so the user can login from the same IP they used to generate the token
+// @Summary Init Device Auth
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body models.DeviceAuthRequest true "Auth Request"
+// @Success 200 {object} models.DeviceAuthResponse "Token Info"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Router /auth/device [post]
 func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req struct {
-		ForumUserID int    `json:"forum_user_id"`
-		Regenerate  bool   `json:"regenerate"`
-		ClientIP    string `json:"client_ip"` // IP of the user generating the token (auto-trusted)
-	}
+	var req models.DeviceAuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.errorResponse(w, http.StatusBadRequest, "Invalid JSON")
 		return
@@ -121,12 +122,18 @@ func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // PollDeviceToken polls for completed device auth
+// @Summary Poll Device Token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body models.DevicePollRequest true "Poll Request"
+// @Success 200 {object} map[string]string "Access Token"
+// @Failure 400 {object} map[string]string "Pending/Expired"
+// @Router /auth/device/poll [post]
 func (h *Handler) PollDeviceToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req struct {
-		DeviceCode string `json:"device_code"`
-	}
+	var req models.DevicePollRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.errorResponse(w, http.StatusBadRequest, "Invalid JSON")
 		return
@@ -165,24 +172,19 @@ func (h *Handler) PollDeviceToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // VerifyToken validates a login token from the game server
-// This is called when a player types /login <token> in-game
-// POST /api/v1/auth/verify
-// Body: {"token": "ABC12345", "player_guid": "xxx", "server_name": "My Server", "player_ip": "1.2.3.4"}
-//
-// Security model:
-// 1. First use: Token verified, IP becomes trusted
-// 2. Same IP reconnect: Token already used but IP is trusted → Allow
-// 3. New IP: Token already used, IP not trusted → Create pending approval request
+// @Summary Verify Game Token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body models.VerifyTokenRequest true "Verify Request"
+// @Success 200 {object} map[string]interface{} "Verification Result"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Pending Approval"
+// @Router /auth/verify [post]
 func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req struct {
-		Token         string `json:"token"`
-		PlayerGUID    string `json:"player_guid"`
-		ServerName    string `json:"server_name"`
-		ServerAddress string `json:"server_address"`
-		PlayerIP      string `json:"player_ip"`
-	}
+	var req models.VerifyTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.errorResponse(w, http.StatusBadRequest, "Invalid JSON")
 		return
@@ -374,8 +376,17 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // SMFVerifyToken handles the specific format sent by tracker.scr (Form Data)
-// POST /api/v1/auth/smf-verify
-// Form Data: token, guid, player_name, server_ip, server_port, server_id
+// @Summary Verify SMF Token (Legacy)
+// @Tags Auth
+// @Consumes x-www-form-urlencoded
+// @Produce json
+// @Param token formData string true "Token"
+// @Param guid formData string true "GUID"
+// @Param player_name formData string true "Player Name"
+// @Param server_id formData string true "Server ID"
+// @Success 200 {object} map[string]interface{} "Result"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Router /auth/smf-verify [post]
 func (h *Handler) SMFVerifyToken(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -480,7 +491,13 @@ func (h *Handler) SMFVerifyToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLoginHistory returns login history for a forum user
-// GET /api/v1/auth/history?forum_user_id=123
+// @Summary Get Login History
+// @Tags Auth
+// @Produce json
+// @Param forum_user_id query int true "Forum User ID"
+// @Success 200 {object} map[string]interface{} "History"
+// @Failure 400 {object} map[string]string "Bad Request"
+// @Router /auth/history [get]
 func (h *Handler) GetLoginHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -559,7 +576,12 @@ func (h *Handler) GetLoginHistory(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // GetTrustedIPs returns all trusted IPs for a forum user
-// GET /api/v1/auth/trusted-ips?forum_user_id=123
+// @Summary Get Trusted IPs
+// @Tags Auth
+// @Produce json
+// @Param forum_user_id query int true "Forum User ID"
+// @Success 200 {object} map[string]interface{} "Trusted IPs"
+// @Router /auth/trusted-ips [get]
 func (h *Handler) GetTrustedIPs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -633,7 +655,14 @@ func (h *Handler) GetTrustedIPs(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteTrustedIP removes a trusted IP
-// DELETE /api/v1/auth/trusted-ips/{id}?forum_user_id=123
+// @Summary Remove Trusted IP
+// @Tags Auth
+// @Produce json
+// @Param id path string true "IP ID"
+// @Param forum_user_id query int true "Forum User ID"
+// @Success 200 {object} map[string]string "Success"
+// @Failure 404 {object} map[string]string "Not Found"
+// @Router /auth/trusted-ips/{id} [delete]
 func (h *Handler) DeleteTrustedIP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ipID := chi.URLParam(r, "id")
@@ -676,7 +705,12 @@ func (h *Handler) DeleteTrustedIP(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetPendingIPApprovals returns pending IP approval requests
-// GET /api/v1/auth/pending-ips?forum_user_id=123
+// @Summary Get Pending IPs
+// @Tags Auth
+// @Produce json
+// @Param forum_user_id query int true "Forum User ID"
+// @Success 200 {object} map[string]interface{} "Pending IPs"
+// @Router /auth/pending-ips [get]
 func (h *Handler) GetPendingIPApprovals(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -756,17 +790,20 @@ func (h *Handler) GetPendingIPApprovals(w http.ResponseWriter, r *http.Request) 
 }
 
 // ResolvePendingIPApproval approves or denies a pending IP request
-// POST /api/v1/auth/pending-ips/{id}
-// Body: {"action": "approve"} or {"action": "deny"}
+// @Summary Resolve Pending IP
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param id path string true "Approval ID"
+// @Param body body models.ResolveIPRequest true "Action"
+// @Success 200 {object} map[string]string "Success"
+// @Failure 404 {object} map[string]string "Not Found"
+// @Router /auth/pending-ips/{id} [post]
 func (h *Handler) ResolvePendingIPApproval(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	approvalID := chi.URLParam(r, "id")
 
-	var req struct {
-		ForumUserID int    `json:"forum_user_id"`
-		Action      string `json:"action"` // "approve" or "deny"
-		Label       string `json:"label"`  // Optional label for approved IP
-	}
+	var req models.ResolveIPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.errorResponse(w, http.StatusBadRequest, "Invalid JSON")
 		return
@@ -849,7 +886,14 @@ func (h *Handler) ResolvePendingIPApproval(w http.ResponseWriter, r *http.Reques
 
 // MarkPendingIPsNotified marks pending IP approvals as email-notified
 // POST /api/v1/auth/pending-ips/mark-notified
-// Body: {"forum_user_id": 1, "ids": ["uuid1", "uuid2", ...]}
+// MarkPendingIPsNotified marks requests as notified (to stop spamming user)
+// @Summary Mark IPs Notified
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param body body models.MarkNotifiedRequest true "Request"
+// @Success 200 {object} map[string]boolean "Success"
+// @Router /auth/pending-ips/mark-notified [post]
 func (h *Handler) MarkPendingIPsNotified(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

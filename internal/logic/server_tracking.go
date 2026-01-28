@@ -9,6 +9,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // ServerTrackingService provides comprehensive server monitoring
@@ -26,49 +27,15 @@ func NewServerTrackingService(ch driver.Conn, pg *pgxpool.Pool, redis *redis.Cli
 // SERVER LIST & OVERVIEW
 // =============================================================================
 
-// ServerOverview represents a server in the list view
-type ServerOverview struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	Address        string    `json:"address"`
-	Port           int       `json:"port"`
-	DisplayName    string    `json:"display_name"` // Name:Port format
-	IsOnline       bool      `json:"is_online"`
-	CurrentPlayers int       `json:"current_players"`
-	MaxPlayers     int       `json:"max_players"`
-	CurrentMap     string    `json:"current_map"`
-	Gametype       string    `json:"gametype"`
-	Rank           int       `json:"rank"` // Server ranking
-	TotalKills     int64     `json:"total_kills"`
-	TotalMatches   int64     `json:"total_matches"`
-	UniquePlayers  int64     `json:"unique_players"`
-	AvgPlayers24h  float64   `json:"avg_players_24h"`
-	PeakPlayers24h int       `json:"peak_players_24h"`
-	UptimePercent  float64   `json:"uptime_percent"`
-	LastSeen       time.Time `json:"last_seen"`
-	Country        string    `json:"country"`
-	Region         string    `json:"region"`
-}
 
-// ServerGlobalStats represents aggregate stats across all servers
-type ServerGlobalStats struct {
-	TotalServers      int     `json:"total_servers"`
-	OnlineServers     int     `json:"online_servers"`
-	TotalPlayersNow   int     `json:"total_players_now"`
-	TotalKillsToday   int64   `json:"total_kills_today"`
-	TotalMatchesToday int64   `json:"total_matches_today"`
-	PeakPlayersToday  int     `json:"peak_players_today"`
-	AvgPlayersNow     float64 `json:"avg_players_now"`
-	TotalKillsAllTime int64   `json:"total_kills_all_time"`
-}
 
 // GetServerList returns all servers with live status
-func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOverview, error) {
+func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]models.ServerOverview, error) {
 	// Get registered servers from PostgreSQL
 	rows, err := s.pg.Query(ctx, `
-		SELECT id, name, address, COALESCE(port, 0), COALESCE(region, ''), 
+		SELECT id, name, COALESCE(ip_address, address, ''), COALESCE(port, 0), COALESCE(region, ''), 
 		       total_matches, total_players, COALESCE(last_seen, created_at), is_active
-		FROM servers 
+		FROM servers
 		ORDER BY total_players DESC
 	`)
 	if err != nil {
@@ -76,11 +43,11 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOver
 	}
 	defer rows.Close()
 
-	var servers []ServerOverview
+	var servers []models.ServerOverview
 	var serverIDs []string
 	rank := 1
 	for rows.Next() {
-		var srv ServerOverview
+		var srv models.ServerOverview
 		var isActive bool
 		err := rows.Scan(&srv.ID, &srv.Name, &srv.Address, &srv.Port,
 			&srv.Region, &srv.TotalMatches, &srv.UniquePlayers,
@@ -106,7 +73,11 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOver
 	}
 
 	// 1. Batch Redis: Get live data for all servers at once
-	liveServerMap, _ := s.redis.HGetAll(ctx, "live_servers").Result()
+	liveServerMap, err := s.redis.HGetAll(ctx, "live_servers").Result()
+	if err != nil {
+		fmt.Printf("[DEBUG] Redis HGetAll error: %v\n", err)
+	}
+	fmt.Printf("[DEBUG] Redis live_servers: %v\n", liveServerMap)
 
 	// 2. Batch ClickHouse: Get stats for all servers at once
 	type ServerStats struct {
@@ -170,8 +141,8 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]ServerOver
 }
 
 // GetServerGlobalStats returns aggregate stats across all servers
-func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*ServerGlobalStats, error) {
-	stats := &ServerGlobalStats{}
+func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*models.ServerGlobalStats, error) {
+	stats := &models.ServerGlobalStats{}
 
 	// Count servers from Postgres
 	s.pg.QueryRow(ctx, `
@@ -208,79 +179,20 @@ func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*Serv
 // =============================================================================
 
 // ServerDetail contains comprehensive server information
-type ServerDetail struct {
-	// Basic Info
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
-	Region      string `json:"region"`
-	Country     string `json:"country"`
-	IsOnline    bool   `json:"is_online"`
-	IsOfficial  bool   `json:"is_official"`
 
-	// Current Status
-	CurrentPlayers int      `json:"current_players"`
-	MaxPlayers     int      `json:"max_players"`
-	CurrentMap     string   `json:"current_map"`
-	Gametype       string   `json:"gametype"`
-	PlayerList     []string `json:"player_list"`
-
-	// Rankings
-	Rank       int `json:"rank"`
-	WorldRank  int `json:"world_rank"`
-	RegionRank int `json:"region_rank"`
-
-	// Lifetime Stats
-	Stats ServerLifetimeStats `json:"stats"`
-
-	// Time-based Stats
-	Stats24h ServerTimeStats `json:"stats_24h"`
-	Stats7d  ServerTimeStats `json:"stats_7d"`
-	Stats30d ServerTimeStats `json:"stats_30d"`
-
-	// Uptime
-	Uptime ServerUptime `json:"uptime"`
-}
 
 // ServerLifetimeStats represents all-time server statistics
-type ServerLifetimeStats struct {
-	TotalKills       int64   `json:"total_kills"`
-	TotalDeaths      int64   `json:"total_deaths"`
-	TotalHeadshots   int64   `json:"total_headshots"`
-	TotalMatches     int64   `json:"total_matches"`
-	UniquePlayers    int64   `json:"unique_players"`
-	TotalPlaytime    float64 `json:"total_playtime_hours"`
-	AvgMatchDuration float64 `json:"avg_match_duration_mins"`
-	FirstSeen        string  `json:"first_seen"`
-	TotalDays        int     `json:"total_days"`
-}
+
 
 // ServerTimeStats represents time-windowed stats
-type ServerTimeStats struct {
-	Kills         int64   `json:"kills"`
-	Matches       int64   `json:"matches"`
-	UniquePlayers int64   `json:"unique_players"`
-	AvgPlayers    float64 `json:"avg_players"`
-	PeakPlayers   int     `json:"peak_players"`
-	PeakTime      string  `json:"peak_time"`
-	Playtime      float64 `json:"playtime_hours"`
-}
+
 
 // ServerUptime represents uptime tracking
-type ServerUptime struct {
-	Uptime24h  float64 `json:"uptime_24h"`
-	Uptime7d   float64 `json:"uptime_7d"`
-	Uptime30d  float64 `json:"uptime_30d"`
-	LastOnline string  `json:"last_online"`
-	LastDown   string  `json:"last_down"`
-}
+
 
 // GetServerDetail returns comprehensive server information
-func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID string) (*ServerDetail, error) {
-	detail := &ServerDetail{ID: serverID}
+func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID string) (*models.ServerDetail, error) {
+	detail := &models.ServerDetail{ID: serverID}
 
 	// Get basic info from Postgres
 	err := s.pg.QueryRow(ctx, `
@@ -359,16 +271,10 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 // =============================================================================
 
 // PlayerHistoryPoint represents a data point for player count chart
-type PlayerHistoryPoint struct {
-	Timestamp string  `json:"timestamp"`
-	Hour      int     `json:"hour"`
-	Players   int     `json:"players"`
-	Peak      int     `json:"peak"`
-	Avg       float64 `json:"avg"`
-}
+
 
 // GetServerPlayerHistory returns player count over time
-func (s *ServerTrackingService) GetServerPlayerHistory(ctx context.Context, serverID string, hours int) ([]PlayerHistoryPoint, error) {
+func (s *ServerTrackingService) GetServerPlayerHistory(ctx context.Context, serverID string, hours int) ([]models.PlayerHistoryPoint, error) {
 	if hours <= 0 {
 		hours = 24
 	}
@@ -396,9 +302,9 @@ func (s *ServerTrackingService) GetServerPlayerHistory(ctx context.Context, serv
 	}
 	defer rows.Close()
 
-	var points []PlayerHistoryPoint
+	var points []models.PlayerHistoryPoint
 	for rows.Next() {
-		var p PlayerHistoryPoint
+		var p models.PlayerHistoryPoint
 		var ts time.Time
 		if err := rows.Scan(&ts, &p.Hour, &p.Peak, &p.Avg); err != nil {
 			continue
@@ -416,26 +322,15 @@ func (s *ServerTrackingService) GetServerPlayerHistory(ctx context.Context, serv
 // =============================================================================
 
 // PeakHoursHeatmap represents activity by hour and day
-type PeakHoursHeatmap struct {
-	Data  [][]int  `json:"data"`  // [day][hour] = player count
-	Hours []string `json:"hours"` // 0-23
-	Days  []string `json:"days"`  // Mon-Sun
-	Peak  PeakInfo `json:"peak"`
-}
 
-type PeakInfo struct {
-	Day     string `json:"day"`
-	Hour    int    `json:"hour"`
-	Players int    `json:"players"`
-}
 
 // GetServerPeakHours returns a heatmap of peak activity times
-func (s *ServerTrackingService) GetServerPeakHours(ctx context.Context, serverID string, days int) (*PeakHoursHeatmap, error) {
+func (s *ServerTrackingService) GetServerPeakHours(ctx context.Context, serverID string, days int) (*models.PeakHoursHeatmap, error) {
 	if days <= 0 {
 		days = 30
 	}
 
-	heatmap := &PeakHoursHeatmap{
+	heatmap := &models.PeakHoursHeatmap{
 		Data: make([][]int, 7),
 		Hours: []string{"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
 			"12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"},
@@ -476,7 +371,7 @@ func (s *ServerTrackingService) GetServerPeakHours(ctx context.Context, serverID
 			heatmap.Data[dayIdx][hour] = players
 			if players > peakPlayers {
 				peakPlayers = players
-				heatmap.Peak = PeakInfo{
+				heatmap.Peak = models.PeakInfo{
 					Day:     heatmap.Days[dayIdx],
 					Hour:    hour,
 					Players: players,
@@ -493,22 +388,10 @@ func (s *ServerTrackingService) GetServerPeakHours(ctx context.Context, serverID
 // =============================================================================
 
 // ServerTopPlayer represents a top player on a specific server
-type ServerTopPlayer struct {
-	Rank       int     `json:"rank"`
-	GUID       string  `json:"guid"`
-	Name       string  `json:"name"`
-	Kills      int64   `json:"kills"`
-	Deaths     int64   `json:"deaths"`
-	KDRatio    float64 `json:"kd_ratio"`
-	Headshots  int64   `json:"headshots"`
-	HSPercent  float64 `json:"hs_percent"`
-	TimePlayed float64 `json:"time_played_hours"`
-	LastSeen   string  `json:"last_seen"`
-	Sessions   int64   `json:"sessions"`
-}
+
 
 // GetServerTopPlayers returns top players for a specific server
-func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverID string, limit int) ([]ServerTopPlayer, error) {
+func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverID string, limit int) ([]models.ServerTopPlayer, error) {
 	if limit <= 0 {
 		limit = 25
 	}
@@ -543,10 +426,10 @@ func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverI
 	}
 	defer rows.Close()
 
-	var players []ServerTopPlayer
+	var players []models.ServerTopPlayer
 	rank := 1
 	for rows.Next() {
-		var p ServerTopPlayer
+		var p models.ServerTopPlayer
 		var lastSeen time.Time
 		if err := rows.Scan(&p.GUID, &p.Name, &p.Kills, &p.Deaths, &p.Headshots, &p.Sessions, &lastSeen); err != nil {
 			continue
@@ -573,18 +456,10 @@ func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverI
 // =============================================================================
 
 // ServerMapStats represents map usage on a server
-type ServerMapStats struct {
-	MapName     string  `json:"map_name"`
-	Matches     int64   `json:"matches"`
-	Kills       int64   `json:"kills"`
-	AvgPlayers  float64 `json:"avg_players"`
-	AvgDuration float64 `json:"avg_duration_mins"`
-	Popularity  float64 `json:"popularity_pct"`
-	LastPlayed  string  `json:"last_played"`
-}
+
 
 // GetServerMapStats returns map statistics for a server
-func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID string) ([]ServerMapStats, error) {
+func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID string) ([]models.ServerMapStats, error) {
 	query := `
 		WITH totals AS (
 			SELECT uniq(match_id) as total_matches
@@ -611,9 +486,9 @@ func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID 
 	}
 	defer rows.Close()
 
-	var maps []ServerMapStats
+	var maps []models.ServerMapStats
 	for rows.Next() {
-		var m ServerMapStats
+		var m models.ServerMapStats
 		var lastPlayed time.Time
 		var playerCount float64
 		if err := rows.Scan(&m.MapName, &m.Matches, &m.Kills, &playerCount, &m.AvgDuration, &lastPlayed, &m.Popularity); err != nil {
@@ -632,17 +507,10 @@ func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID 
 // =============================================================================
 
 // ServerWeaponStats represents weapon usage on a server
-type ServerWeaponStats struct {
-	WeaponName string  `json:"weapon_name"`
-	Kills      int64   `json:"kills"`
-	Headshots  int64   `json:"headshots"`
-	HSPercent  float64 `json:"hs_percent"`
-	AvgDist    float64 `json:"avg_distance"`
-	UsageRate  float64 `json:"usage_rate_pct"`
-}
+
 
 // GetServerWeaponStats returns weapon statistics for a server
-func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, serverID string) ([]ServerWeaponStats, error) {
+func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, serverID string) ([]models.ServerWeaponStats, error) {
 	query := `
 		WITH totals AS (
 			SELECT countIf(event_type = 'kill') as total_kills
@@ -667,9 +535,9 @@ func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, server
 	}
 	defer rows.Close()
 
-	var weapons []ServerWeaponStats
+	var weapons []models.ServerWeaponStats
 	for rows.Next() {
-		var w ServerWeaponStats
+		var w models.ServerWeaponStats
 		if err := rows.Scan(&w.WeaponName, &w.Kills, &w.Headshots, &w.AvgDist, &w.UsageRate); err != nil {
 			continue
 		}
@@ -687,20 +555,10 @@ func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, server
 // =============================================================================
 
 // ServerMatch represents a match played on the server
-type ServerMatch struct {
-	MatchID     string    `json:"match_id"`
-	MapName     string    `json:"map_name"`
-	Gametype    string    `json:"gametype"`
-	PlayerCount int       `json:"player_count"`
-	Duration    int       `json:"duration_mins"`
-	TotalKills  int64     `json:"total_kills"`
-	Winner      string    `json:"winner"`
-	StartedAt   time.Time `json:"started_at"`
-	EndedAt     time.Time `json:"ended_at"`
-}
+
 
 // GetServerRecentMatches returns recent matches for a server
-func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serverID string, limit int) ([]ServerMatch, error) {
+func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serverID string, limit int) ([]models.ServerMatch, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -728,9 +586,9 @@ func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serv
 	}
 	defer rows.Close()
 
-	var matches []ServerMatch
+	var matches []models.ServerMatch
 	for rows.Next() {
-		var m ServerMatch
+		var m models.ServerMatch
 		var duration float64
 		if err := rows.Scan(&m.MatchID, &m.MapName, &m.Gametype, &m.PlayerCount,
 			&duration, &m.TotalKills, &m.StartedAt, &m.EndedAt); err != nil {
@@ -748,16 +606,10 @@ func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serv
 // =============================================================================
 
 // ActivityTimelinePoint represents activity at a point in time
-type ActivityTimelinePoint struct {
-	Timestamp   string `json:"timestamp"`
-	Kills       int64  `json:"kills"`
-	Deaths      int64  `json:"deaths"`
-	Players     int    `json:"players"`
-	MatchStarts int64  `json:"match_starts"`
-}
+
 
 // GetServerActivityTimeline returns hourly activity for the last N days
-func (s *ServerTrackingService) GetServerActivityTimeline(ctx context.Context, serverID string, days int) ([]ActivityTimelinePoint, error) {
+func (s *ServerTrackingService) GetServerActivityTimeline(ctx context.Context, serverID string, days int) ([]models.ActivityTimelinePoint, error) {
 	if days <= 0 {
 		days = 7
 	}
@@ -782,9 +634,9 @@ func (s *ServerTrackingService) GetServerActivityTimeline(ctx context.Context, s
 	}
 	defer rows.Close()
 
-	var points []ActivityTimelinePoint
+	var points []models.ActivityTimelinePoint
 	for rows.Next() {
-		var p ActivityTimelinePoint
+		var p models.ActivityTimelinePoint
 		var ts time.Time
 		if err := rows.Scan(&ts, &p.Kills, &p.Deaths, &p.Players, &p.MatchStarts); err != nil {
 			continue

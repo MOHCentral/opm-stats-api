@@ -12,9 +12,11 @@ import (
 
 // Config
 const (
-	API_URL    = "http://localhost:8084/api/v1/ingest/events"
-	JWT_TOKEN  = "seed-secret-123" 
-	EVENT_TYPE = "player_kill"
+	API_URL              = "http://localhost:8084/api/v1/ingest/events"
+	SERVER_ID            = "02e12251-3b6a-4764-8be0-f390609f68ed"
+	JWT_TOKEN            = "d0bb4693-ee47-4cd7-8a51-fa0adef34c06"
+	EVENTS_PER_BATCH     = 10
+	TOTAL_EVENTS_TO_SEND = 1000
 )
 
 // Event matches models.RawEvent structure (simplified)

@@ -1,0 +1,560 @@
+basePath: /api/v1
+definitions:
+  models.EventType:
+    enum:
+    - game_init
+    - game_start
+    - game_end
+    - match_start
+    - match_end
+    - match_outcome
+    - round_start
+    - round_end
+    - warmup_start
+    - warmup_end
+    - intermission_start
+    - kill
+    - death
+    - damage
+    - player_pain
+    - headshot
+    - player_suicide
+    - player_crushed
+    - player_telefragged
+    - player_roadkill
+    - player_bash
+    - player_teamkill
+    - weapon_fire
+    - weapon_hit
+    - weapon_change
+    - weapon_reload
+    - weapon_reload_done
+    - weapon_ready
+    - weapon_no_ammo
+    - weapon_holster
+    - weapon_raise
+    - weapon_drop
+    - grenade_throw
+    - grenade_explode
+    - jump
+    - land
+    - crouch
+    - prone
+    - player_stand
+    - player_spawn
+    - player_respawn
+    - distance
+    - ladder_mount
+    - ladder_dismount
+    - player_use
+    - player_use_object_start
+    - player_use_object_finish
+    - player_spectate
+    - player_freeze
+    - player_say
+    - item_pickup
+    - item_drop
+    - item_respawn
+    - health_pickup
+    - ammo_pickup
+    - vehicle_enter
+    - vehicle_exit
+    - vehicle_death
+    - vehicle_collision
+    - turret_enter
+    - turret_exit
+    - server_init
+    - server_start
+    - server_shutdown
+    - server_spawned
+    - server_console_command
+    - heartbeat
+    - map_load_start
+    - map_load_end
+    - map_change_start
+    - map_restart
+    - team_join
+    - team_change
+    - vote_start
+    - vote_passed
+    - vote_failed
+    - client_connect
+    - client_disconnect
+    - client_begin
+    - client_userinfo_changed
+    - player_inactivity_drop
+    - door_open
+    - door_close
+    - explosion
+    - actor_spawn
+    - actor_killed
+    - bot_spawn
+    - bot_killed
+    - bot_roam
+    - bot_curious
+    - bot_attack
+    - objective_update
+    - objective_capture
+    - score_change
+    - teamkill_kick
+    - connect
+    - disconnect
+    - spawn
+    - chat
+    - use
+    - reload
+    - team_win
+    - identity_claim
+    type: string
+    x-enum-comments:
+      EventChat: Alias for player_say
+      EventConnect: Alias for client_connect
+      EventDisconnect: Alias for client_disconnect
+      EventIdentityClaim: Special event (not in 92)
+      EventReload: Alias for weapon_reload
+      EventSpawn: Alias for player_spawn
+      EventTeamWin: Special event (not in 92)
+      EventUse: Alias for player_use
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - Alias for client_connect
+    - Alias for client_disconnect
+    - Alias for player_spawn
+    - Alias for player_say
+    - Alias for player_use
+    - Alias for weapon_reload
+    - Special event (not in 92)
+    - Special event (not in 92)
+    x-enum-varnames:
+    - EventGameInit
+    - EventGameStart
+    - EventGameEnd
+    - EventMatchStart
+    - EventMatchEnd
+    - EventMatchOutcome
+    - EventRoundStart
+    - EventRoundEnd
+    - EventWarmupStart
+    - EventWarmupEnd
+    - EventIntermissionStart
+    - EventKill
+    - EventDeath
+    - EventDamage
+    - EventPlayerPain
+    - EventHeadshot
+    - EventPlayerSuicide
+    - EventPlayerCrushed
+    - EventPlayerTelefragged
+    - EventPlayerRoadkill
+    - EventPlayerBash
+    - EventPlayerTeamkill
+    - EventWeaponFire
+    - EventWeaponHit
+    - EventWeaponChange
+    - EventWeaponReload
+    - EventWeaponReloadDone
+    - EventWeaponReady
+    - EventWeaponNoAmmo
+    - EventWeaponHolster
+    - EventWeaponRaise
+    - EventWeaponDrop
+    - EventGrenadeThrow
+    - EventGrenadeExplode
+    - EventJump
+    - EventLand
+    - EventCrouch
+    - EventProne
+    - EventPlayerStand
+    - EventPlayerSpawn
+    - EventPlayerRespawn
+    - EventDistance
+    - EventLadderMount
+    - EventLadderDismount
+    - EventPlayerUse
+    - EventPlayerUseObjectStart
+    - EventPlayerUseObjectFinish
+    - EventPlayerSpectate
+    - EventPlayerFreeze
+    - EventPlayerSay
+    - EventItemPickup
+    - EventItemDrop
+    - EventItemRespawn
+    - EventHealthPickup
+    - EventAmmoPickup
+    - EventVehicleEnter
+    - EventVehicleExit
+    - EventVehicleDeath
+    - EventVehicleCollision
+    - EventTurretEnter
+    - EventTurretExit
+    - EventServerInit
+    - EventServerStart
+    - EventServerShutdown
+    - EventServerSpawned
+    - EventServerConsoleCommand
+    - EventHeartbeat
+    - EventMapLoadStart
+    - EventMapLoadEnd
+    - EventMapChangeStart
+    - EventMapRestart
+    - EventTeamJoin
+    - EventTeamChange
+    - EventVoteStart
+    - EventVotePassed
+    - EventVoteFailed
+    - EventClientConnect
+    - EventClientDisconnect
+    - EventClientBegin
+    - EventClientUserinfoChanged
+    - EventPlayerInactivityDrop
+    - EventDoorOpen
+    - EventDoorClose
+    - EventExplosion
+    - EventActorSpawn
+    - EventActorKilled
+    - EventBotSpawn
+    - EventBotKilled
+    - EventBotRoam
+    - EventBotCurious
+    - EventBotAttack
+    - EventObjectiveUpdate
+    - EventObjectiveCapture
+    - EventScoreChange
+    - EventTeamkillKick
+    - EventConnect
+    - EventDisconnect
+    - EventSpawn
+    - EventChat
+    - EventUse
+    - EventReload
+    - EventTeamWin
+    - EventIdentityClaim
+  models.RawEvent:
+    properties:
+      aim_pitch:
+        description: Aim angles
+        type: number
+      aim_yaw:
+        type: number
+      allies_score:
+        type: integer
+      ammo_remaining:
+        type: integer
+      attacker_guid:
+        type: string
+      attacker_name:
+        description: Attacker info (for kill/damage events)
+        type: string
+      attacker_pitch:
+        type: number
+      attacker_smf_id:
+        description: SMF member ID (if authenticated)
+        type: integer
+      attacker_stance:
+        type: string
+      attacker_team:
+        type: string
+      attacker_x:
+        type: number
+      attacker_y:
+        type: number
+      attacker_yaw:
+        type: number
+      attacker_z:
+        type: number
+      axis_score:
+        type: integer
+      bot_id:
+        type: string
+      client_num:
+        type: integer
+      code:
+        description: Identity claim
+        type: string
+      count:
+        type: integer
+      damage:
+        type: integer
+      distance:
+        type: number
+      driven:
+        type: number
+      duration:
+        type: number
+      entity:
+        description: Entity
+        type: string
+      fall_height:
+        description: Movement
+        type: number
+      fraglimit:
+        type: string
+      gametype:
+        description: Match lifecycle
+        type: string
+      hitloc:
+        type: string
+      inflictor:
+        type: string
+      item:
+        description: Items
+        type: string
+      map_name:
+        type: string
+      match_id:
+        type: string
+      match_outcome:
+        description: Match Outcome (1 = Win, 0 = Loss)
+        type: integer
+      maxclients:
+        type: string
+      message:
+        description: Chat
+        type: string
+      new_team:
+        type: string
+      new_weapon:
+        type: string
+      objective:
+        description: New Tracker Fields
+        type: string
+      objective_status:
+        type: string
+      old_team:
+        description: Team change
+        type: string
+      old_weapon:
+        type: string
+      player_count:
+        type: integer
+      player_guid:
+        type: string
+      player_name:
+        description: Player info (primary actor for single-player events)
+        type: string
+      player_smf_id:
+        description: SMF member ID (if authenticated)
+        type: integer
+      player_stance:
+        type: string
+      player_team:
+        type: string
+      pos_x:
+        type: number
+      pos_y:
+        type: number
+      pos_z:
+        type: number
+      projectile:
+        type: string
+      round_number:
+        type: integer
+      seat:
+        type: string
+      server_id:
+        type: string
+      server_token:
+        type: string
+      session_id:
+        type: string
+      sprinted:
+        type: number
+      swam:
+        type: number
+      target_guid:
+        type: string
+      target_name:
+        description: Target info (for hits)
+        type: string
+      target_smf_id:
+        description: SMF member ID (if authenticated)
+        type: integer
+      target_stance:
+        type: string
+      timelimit:
+        type: string
+      timestamp:
+        type: number
+      total_rounds:
+        type: integer
+      type:
+        $ref: '#/definitions/models.EventType'
+      victim_guid:
+        type: string
+      victim_name:
+        description: Victim info
+        type: string
+      victim_smf_id:
+        description: SMF member ID (if authenticated)
+        type: integer
+      victim_stance:
+        type: string
+      victim_team:
+        type: string
+      victim_x:
+        type: number
+      victim_y:
+        type: number
+      victim_z:
+        type: number
+      walked:
+        type: number
+      weapon:
+        description: Weapon/damage info
+        type: string
+      winning_team:
+        type: string
+    type: object
+host: api.moh-central.net
+info:
+  contact:
+    email: support@moh-central.net
+    name: API Support
+    url: http://www.swagger.io/support
+  description: 'High-throughput competitive statistics and tournament infrastructure
+    for Medal of Honor: Allied Assault.'
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: OpenMOHAA Stats API
+  version: 1.0.0
+paths:
+  /ingest/events:
+    post:
+      consumes:
+      - application/json
+      description: Accepts newline-separated JSON events from game servers
+      parameters:
+      - description: Events
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.RawEvent'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ServerToken: []
+      summary: Ingest Game Events
+      tags:
+      - Ingestion
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+  ServerToken:
+    in: header
+    name: X-Server-Token
+    type: apiKey
+swagger: "2.0"

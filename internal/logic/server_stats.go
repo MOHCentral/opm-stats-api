@@ -108,14 +108,7 @@ func (s *serverStatsService) GetMapPopularity(ctx context.Context) ([]models.Map
 	return stats, nil
 }
 
-// ServerPulse represents the heartbeat of the server
-type ServerPulse struct {
-	LethalityRating  float64 `json:"lethality_rating"`   // Kills per minute
-	LeadExchangeRate float64 `json:"lead_exchange_rate"` // Estimated lead changes per match
-	TotalLeadPoured  int64   `json:"total_lead_poured"`  // Total bullets hit
-	MeatGrinderMap   string  `json:"meat_grinder_map"`   // Map with most deaths/minute
-	ActivePlayers    int64   `json:"active_players"`     // Currently online (approx)
-}
+
 
 // GetServerPulse returns high-level metrics about the server's "chaos level"
 // GetGlobalStats returns aggregate statistics for the dashboard
@@ -167,8 +160,8 @@ func (s *serverStatsService) GetGlobalStats(ctx context.Context) (map[string]int
 	}, nil
 }
 
-func (s *serverStatsService) GetServerPulse(ctx context.Context) (*ServerPulse, error) {
-	pulse := &ServerPulse{}
+func (s *serverStatsService) GetServerPulse(ctx context.Context) (*models.ServerPulse, error) {
+	pulse := &models.ServerPulse{}
 
 	// 1. Lethality (Kills per hour in last 24h)
 	// Total kills / 24 to get kills per hour average
