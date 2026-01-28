@@ -1,0 +1,169 @@
+openapi: 3.1.0
+info:
+  title: OpenMOHAA Stats API
+  version: 1.0.0
+  description: |
+    A high-throughput competitive statistics and tournament infrastructure for Medal of Honor: Allied Assault.
+    
+    ## Authentication
+    Most endpoints are public. Ingestion endpoints require `X-Server-Token`.
+
+servers:
+  - url: https://api.moh-central.net
+    description: Production Server
+  - url: http://localhost:8080
+    description: Local Development
+
+components:
+  securitySchemes:
+    ServerToken:
+      type: apiKey
+      in: header
+      name: X-Server-Token
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+    GlobalStats:
+      type: object
+      properties:
+        total_kills:
+          type: integer
+          example: 15420
+        active_players:
+          type: integer
+          example: 42
+        total_matches:
+          type: integer
+          example: 120
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        guid:
+          type: string
+        name:
+          type: string
+        value:
+          type: number
+    PlayerProfile:
+      type: object
+      properties:
+        guid:
+          type: string
+        name:
+          type: string
+        last_seen:
+          type: string
+          format: date-time
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns the status of the API server.
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/stats/global:
+    get:
+      summary: Get Global Stats
+      operationId: getGlobalStats
+      tags:
+        - Stats
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalStats'
+
+  /api/v1/stats/leaderboard:
+    get:
+      summary: Get Global Leaderboard
+      operationId: getLeaderboard
+      tags:
+        - Leaderboards
+      parameters:
+        - name: stat
+          in: query
+          schema:
+            type: string
+            enum: [kills, deaths, kdr, headshots, accuracy]
+            default: kills
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaderboardEntry'
+
+  /api/v1/stats/player/{guid}:
+    get:
+      summary: Get Player Stats
+      operationId: getPlayerStats
+      tags:
+        - Players
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Player statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfile'
+
+  /api/v1/ingest/events:
+    post:
+      summary: Ingest Game Events
+      description: Receives raw game events from the game server script.
+      operationId: ingestEvents
+      tags:
+        - Ingestion
+      security:
+        - ServerToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_type:
+                  type: string
+                timestamp:
+                  type: integer
+                data:
+                  type: object
+      responses:
+        '202':
+          description: Event accepted for processing

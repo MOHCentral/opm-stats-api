@@ -178,22 +178,24 @@ func (h *Handler) renderPartial(w http.ResponseWriter, name string, data map[str
 
 // ====== Page Handlers ======
 
-// PageIndex renders the main dashboard
+// PageIndex renders the API documentation using Scalar
 func (h *Handler) PageIndex(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Fetch dashboard stats
-	stats, err := h.getDashboardStats(ctx)
-	if err != nil {
-		h.logger.Errorw("Failed to get dashboard stats", "error", err)
-		stats = &DashboardStats{} // Use defaults
-	}
-
-	h.render(w, "index.html", map[string]interface{}{
-		"Title":       "Dashboard",
-		"Stats":       stats,
-		"LiveMatches": h.getLiveMatchCount(ctx),
-	})
+	// Serve Scalar API documentation
+	html := `<!doctype html>
+<html>
+  <head>
+    <title>OpenMOHAA API Documentation</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>body { margin: 0; }</style>
+  </head>
+  <body>
+    <script id="api-reference" data-url="/static/openapi.yaml"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>`
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
 }
 
 // PageLogin renders the login/signup page
