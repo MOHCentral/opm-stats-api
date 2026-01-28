@@ -9,20 +9,20 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"github.com/openmohaa/stats-api/internal/logic"
 	"github.com/openmohaa/stats-api/internal/models"
-	"github.com/openmohaa/stats-api/internal/worker"
 )
 
 // MaxBodySize limits the size of request bodies to 1MB
