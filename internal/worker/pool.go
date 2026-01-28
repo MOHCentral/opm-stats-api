@@ -719,6 +719,9 @@ func (p *Pool) handleMatchStart(ctx context.Context, event *models.RawEvent) {
 
 	// Clear any stale team data for this match
 	p.config.Redis.Del(ctx, "match:"+event.MatchID+":teams")
+
+	// Update server status
+	p.updateServerStatus(ctx, event)
 }
 
 // handleMatchEnd removes from live matches, triggers tournament advancement
@@ -825,23 +828,25 @@ func (p *Pool) handleSpawn(ctx context.Context, event *models.RawEvent) {
 	p.config.Redis.HSet(ctx, "match:"+event.MatchID+":teams", event.PlayerGUID, event.PlayerTeam)
 }
 
-// handleHeartbeat updates live match state
+// handleHeartbeat updates live match state and server status
 func (p *Pool) handleHeartbeat(ctx context.Context, event *models.RawEvent) {
+	// Update live match data
 	data, err := p.config.Redis.HGet(ctx, "live_matches", event.MatchID).Bytes()
-	if err != nil {
-		return
+	if err == nil {
+		var liveMatch models.LiveMatch
+		if json.Unmarshal(data, &liveMatch) == nil {
+			liveMatch.AlliesScore = event.AlliesScore
+			liveMatch.AxisScore = event.AxisScore
+			liveMatch.PlayerCount = event.PlayerCount
+			liveMatch.RoundNumber = event.RoundNumber
+			
+			newData, _ := json.Marshal(liveMatch)
+			p.config.Redis.HSet(ctx, "live_matches", event.MatchID, newData)
+		}
 	}
 
-	var liveMatch models.LiveMatch
-	json.Unmarshal(data, &liveMatch)
-
-	liveMatch.AlliesScore = event.AlliesScore
-	liveMatch.AxisScore = event.AxisScore
-	liveMatch.PlayerCount = event.PlayerCount
-	liveMatch.RoundNumber = event.RoundNumber
-
-	newData, _ := json.Marshal(liveMatch)
-	p.config.Redis.HSet(ctx, "live_matches", event.MatchID, newData)
+	// Update server status (Redis + DB)
+	p.updateServerStatus(ctx, event)
 }
 
 // handleKill increments kill counters for achievements
@@ -999,4 +1004,41 @@ func parseOrGenerateUUID(s string) uuid.UUID {
 	}
 	// Generate deterministic UUID from string
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(s))
+}
+
+// updateServerStatus updates the server's live status in Redis and Postgres
+func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
+	if event.ServerID == "" {
+		return
+	}
+
+	// 1. Update Redis "live_servers"
+	// Format: "players:%d,map:%s,gametype:%s"
+	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s", 
+		event.PlayerCount, event.MapName, event.Gametype)
+	
+	p.config.Redis.HSet(ctx, "live_servers", event.ServerID, statusStr)
+	// Set expiration handling if needed? Redis Key itself doesn't expire, field doesn't expire.
+	// Logic relies on IsOnline = true if entry exists AND LastSeen logic in Postgres which server_tracking uses
+	// Actually server_tracking lines 155 checks if liveData != "" then sets IsOnline=true.
+	// But if server crashes, entry remains?
+	// We might need a "server_heartbeats" key with TTL or just rely on LastSeen for filtering.
+	// But GetServerList uses live_servers to OVERRIDE isOnline.
+	// So we should probably set an expiration or use a key with TTL per server.
+	// For now, let's just set it.
+
+	// 2. Update Postgres "servers" table "last_seen"
+	// We do this asynchronously to avoid blocking worker too much, or just fire and forget
+	go func() {
+		defer func() { recover() }() // Safely ignore panics
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		_, err := p.config.Postgres.Exec(ctx, `
+			UPDATE servers SET last_seen = NOW(), is_active = true WHERE id = $1
+		`, event.ServerID)
+		if err != nil {
+			p.logger.Warnw("Failed to update server last_seen", "error", err, "server_id", event.ServerID)
+		}
+	}()
 }

@@ -185,6 +185,13 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			h.logger.Infow("URL-encoded parsed", "eventType", event.Type)
 		}
 
+		// Inject ServerID from context if authenticated
+		if sid, ok := r.Context().Value("server_id").(string); ok && sid != "" {
+			if event.ServerID == "" {
+				event.ServerID = sid
+			}
+		}
+
 		if event.Type == "" {
 			h.logger.Warnw("Event has empty type, skipping", "lineNum", i, "line", line[:min(len(line), 100)])
 			continue
@@ -1703,12 +1710,21 @@ func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 		// Strip "Bearer " prefix if present
 		token = strings.TrimPrefix(token, "Bearer ")
 
+
 		// Validate token against database - lookup server by token hash
 		ctx := r.Context()
 		var serverID string
+		hashedToken := hashToken(token)
+		h.logger.Infow("Auth Debug", "received_token", token, "computed_hash", hashedToken)
+
 		err := h.pg.QueryRow(ctx,
 			"SELECT id FROM servers WHERE token = $1 AND is_active = true",
-			hashToken(token)).Scan(&serverID)
+			hashedToken).Scan(&serverID)
+		
+		if err != nil {
+			h.logger.Errorw("Auth Database Error", "error", err, "hash", hashedToken)
+		}
+
 		if err != nil || serverID == "" {
 			h.errorResponse(w, http.StatusUnauthorized, "Invalid server token")
 			return

@@ -43,6 +43,13 @@ type Event struct {
 	Weapon string `json:"weapon"`
 	Hitloc string `json:"hitloc"`
 	Damage int    `json:"damage"`
+
+	// Heartbeat fields
+	ServerID    string `json:"server_id"`
+	MapName     string `json:"map_name"`
+	Gametype    string `json:"gametype"`
+	PlayerCount int    `json:"player_count"`
+	RoundNumber int    `json:"round_number"`
 }
 
 func main() {
@@ -69,25 +76,41 @@ func main() {
 		Damage: 100,
 	}
 
-	// API expects one JSON object per line, or a purely URL encoded string.
-	// The handler splits body by newline.
-	// So we marshal to JSON.
-	
-	payload, err := json.Marshal(event)
-	if err != nil {
-		log.Fatalf("Failed to marshal JSON: %v", err)
+	// Send a HEARTBEAT first to trigger online status
+	heartbeat := Event{
+		Type:        "heartbeat",
+		MatchID:     "test-match-001",
+		ServerID:    "00876eb7-5888-4210-b51d-84e65b97ae1d",
+		Timestamp:   float64(time.Now().Unix()),
+		ServerToken: "test-token",
+		MapName:     "obj_team2",
+		Gametype:    "obj",
+		PlayerCount: 16,
+		RoundNumber: 3,
+	}
+	hbPayload, _ := json.Marshal(heartbeat)
+
+	var buffer bytes.Buffer
+	buffer.Write(hbPayload)
+	buffer.Write([]byte("\n"))
+
+	// Send a batch of kill events
+	for i := 0; i < 5; i++ {
+		event.MatchID = fmt.Sprintf("test-match-%d", i)
+		event.Timestamp = float64(time.Now().Unix())
+		
+		payload, _ := json.Marshal(event)
+		buffer.Write(payload)
+		buffer.Write([]byte("\n")) // NDJSON
 	}
 
-	req, err := http.NewRequest("POST", API_URL, bytes.NewBuffer(payload))
+	req, err := http.NewRequest("POST", API_URL, &buffer)
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json") // Or text/plain
-	req.Header.Set("Authorization", JWT_TOKEN)         // Without Bearer prefix as per middleware code?
-	                                                   // Middleware: token = strings.TrimPrefix(token, "Bearer ")
-	                                                   // So "Bearer " is optional but standard.
-	                                                   // Let's us raw token to match our manual DB insert test.
+	req.Header.Set("Content-Type", "application/json") 
+	req.Header.Set("Authorization", JWT_TOKEN)         
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)

@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -1367,6 +1368,15 @@ func parseServerLiveData(data string, srv *ServerOverview) {
 	if srv == nil {
 		return
 	}
-	fmt.Sscanf(data, "players:%d,map:%s,gametype:%s",
-		&srv.CurrentPlayers, &srv.CurrentMap, &srv.Gametype)
+	parts := strings.Split(data, ",")
+	fmt.Printf("[DEBUG] Parsing server data: %v\n", parts)
+	for _, part := range parts {
+		if strings.HasPrefix(part, "players:") {
+			fmt.Sscanf(part, "players:%d", &srv.CurrentPlayers)
+		} else if strings.HasPrefix(part, "map:") {
+			srv.CurrentMap = strings.TrimPrefix(part, "map:")
+		} else if strings.HasPrefix(part, "gametype:") {
+			srv.Gametype = strings.TrimPrefix(part, "gametype:")
+		}
+	}
 }
