@@ -561,15 +561,15 @@ func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 	case "total_headshots":
 		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND hitloc = 'head'`
 	case "total_distance":
-		query = `SELECT SUM(walked + sprinted + swam + driven) FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'distance'`
+		query = `SELECT SUM(walked + sprinted + swam + driven) FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'distance'`
 	case "vehicle_kills":
 		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND inflictor LIKE '%vehicle%'`
 	case "health_pickups":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'item_pickup' AND item LIKE '%health%'`
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'item_pickup' AND item LIKE '%health%'`
 	case "objectives_completed":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'objective_capture'`
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'objective_capture'`
 	case "total_wins":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND (event_type = 'team_win' OR (event_type = 'match_outcome' AND match_outcome = 1))`
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND (event_type = 'team_win' OR (event_type = 'match_outcome' AND match_outcome = 1))`
 	default:
 		return 0
 	}
