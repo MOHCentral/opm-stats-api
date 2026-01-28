@@ -1749,19 +1749,20 @@ func (h *Handler) GetLiveMatches(w http.ResponseWriter, r *http.Request) {
 // ServerAuthMiddleware validates server tokens
 func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("Authorization")
+		token := r.Header.Get("X-Server-Token")
 		if token == "" {
-			// Also check form data for curl_post from game server
-			token = r.FormValue("server_token")
+			token = r.Header.Get("Authorization")
+			token = strings.TrimPrefix(token, "Bearer ")
 		}
-
+		
 		if token == "" {
+			// DO NOT call r.FormValue here as it consumes the body
+			// Game servers use the header now
 			h.errorResponse(w, http.StatusUnauthorized, "Missing server token")
 			return
 		}
 
-		// Strip "Bearer " prefix if present
-		token = strings.TrimPrefix(token, "Bearer ")
+
 
 
 		// Validate token against database - lookup server by token hash

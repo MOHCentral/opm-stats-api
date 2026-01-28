@@ -8,8 +8,8 @@
 
 API_BASE="http://localhost:8080"
 EVENTS_ENDPOINT="${API_BASE}/api/v1/ingest/events"
-SERVER_TOKEN="dev-server-token-replace-in-production"
-SERVER_ID="dev-server-01"
+SERVER_TOKEN="${SERVER_TOKEN:-8b6a271b-eed5-4e55-995a-d5494f3ca94b}"
+SERVER_ID="${SERVER_ID:-728ae814-a0c4-47d5-9dd7-82c0ab3c221d}"
 MATCH_ID="match_test_$(date +%s)"
 SESSION_ID="sess_test_$(date +%s)"
 MAP_NAME="dm/mohdm1"
@@ -42,6 +42,7 @@ send_event() {
     local full_payload="${payload}&server_token=${SERVER_TOKEN}&server_id=${SERVER_ID}"
     
     response=$(curl -s -w "\n%{http_code}" -X POST "${EVENTS_ENDPOINT}" \
+        -H "X-Server-Token: ${SERVER_TOKEN}" \
         -H "Content-Type: application/x-www-form-urlencoded" \
         -d "${full_payload}")
     
@@ -116,6 +117,7 @@ send_player_spawn() {
     
     local payload="type=spawn"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -139,6 +141,7 @@ send_kill() {
     
     local payload="type=kill"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&attacker_name=${attacker_name}"
     payload+="&attacker_guid=${attacker_guid}"
@@ -171,6 +174,7 @@ send_headshot() {
     
     local payload="type=headshot"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${shooter_name}"
     payload+="&player_guid=${shooter_guid}"
@@ -188,6 +192,7 @@ send_weapon_fire() {
     
     local payload="type=weapon_fire"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -212,6 +217,7 @@ send_damage() {
     
     local payload="type=damage"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&attacker_name=${attacker_name}"
     payload+="&attacker_guid=${attacker_guid}"
@@ -229,6 +235,7 @@ send_death() {
     
     local payload="type=death"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -246,6 +253,7 @@ send_grenade_throw() {
     
     local payload="type=grenade_throw"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -265,6 +273,7 @@ send_reload() {
     
     local payload="type=reload"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -282,6 +291,7 @@ send_weapon_drop() {
     
     local payload="type=weapon_drop"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -296,6 +306,7 @@ send_ladder_mount() {
     
     local payload="type=ladder_mount"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -312,6 +323,7 @@ send_crouch() {
     
     local payload="type=player_crouch"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -328,6 +340,7 @@ send_vehicle_collision() {
     
     local payload="type=vehicle_collision"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -342,6 +355,7 @@ send_jump() {
     
     local payload="type=jump"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
@@ -399,6 +413,7 @@ send_chat() {
     
     local payload="type=chat"
     payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
