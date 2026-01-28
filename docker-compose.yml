@@ -3,10 +3,7 @@ services:
   # API Server
   # ============================================================================
   opm-stats-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: opm-stats-api:latest
+    image: ghcr.io/mohcentral/opm-stats-api:latest
     container_name: opm-stats-api
     labels:
       - "com.opm.service=opm-stats-api"
