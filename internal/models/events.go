@@ -190,6 +190,16 @@ const (
 	TeamAxis      Team = "axis"
 )
 
+// MatchSummary provides a summary of a match
+type MatchSummary struct {
+	ID          string    `json:"id"`
+	Map         string    `json:"map"`
+	StartTime   time.Time `json:"start_time"`
+	Duration    float64   `json:"duration"`
+	PlayerCount int       `json:"player_count"`
+	Kills       int       `json:"kills"`
+}
+
 // RawEvent is the incoming event from game servers
 type RawEvent struct {
 	Type        EventType `json:"type"`

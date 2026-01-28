@@ -18,15 +18,7 @@ func NewTeamStatsService(ch driver.Conn) TeamStatsService {
 
 
 
-// GetFactionPerformance returns aggregated stats for Axis vs Allies
-// @Summary Faction Performance Stats
-// @Description Get consolidated stats for Axis vs Allies over a period
-// @Tags Teams
-// @Produce json
-// @Param days query int false "Days to look back" default(30)
-// @Success 200 {object} models.FactionStats
-// @Failure 500 {object} map[string]string "Internal Error"
-// @Router /stats/teams/performance [get]
+
 func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (*models.FactionStats, error) {
 	if days <= 0 {
 		days = 30

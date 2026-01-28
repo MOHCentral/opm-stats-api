@@ -1690,16 +1690,76 @@ const docTemplate = `{
                 }
             }
         },
-        "/stats/leaderboard": {
+        "/stats/global": {
             "get": {
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Leaderboards"
+                    "Server"
                 ],
-                "summary": "Get Global Leaderboard",
+                "summary": "Global Network Stats",
+                "responses": {
+                    "200": {
+                        "description": "Global Stats",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/leaderboard": {
+            "get": {
+                "description": "Get ranked list of players by any of the 38 supported metrics",
+                "produces": [
+                    "application/json",
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboards",
+                    "Stats"
+                ],
+                "summary": "Global Leaderboard",
                 "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "kills",
+                        "description": "Stat to sort by (e.g. kills, headshots, distance)",
+                        "name": "stat",
+                        "in": "path"
+                    },
+                    {
+                        "type": "string",
+                        "default": "all",
+                        "description": "Period (all, week, month)",
+                        "name": "period",
+                        "in": "query"
+                    },
                     {
                         "type": "integer",
                         "default": 25,
@@ -1717,7 +1777,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Leaderboard",
+                        "description": "Leaderboard Data",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1920,6 +1980,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/stats/leaderboard/{stat}": {
+            "get": {
+                "description": "Get ranked list of players by any of the 38 supported metrics",
+                "produces": [
+                    "application/json",
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboards",
+                    "Stats"
+                ],
+                "summary": "Global Leaderboard",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "kills",
+                        "description": "Stat to sort by (e.g. kills, headshots, distance)",
+                        "name": "stat",
+                        "in": "path"
+                    },
+                    {
+                        "type": "string",
+                        "default": "all",
+                        "description": "Period (all, week, month)",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Leaderboard Data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/stats/matches": {
             "get": {
                 "produces": [
@@ -1944,7 +2080,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.MatchResult"
+                                "$ref": "#/definitions/models.MatchSummary"
                             }
                         }
                     },
@@ -3660,6 +3796,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "winning_team": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.MatchSummary": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kills": {
+                    "type": "integer"
+                },
+                "map": {
+                    "type": "string"
+                },
+                "player_count": {
+                    "type": "integer"
+                },
+                "start_time": {
                     "type": "string"
                 }
             }

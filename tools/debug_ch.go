@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
@@ -22,23 +24,28 @@ func main() {
 		log.Fatal(err)
 	}
 
+	migration, err := os.ReadFile("migrations/clickhouse/009_expand_player_stats_mv.sql")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	statements := strings.Split(string(migration), ";")
+	for _, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if stmt == "" {
+			continue
+		}
+		err = conn.Exec(ctx, stmt)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	fmt.Println("Migration applied successfully!")
+
 	var count uint64
-	err = conn.QueryRow(ctx, "SELECT count() FROM raw_events").Scan(&count)
+	err = conn.QueryRow(ctx, "SELECT count() FROM mohaa_stats.raw_events").Scan(&count)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Total events: %d\n", count)
-
-	rows, err := conn.Query(ctx, "DESCRIBE raw_events")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-
-	fmt.Println("Columns:")
-	for rows.Next() {
-		var name, ctype, default_type, default_expr, comment, codec_expr, ttl_expr string
-		rows.Scan(&name, &ctype, &default_type, &default_expr, &comment, &codec_expr, &ttl_expr)
-		fmt.Printf("- %s: %s\n", name, ctype)
-	}
 }

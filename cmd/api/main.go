@@ -209,8 +209,8 @@ func main() {
 			r.Get("/leaderboard/gametype/{gameType}", h.GetGameTypeLeaderboard)
 
 			r.Get("/leaderboard", h.GetLeaderboard)
+			r.Get("/leaderboard/{stat}", h.GetLeaderboard)
 			r.Get("/leaderboard/cards", h.GetLeaderboardCards)
-			r.Get("/leaderboard/global", h.GetLeaderboard)
 			r.Get("/leaderboard/weapon/{weapon}", h.GetWeaponLeaderboard)
 			r.Get("/leaderboard/map/{map}", h.GetMapLeaderboard)
 

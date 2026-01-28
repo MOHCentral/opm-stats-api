@@ -776,6 +776,21 @@ definitions:
       winning_team:
         type: string
     type: object
+  models.MatchSummary:
+    properties:
+      duration:
+        type: number
+      id:
+        type: string
+      kills:
+        type: integer
+      map:
+        type: string
+      player_count:
+        type: integer
+      start_time:
+        type: string
+    type: object
   models.MovementCombat:
     properties:
       bunny_hop_efficiency:
@@ -2793,9 +2808,49 @@ paths:
       summary: Get drilldown options
       tags:
       - Advanced Stats
+  /stats/global:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Global Stats
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Global Network Stats
+      tags:
+      - Server
   /stats/leaderboard:
     get:
+      description: Get ranked list of players by any of the 38 supported metrics
       parameters:
+      - default: 25
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Page
+        in: query
+        name: page
+        type: integer
+      - default: kills
+        description: Stat to sort by (e.g. kills, headshots, distance)
+        in: path
+        name: stat
+        type: string
+      - default: all
+        description: Period (all, week, month)
+        in: query
+        name: period
+        type: string
       - default: 25
         description: Limit
         in: query
@@ -2808,9 +2863,10 @@ paths:
         type: integer
       produces:
       - application/json
+      - application/json
       responses:
         "200":
-          description: Leaderboard
+          description: Leaderboard Data
           schema:
             additionalProperties: true
             type: object
@@ -2820,9 +2876,63 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Get Global Leaderboard
+      summary: Global Leaderboard
       tags:
       - Leaderboards
+      - Stats
+  /stats/leaderboard/{stat}:
+    get:
+      description: Get ranked list of players by any of the 38 supported metrics
+      parameters:
+      - default: 25
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Page
+        in: query
+        name: page
+        type: integer
+      - default: kills
+        description: Stat to sort by (e.g. kills, headshots, distance)
+        in: path
+        name: stat
+        type: string
+      - default: all
+        description: Period (all, week, month)
+        in: query
+        name: period
+        type: string
+      - default: 25
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 1
+        description: Page
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: Leaderboard Data
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Global Leaderboard
+      tags:
+      - Leaderboards
+      - Stats
   /stats/leaderboard/combos:
     get:
       consumes:
@@ -2963,7 +3073,7 @@ paths:
           description: Matches
           schema:
             items:
-              $ref: '#/definitions/models.MatchResult'
+              $ref: '#/definitions/models.MatchSummary'
             type: array
         "500":
           description: Internal Error
