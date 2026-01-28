@@ -5,14 +5,38 @@ info:
   description: |
     A high-throughput competitive statistics and tournament infrastructure for Medal of Honor: Allied Assault.
     
+    ## Overview
+    This API provides real-time telemetry ingestion, aggregation, and advanced analytics for gaming servers.
+    It supports granular player statistics ("Deep Stats"), server health metrics ("Server Pulse"), and spatial analysis (Heatmaps).
+    
     ## Authentication
-    Most endpoints are public. Ingestion endpoints require `X-Server-Token`.
+    - **Public Endpoints**: Most stats endpoints are public.
+    - **Ingestion**: Requires `X-Server-Token` header (or `server_token` in body).
+    - **User Actions**: Requires JWT Bearer token (obtained via Device Flow or Login).
 
 servers:
   - url: https://api.moh-central.net
     description: Production Server
-  - url: http://localhost:8080
+  - url: http://localhost:8084
     description: Local Development
+
+tags:
+  - name: Server
+    description: Server tracking, real-time status, and global metrics
+  - name: Player
+    description: Individual player statistics, deep dives, and heatmaps
+  - name: Match
+    description: Match reports, timelines, and versus matrices
+  - name: Tournament
+    description: Tournament management, brackets, and standings
+  - name: Leaderboards
+    description: Global rankings and stat cards
+  - name: Auth
+    description: Authentication, identity linking, and device flow
+  - name: User
+    description: User profile and settings
+  - name: Ingestion
+    description: Game server telemetry injection
 
 components:
   securitySchemes:
@@ -20,135 +44,725 @@ components:
       type: apiKey
       in: header
       name: X-Server-Token
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
+    # ==========================
+    # System
+    # ==========================
     HealthResponse:
       type: object
       properties:
-        status:
-          type: string
-          example: ok
-        timestamp:
-          type: string
-          format: date-time
-    GlobalStats:
+        status: { type: string, example: ok }
+        timestamp: { type: string, format: date-time }
+
+    # ==========================
+    # Server Tracking
+    # ==========================
+    ServerOverview:
       type: object
       properties:
-        total_kills:
-          type: integer
-          example: 15420
-        active_players:
-          type: integer
-          example: 42
-        total_matches:
-          type: integer
-          example: 120
+        id: { type: string, format: uuid }
+        name: { type: string }
+        display_name: { type: string }
+        address: { type: string }
+        port: { type: integer }
+        region: { type: string }
+        country: { type: string }
+        is_online: { type: boolean }
+        current_players: { type: integer }
+        max_players: { type: integer }
+        current_map: { type: string }
+        gametype: { type: string }
+        rank: { type: integer }
+        uptime_percent: { type: number }
+
+    ServerDetail:
+      allOf:
+        - $ref: '#/components/schemas/ServerOverview'
+        - type: object
+          properties:
+            description: { type: string }
+            is_official: { type: boolean }
+            player_list: { type: array, items: { type: string } }
+            stats: { $ref: '#/components/schemas/ServerLifetimeStats' }
+            stats_24h: { $ref: '#/components/schemas/ServerTimeStats' }
+            uptime: { $ref: '#/components/schemas/ServerUptime' }
+
+    ServerLifetimeStats:
+      type: object
+      properties:
+        total_kills: { type: integer }
+        total_matches: { type: integer }
+        unique_players: { type: integer }
+        total_playtime_hours: { type: number }
+        first_seen: { type: string }
+
+    ServerTimeStats:
+      type: object
+      properties:
+        kills: { type: integer }
+        matches: { type: integer }
+        unique_players: { type: integer }
+        avg_players: { type: number }
+        peak_players: { type: integer }
+
+    ServerUptime:
+      type: object
+      properties:
+        uptime_24h: { type: number }
+        uptime_7d: { type: number }
+        last_online: { type: string }
+
+    ServerPulse:
+      type: object
+      description: Real-time heartbeat of server activity and chaos.
+      properties:
+        lethality_rating: { type: number, description: "Kills per minute" }
+        lead_exchange_rate: { type: number }
+        total_lead_poured: { type: integer }
+        meat_grinder_map: { type: string }
+        active_players: { type: integer }
+
+    PeakHoursHeatmap:
+      type: object
+      properties:
+        data: 
+          type: array
+          items: 
+            type: array
+            items: { type: integer }
+        days: { type: array, items: { type: string } }
+        hours: { type: array, items: { type: string } }
+        peak:
+          type: object
+          properties:
+            day: { type: string }
+            hour: { type: integer }
+            players: { type: integer }
+
+    # ==========================
+    # Player Stats
+    # ==========================
+    DeepStats:
+      type: object
+      properties:
+        combat: { $ref: '#/components/schemas/CombatStats' }
+        weapons: { type: array, items: { $ref: '#/components/schemas/WeaponStats' } }
+        movement: { $ref: '#/components/schemas/MovementStats' }
+        accuracy: { $ref: '#/components/schemas/AccuracyStats' }
+        session: { $ref: '#/components/schemas/SessionStats' }
+        stance: { $ref: '#/components/schemas/StanceStats' }
+        interaction: { $ref: '#/components/schemas/InteractionStats' }
+
+    CombatStats:
+      type: object
+      properties:
+        kills: { type: integer }
+        deaths: { type: integer }
+        kd_ratio: { type: number }
+        headshots: { type: integer }
+        headshot_percent: { type: number }
+        torso_kills: { type: integer }
+        limb_kills: { type: integer }
+        melee_kills: { type: integer }
+        suicides: { type: integer }
+        team_kills: { type: integer }
+        highest_streak: { type: integer }
+        damage_dealt: { type: integer }
+
+    WeaponStats:
+      type: object
+      properties:
+        name: { type: string }
+        kills: { type: integer }
+        deaths: { type: integer }
+        headshots: { type: integer }
+        accuracy: { type: number }
+        shots: { type: integer }
+        hits: { type: integer }
+
+    MovementStats:
+      type: object
+      properties:
+        total_distance_km: { type: number }
+        jump_count: { type: integer }
+        sprint_time_sec: { type: number }
+        crouch_time_sec: { type: number }
+
+    AccuracyStats:
+      type: object
+      properties:
+        overall: { type: number }
+        head_hit_pct: { type: number }
+        avg_distance: { type: number }
+
+    SessionStats:
+      type: object
+      properties:
+        playtime_hours: { type: number }
+        matches_played: { type: integer }
+        wins: { type: integer }
+        win_rate: { type: number }
+
+    StanceStats:
+      type: object
+      properties:
+        standing_kills: { type: integer }
+        crouch_kills: { type: integer }
+        prone_kills: { type: integer }
+        standing_pct: { type: number }
+
+    InteractionStats:
+      type: object
+      properties:
+        chat_messages: { type: integer }
+        vehicle_uses: { type: integer }
+        pickups:
+          type: array
+          items:
+            type: object
+            properties:
+              item_name: { type: string }
+              count: { type: integer }
+
+    # ==========================
+    # Match Reports
+    # ==========================
+    MatchDetail:
+      type: object
+      properties:
+        info: { $ref: '#/components/schemas/MatchInfo' }
+        timeline: { type: array, items: { $ref: '#/components/schemas/MatchTimelineEvent' } }
+        versus: 
+          type: object
+          additionalProperties:
+             type: array
+             items: { $ref: '#/components/schemas/VersusRow' }
+        top_weapons: { type: array, items: { $ref: '#/components/schemas/WeaponStats' } }
+
+    MatchInfo:
+      type: object
+      properties:
+        match_id: { type: string, format: uuid }
+        server_name: { type: string }
+        map_name: { type: string }
+        gametype: { type: string }
+        allies_score: { type: integer }
+        axis_score: { type: integer }
+        duration: { type: number }
+        started_at: { type: string, format: date-time }
+
+    MatchTimelineEvent:
+      type: object
+      properties:
+        timestamp: { type: number }
+        type: { type: string }
+        actor: { type: string }
+        target: { type: string }
+        detail: { type: string }
+
+    VersusRow:
+      type: object
+      properties:
+        opponent_name: { type: string }
+        kills: { type: integer }
+        deaths: { type: integer }
+
+    # ==========================
+    # Tournaments
+    # ==========================
+    Tournament:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [draft, registration_open, in_progress, completed] }
+        format: { type: string }
+        game_mode: { type: string }
+        start_time: { type: string, format: date-time }
+        participant_count: { type: integer }
+
+    TournamentStats:
+      type: object
+      properties:
+        total_matches: { type: integer }
+        total_kills: { type: integer }
+        mvp: { type: string }
+
+    # ==========================
+    # Auth & User
+    # ==========================
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        avatar_url: { type: string }
+        is_admin: { type: boolean }
+
+    LoginHistoryEntry:
+      type: object
+      properties:
+        attempt_at: { type: string, format: date-time }
+        server_name: { type: string }
+        player_ip: { type: string }
+        success: { type: boolean }
+
+    TrustedIP:
+      type: object
+      properties:
+        ip_address: { type: string }
+        source: { type: string }
+        last_used_at: { type: string, format: date-time }
+
+    PendingIP:
+      type: object
+      properties:
+        id: { type: string }
+        ip_address: { type: string }
+        player_name: { type: string }
+        requested_at: { type: string, format: date-time }
+
+    # ==========================
+    # Achievements
+    # ==========================
+    Achievement:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        tier: { type: string }
+        is_unlocked: { type: boolean }
+        progress: { type: integer }
+
+    # ==========================
+    # Leaderboards
+    # ==========================
     LeaderboardEntry:
       type: object
       properties:
-        rank:
-          type: integer
-        guid:
-          type: string
-        name:
-          type: string
-        value:
-          type: number
-    PlayerProfile:
-      type: object
-      properties:
-        guid:
-          type: string
-        name:
-          type: string
-        last_seen:
-          type: string
-          format: date-time
+        rank: { type: integer }
+        id: { type: string }
+        name: { type: string }
+        kills: { type: integer }
+        kdr: { type: number }
+        accuracy: { type: number }
 
 paths:
   /health:
     get:
-      summary: Health Check
-      description: Returns the status of the API server.
-      operationId: getHealth
-      tags:
-        - System
+      summary: System Health
+      tags: [System]
       responses:
         '200':
-          description: Server is healthy
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+
+  # ==========================
+  # Server Endpoints
+  # ==========================
+  /api/v1/servers:
+    get:
+      summary: List All Servers
+      tags: [Server]
+      responses:
+        '200':
+          description: List of active servers
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                type: array
+                items: { $ref: '#/components/schemas/ServerOverview' }
 
-  /api/v1/stats/global:
+  /api/v1/servers/stats:
     get:
-      summary: Get Global Stats
-      operationId: getGlobalStats
-      tags:
-        - Stats
+      summary: Global Network Stats
+      tags: [Server]
       responses:
         '200':
-          description: Successful response
+          description: Aggregate stats across all servers
           content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GlobalStats'
+             application/json:
+               schema:
+                 type: object
+                 properties:
+                   total_servers: { type: integer }
+                   total_players_now: { type: integer }
 
-  /api/v1/stats/leaderboard:
+  /api/v1/servers/{id}:
     get:
-      summary: Get Global Leaderboard
-      operationId: getLeaderboard
-      tags:
-        - Leaderboards
+      summary: Server Details
+      tags: [Server]
       parameters:
-        - name: stat
-          in: query
-          schema:
-            type: string
-            enum: [kills, deaths, kdr, headshots, accuracy]
-            default: kills
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 25
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
       responses:
         '200':
-          description: Leaderboard data
+          description: Detailed server info
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerDetail' }
+
+  /api/v1/servers/{id}/peak-hours:
+    get:
+      summary: Server Peak Hours Heatmap
+      tags: [Server]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Heatmap data
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PeakHoursHeatmap' }
+
+  /api/v1/stats/server/pulse:
+    get:
+      summary: Server Pulse (Main)
+      tags: [Server]
+      responses:
+        '200':
+          description: Main server pulse (legacy endpoint)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServerPulse' }
+
+  # ==========================
+  # Player Endpoints
+  # ==========================
+  /api/v1/stats/player/{guid}/deep:
+    get:
+      summary: Get Deep Stats
+      description: The "Mother of All Stats" endpoint.
+      tags: [Player]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Comprehensive player statistics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeepStats' }
+
+  /api/v1/stats/player/{guid}/weapons:
+    get:
+      summary: Get Player Weapon Stats
+      tags: [Player]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: List of weapon stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/WeaponStats' }
+
+  /api/v1/stats/player/{guid}/matches:
+    get:
+      summary: Get Player Match History
+      tags: [Player]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Recent matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MatchInfo' }
+
+  # ==========================
+  # Match Endpoints
+  # ==========================
+  /api/v1/stats/match/{matchId}:
+    get:
+      summary: Get Match Details
+      tags: [Match]
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Full match report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MatchDetail' }
+
+  /api/v1/stats/live/matches:
+    get:
+      summary: Get Live Matches
+      tags: [Match]
+      responses:
+        '200':
+          description: List of currently running matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MatchInfo' }
+
+  # ==========================
+  # Tournament Endpoints
+  # ==========================
+  /api/v1/tournaments:
+    get:
+      summary: List Tournaments
+      tags: [Tournament]
+      responses:
+        '200':
+          description: List of tournaments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Tournament' }
+
+  /api/v1/tournaments/{id}:
+    get:
+      summary: Get Tournament Details
+      tags: [Tournament]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Tournament info
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tournament' }
+
+  /api/v1/tournaments/{id}/stats:
+    get:
+      summary: Get Tournament Stats
+      tags: [Tournament]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Agrgegated tournament stats
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TournamentStats' }
+
+  # ==========================
+  # Authentication
+  # ==========================
+  /api/v1/auth/device:
+    post:
+      summary: Init Device Auth
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                forum_user_id: { type: integer }
+                client_ip: { type: string }
+      responses:
+        '200':
+          description: Device code generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_code: { type: string }
+                  expires_in: { type: integer }
+
+  /api/v1/auth/token:
+    post:
+      summary: Poll For Token
+      tags: [Auth]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_code: { type: string }
+      responses:
+        '200':
+          description: Access token returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+
+  /api/v1/auth/history:
+    get:
+      summary: Get Login History
+      tags: [Auth]
+      parameters:
+        - name: forum_user_id
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: History list
+          content:
+             application/json:
+               schema:
+                 type: object
+                 properties:
+                   history:
+                     type: array
+                     items: { $ref: '#/components/schemas/LoginHistoryEntry' }
+
+  /api/v1/auth/trusted-ips:
+    get:
+      summary: Get Trusted IPs
+      tags: [Auth]
+      parameters:
+        - name: forum_user_id
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: List of trusted IPs
+          content:
+            application/json:
+               schema:
+                 type: object
+                 properties:
+                   trusted_ips:
+                     type: array
+                     items: { $ref: '#/components/schemas/TrustedIP' }
+
+  /api/v1/auth/pending-ips:
+     get:
+       summary: Get Pending IPs
+       tags: [Auth]
+       parameters:
+         - name: forum_user_id
+           in: query
+           required: true
+           schema: { type: integer }
+       responses:
+         '200':
+           description: Pending approvals
+           content:
+             application/json:
+               schema:
+                 type: object
+                 properties:
+                   pending_ips:
+                     type: array
+                     items: { $ref: '#/components/schemas/PendingIP' }
+
+  # ==========================
+  # Users
+  # ==========================
+  /api/v1/users/me:
+    get:
+      summary: Get Current User
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+
+  # ==========================
+  # Achievements
+  # ==========================
+  /api/v1/achievements/player/{guid}:
+    get:
+      summary: Get Player Achievements
+      tags: [Player]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Unlocked achievements
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/LeaderboardEntry'
+                   type: object
+                   properties:
+                     id: { type: string }
+                     unlocked_at: { type: string }
+                     achievement: { $ref: '#/components/schemas/Achievement' }
 
-  /api/v1/stats/player/{guid}:
+  # ==========================
+  # Leaderboards
+  # ==========================
+  /api/v1/stats/leaderboard:
     get:
-      summary: Get Player Stats
-      operationId: getPlayerStats
-      tags:
-        - Players
+      summary: Get Global Leaderboard
+      tags: [Leaderboards]
       parameters:
-        - name: guid
-          in: path
-          required: true
-          schema:
-            type: string
+        - name: limit
+          in: query
+          schema: { type: integer, default: 25 }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
       responses:
         '200':
-          description: Player statistics
+          description: Ranked player list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlayerProfile'
+                type: object
+                properties:
+                  page: { type: integer }
+                  total: { type: integer }
+                  players:
+                    type: array
+                    items: { $ref: '#/components/schemas/LeaderboardEntry' }
 
+  # ==========================
+  # Ingestion
+  # ==========================
   /api/v1/ingest/events:
     post:
       summary: Ingest Game Events
-      description: Receives raw game events from the game server script.
-      operationId: ingestEvents
-      tags:
-        - Ingestion
+      tags: [Ingestion]
       security:
         - ServerToken: []
       requestBody:
@@ -158,12 +772,9 @@ paths:
             schema:
               type: object
               properties:
-                event_type:
-                  type: string
-                timestamp:
-                  type: integer
-                data:
-                  type: object
+                type: { type: string }
+                match_id: { type: string }
+                timestamp: { type: number }
       responses:
         '202':
-          description: Event accepted for processing
+          description: Accepted
