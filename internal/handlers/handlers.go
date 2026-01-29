@@ -54,6 +54,7 @@ type Config struct {
 	TeamStats     logic.TeamStatsService
 	Tournament    logic.TournamentService
 	Achievements  logic.AchievementsService
+	Prediction    logic.PredictionService
 }
 
 type Handler struct {
@@ -70,6 +71,7 @@ type Handler struct {
 	teamStats     logic.TeamStatsService
 	tournament    logic.TournamentService
 	achievements  logic.AchievementsService
+	prediction    logic.PredictionService
 }
 
 func New(cfg Config) *Handler {
@@ -87,6 +89,7 @@ func New(cfg Config) *Handler {
 		teamStats:     cfg.TeamStats,
 		tournament:    cfg.Tournament,
 		achievements:  cfg.Achievements,
+		prediction:    cfg.Prediction,
 	}
 }
 

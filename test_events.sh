@@ -6,9 +6,9 @@
 # This is useful for testing the API without running MOHAA.
 # ==============================================================================
 
-API_BASE="http://localhost:8080"
+API_BASE="${API_BASE:-http://localhost:8084}"
 EVENTS_ENDPOINT="${API_BASE}/api/v1/ingest/events"
-SERVER_TOKEN="${SERVER_TOKEN:-8b6a271b-eed5-4e55-995a-d5494f3ca94b}"
+SERVER_TOKEN="${SERVER_TOKEN:-mohaa-test-token}"
 SERVER_ID="${SERVER_ID:-728ae814-a0c4-47d5-9dd7-82c0ab3c221d}"
 MATCH_ID="match_test_$(date +%s)"
 SESSION_ID="sess_test_$(date +%s)"
@@ -121,7 +121,8 @@ send_player_spawn() {
     payload+="&timestamp=$(timestamp)"
     payload+="&player_name=${name}"
     payload+="&player_guid=${guid}"
-    payload+="&team=${team}"
+    payload+="&player_team=${team}"
+    payload+="&round_number=${4:-0}"
     payload+="&pos_x=$(random_pos)"
     payload+="&pos_y=$(random_pos)"
     payload+="&pos_z=0"
@@ -317,6 +318,24 @@ send_ladder_mount() {
     send_event "$payload"
 }
 
+send_item_pickup() {
+    local name="$1"
+    local guid="$2"
+    local item="${3:-MedKit}"
+    local count="${4:-1}"
+    
+    local payload="type=item_pickup"
+    payload+="&match_id=${MATCH_ID}"
+    payload+="&map_name=${MAP_NAME}"
+    payload+="&timestamp=$(timestamp)"
+    payload+="&player_name=${name}"
+    payload+="&player_guid=${guid}"
+    payload+="&item_name=${item}"
+    payload+="&count=${count}"
+    
+    send_event "$payload"
+}
+
 send_crouch() {
     local name="$1"
     local guid="$2"
@@ -377,7 +396,7 @@ send_heartbeat() {
     payload+="&session_id=${SESSION_ID}"
     payload+="&map_name=${MAP_NAME}"
     payload+="&timestamp=$(timestamp)"
-    payload+="&round_number=1"
+    payload+="&round_number=${4:-1}"
     payload+="&allies_score=${allies_score}"
     payload+="&axis_score=${axis_score}"
     payload+="&player_count=${player_count}"
@@ -568,6 +587,11 @@ test_full_match() {
              send_ladder_mount "$att_name" "$att_guid" > /dev/null 2>&1
         fi
         
+        # Random Item Pickup
+        if [ $((RANDOM % 10)) -eq 0 ]; then
+             send_item_pickup "$att_name" "$att_guid" "MedKit" 1 > /dev/null 2>&1
+        fi
+        
         # Random Vehicle Collision (Road Rage)
         if [ $((RANDOM % 20)) -eq 0 ]; then
              send_vehicle_collision "$att_name" "$att_guid" > /dev/null 2>&1
@@ -592,6 +616,60 @@ test_full_match() {
     echo -e "${GREEN}  Match Complete!${NC}"
     echo -e "${GREEN}  Allies: ${allies_score} | Axis: ${axis_score}${NC}"
     echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+}
+
+test_wipeout() {
+    echo -e "\n${GREEN}════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}  MOHAA Event Simulator - Wipeout Achievement Test${NC}"
+    echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+    
+    # Use a fresh match ID for the test
+    MATCH_ID=$(uuidgen)
+    
+    # 1. Start match
+    send_match_start
+    sleep 0.2
+    
+    # 2. Players connect and spawn
+    send_player_connect "$PLAYER1_NAME" "$PLAYER1_GUID"
+    send_player_spawn "$PLAYER1_NAME" "$PLAYER1_GUID" "allies" 1
+    send_player_connect "$PLAYER3_NAME" "$PLAYER3_GUID"
+    send_player_spawn "$PLAYER3_NAME" "$PLAYER3_GUID" "axis" 1
+    send_player_connect "$PLAYER4_NAME" "$PLAYER4_GUID"
+    send_player_spawn "$PLAYER4_NAME" "$PLAYER4_GUID" "axis" 1
+    sleep 0.2
+    
+    # 3. Round 1 Starts
+    echo -e "\n${CYAN}── Round 1 Starts ──${NC}"
+    local r_start="type=round_start&match_id=${MATCH_ID}&round_number=1&timestamp=$(timestamp)"
+    send_event "$r_start"
+    
+    # 4. Player 1 wipes Axis team
+    echo -e "\n${YELLOW}── Player 1 Eliminating Axis ──${NC}"
+    
+    # Kill 1
+    local k1="type=kill&match_id=${MATCH_ID}&round_number=1&timestamp=$(timestamp)"
+    k1+="&attacker_name=${PLAYER1_NAME}&attacker_guid=${PLAYER1_GUID}&attacker_team=allies"
+    k1+="&victim_name=${PLAYER3_NAME}&victim_guid=${PLAYER3_GUID}&victim_team=axis&weapon=m1_garand"
+    send_event "$k1"
+    
+    # Kill 2
+    local k2="type=kill&match_id=${MATCH_ID}&round_number=1&timestamp=$(timestamp)"
+    k2+="&attacker_name=${PLAYER1_NAME}&attacker_guid=${PLAYER1_GUID}&attacker_team=allies"
+    k2+="&victim_name=${PLAYER4_NAME}&victim_guid=${PLAYER4_GUID}&victim_team=axis&weapon=m1_garand"
+    send_event "$k2"
+    
+    # 5. Round 1 Ends
+    echo -e "\n${CYAN}── Round 1 Ends ──${NC}"
+    local r_end="type=round_end&match_id=${MATCH_ID}&round_number=1&winning_team=allies&timestamp=$(timestamp)"
+    send_event "$r_end"
+    
+    # 6. End Match
+    send_match_end "allies" 1 0
+    
+    echo -e "\n${GREEN}Wipeout test events sent!${NC}"
+    echo -e "Match ID: ${MATCH_ID}"
+    echo -e "Check achievements: curl http://localhost:8086/api/v1/achievements/match/${MATCH_ID}?player_id=${PLAYER1_GUID}"
 }
 
 test_stress() {
@@ -669,6 +747,7 @@ print_help() {
     echo "Commands:"
     echo "  quick    - Run a quick test with basic events"
     echo "  full     - Simulate a full match with 20 kills"
+    echo "  wipeout  - Test Wipeout achievement (round-based)"
     echo "  stress   - Stress test with 100 rapid events"
     echo "  check    - Check if API is healthy"
     echo "  help     - Show this help message"
@@ -686,6 +765,9 @@ case "${1:-quick}" in
         ;;
     full)
         check_api && test_full_match
+        ;;
+    wipeout)
+        check_api && test_wipeout
         ;;
     stress)
         check_api && test_stress

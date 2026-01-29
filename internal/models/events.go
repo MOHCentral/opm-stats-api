@@ -346,9 +346,10 @@ type ClickHouseEvent struct {
 	TargetStance string
 
 	// Metrics
-	Damage   uint32
-	Hitloc   string
-	Distance float32
+	Damage       uint32
+	Hitloc       string
+	Distance     float32
+	RoundNumber  uint16
 
 	// Raw JSON for debugging
 	RawJSON string

@@ -750,6 +750,25 @@ definitions:
           type: string
         type: array
     type: object
+  models.MatchPredictions:
+    properties:
+      allies_win_prob:
+        type: number
+      axis_win_prob:
+        type: number
+      expected_winner:
+        type: string
+      factors:
+        items:
+          type: string
+        type: array
+      key_players:
+        items:
+          type: string
+        type: array
+      match_id:
+        type: string
+    type: object
   models.MatchResult:
     properties:
       allies_score:
@@ -966,6 +985,32 @@ definitions:
         type: integer
       matches_won:
         type: integer
+    type: object
+  models.PlayerPredictions:
+    properties:
+      confidence:
+        type: number
+      expected_kd:
+        type: number
+      guid:
+        type: string
+      last_updated:
+        type: string
+      predicted_deaths:
+        type: integer
+      predicted_kills:
+        type: integer
+      recent_performance:
+        items:
+          type: number
+        type: array
+      rival_analysis:
+        items:
+          $ref: '#/definitions/models.RivalPrediction'
+        type: array
+      trend:
+        description: '"improving", "declining", "stable"'
+        type: string
     type: object
   models.PlayerStats:
     properties:
@@ -1288,6 +1333,17 @@ definitions:
       label:
         description: Optional label
         type: string
+    type: object
+  models.RivalPrediction:
+    properties:
+      nemesis:
+        type: boolean
+      opponent_guid:
+        type: string
+      opponent_name:
+        type: string
+      win_prob:
+        type: number
     type: object
   models.RivalStats:
     properties:
@@ -3058,6 +3114,26 @@ paths:
       summary: Peak performance leaderboard
       tags:
       - Leaderboards
+  /stats/match/{matchId}/predictions:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Match ID
+        in: path
+        name: matchId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.MatchPredictions'
+      summary: Get Match Predictions
+      tags:
+      - AI
   /stats/matches:
     get:
       parameters:
@@ -3339,6 +3415,32 @@ paths:
       summary: Get player peak performance
       tags:
       - Advanced Stats
+  /stats/player/{guid}/predictions:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Player GUID
+        in: path
+        name: guid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PlayerPredictions'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Player Predictions
+      tags:
+      - AI
   /stats/player/{guid}/war-room:
     get:
       consumes:

@@ -128,6 +128,7 @@ func main() {
 	teamStats := logic.NewTeamStatsService(chConn)
 	tournament := logic.NewTournamentService(chConn)
 	achievements := logic.NewAchievementsService(chConn, pgPool)
+	prediction := logic.NewPredictionService(chConn)
 
 	// Initialize handlers
 	h := handlers.New(handlers.Config{
@@ -144,6 +145,7 @@ func main() {
 		TeamStats:     teamStats,
 		Tournament:    tournament,
 		Achievements:  achievements,
+		Prediction:    prediction,
 	})
 
 	// Setup router
@@ -234,6 +236,7 @@ func main() {
 			r.Get("/player/{guid}/heatmap/body", h.GetPlayerBodyHeatmap)
 			r.Get("/player/{guid}/performance", h.GetPlayerPerformanceHistory)
 			r.Get("/player/{guid}/playstyle", h.GetPlayerPlaystyle) // [NEW]
+			r.Get("/player/{guid}/predictions", h.GetPlayerPredictions)
 
 			// Advanced Stats endpoints - "When" analysis, drill-down, combinations
 			r.Get("/player/{guid}/peak-performance", h.GetPlayerPeakPerformance)
@@ -250,6 +253,7 @@ func main() {
 			r.Get("/match/{matchId}/advanced", h.GetMatchAdvancedDetails) // [NEW]
 			r.Get("/match/{matchId}/timeline", h.GetMatchTimeline)
 			r.Get("/match/{matchId}/heatmap", h.GetMatchHeatmap)
+			r.Get("/match/{matchId}/predictions", h.GetMatchPredictions)
 
 			r.Get("/query", h.GetDynamicStats)
 			r.Get("/server/{serverId}/stats", h.GetServerStats)
@@ -328,6 +332,8 @@ func main() {
 			r.Get("/leaderboard", h.GetAchievementLeaderboard)
 			r.Get("/{id}", h.GetAchievement)
 			r.Get("/player/{guid}", h.GetPlayerAchievements)
+			r.Get("/match/{match_id}", h.GetMatchAchievements)
+			r.Get("/tournament/{tournament_id}", h.GetTournamentAchievements)
 		})
 	})
 

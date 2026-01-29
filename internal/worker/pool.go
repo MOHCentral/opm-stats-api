@@ -282,7 +282,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			actor_pos_x, actor_pos_y, actor_pos_z, actor_pitch, actor_yaw, actor_stance,
 			target_id, target_name, target_team,
 			target_pos_x, target_pos_y, target_pos_z, target_stance,
-			damage, hitloc, distance, raw_json, actor_smf_id, target_smf_id, match_outcome
+			damage, hitloc, distance, raw_json, actor_smf_id, target_smf_id, match_outcome, round_number
 		)
 	`)
 	if err != nil {
@@ -325,6 +325,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			chEvent.ActorSMFID,
 			chEvent.TargetSMFID,
 			chEvent.MatchOutcome,
+			chEvent.RoundNumber,
 		)
 		if err != nil {
 			p.logger.Warnw("Failed to append event to batch", "error", err, "event_type", event.Type)
@@ -556,8 +557,10 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 		matchID = uuid.New()
 	}
 
+	sec := int64(event.Timestamp)
+	nsec := int64((event.Timestamp - float64(sec)) * 1e9)
 	ch := &models.ClickHouseEvent{
-		Timestamp:    time.Unix(int64(event.Timestamp), 0),
+		Timestamp:    time.Unix(sec, nsec),
 		MatchID:      matchID,
 		ServerID:     event.ServerID,
 		MapName:      event.MapName,
@@ -565,6 +568,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 		Damage:       uint32(event.Damage),
 		Hitloc:       event.Hitloc,
 		Distance:     event.Distance,
+		RoundNumber:  uint16(event.RoundNumber),
 		RawJSON:      rawJSON,
 		MatchOutcome: event.MatchOutcome,
 	}

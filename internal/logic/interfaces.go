@@ -71,3 +71,8 @@ type AchievementsService interface {
 	GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]models.ContextualAchievement, error)
 	GetPlayerAchievements(ctx context.Context, playerGUID string) ([]models.PlayerAchievement, error)
 }
+
+type PredictionService interface {
+	GetPlayerPredictions(ctx context.Context, guid string) (*models.PlayerPredictions, error)
+	GetMatchPredictions(ctx context.Context, matchID string) (*models.MatchPredictions, error)
+}

@@ -112,8 +112,67 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 	}
 	list = append(list, sharpshooter)
 
-	// "Wipeout" (Gold): Kill entire enemy team in one round
-	// Requires time-window logic with round boundaries - implementation pending round event tracking
+	// ------------------------------------------------------------------
+	// D. "Wipeout" (Gold): Kill entire enemy team in one round
+	// ------------------------------------------------------------------
+	wipeout := models.ContextualAchievement{
+		ID: "match_wipeout", Name: "Wipeout", Description: "Eliminate the entire enemy team in a single round",
+		Icon: "skull", Tier: "gold", MaxProgress: 1, IsUnlocked: false,
+	}
+
+	// Logic: Find rounds in this match where the player killed all unique enemies
+	// Query to find rounds and enemy counts
+	wipeoutQuery := `
+		SELECT 
+			round_number,
+			uniq(target_id) as enemies_killed
+		FROM raw_events
+		WHERE match_id = ? AND actor_id = ? AND event_type = 'kill' AND target_id != '' AND target_id != 'world'
+		GROUP BY round_number
+	`
+	rows, err := s.ch.Query(ctx, wipeoutQuery, matchID, playerID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var rNum int
+			var killedCount int
+			if err := rows.Scan(&rNum, &killedCount); err != nil {
+				continue
+			}
+
+			// We need to know how many enemies were in that team during that round
+			var totalEnemies int
+			// First get the player's team in that round
+			var pTeam string
+			s.ch.QueryRow(ctx, "SELECT actor_team FROM raw_events WHERE match_id = ? AND actor_id = ? AND round_number = ? AND actor_team != '' LIMIT 1", matchID, playerID, rNum).Scan(&pTeam)
+
+			if pTeam != "" {
+				enemyTeam := "axis"
+				if pTeam == "axis" {
+					enemyTeam = "allies"
+				}
+
+				// Count all unique enemies who either acted or were targeted in this round
+				enemyCountQuery := `
+					SELECT uniqExact(player_id) FROM (
+						SELECT actor_id as player_id FROM raw_events 
+						WHERE match_id = ? AND round_number = ? AND actor_team = ? AND actor_id != ''
+						UNION ALL
+						SELECT target_id as player_id FROM raw_events 
+						WHERE match_id = ? AND round_number = ? AND target_team = ? AND target_id != ''
+					)
+				`
+				s.ch.QueryRow(ctx, enemyCountQuery, matchID, rNum, enemyTeam, matchID, rNum, enemyTeam).Scan(&totalEnemies)
+
+				if killedCount > 0 && totalEnemies > 0 && killedCount >= totalEnemies {
+					wipeout.IsUnlocked = true
+					wipeout.Progress = 1
+					break
+				}
+			}
+		}
+	}
+	list = append(list, wipeout)
 
 	return list, nil
 }

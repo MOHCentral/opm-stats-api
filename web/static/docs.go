@@ -2056,6 +2056,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/stats/match/{matchId}/predictions": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Get Match Predictions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Match ID",
+                        "name": "matchId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.MatchPredictions"
+                        }
+                    }
+                }
+            }
+        },
         "/stats/matches": {
             "get": {
                 "produces": [
@@ -2462,6 +2493,46 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/player/{guid}/predictions": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Get Player Predictions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Player GUID",
+                        "name": "guid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PlayerPredictions"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3808,6 +3879,35 @@ const docTemplate = `{
                 }
             }
         },
+        "models.MatchPredictions": {
+            "type": "object",
+            "properties": {
+                "allies_win_prob": {
+                    "type": "number"
+                },
+                "axis_win_prob": {
+                    "type": "number"
+                },
+                "expected_winner": {
+                    "type": "string"
+                },
+                "factors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "key_players": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "match_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.MatchResult": {
             "type": "object",
             "properties": {
@@ -4135,6 +4235,45 @@ const docTemplate = `{
                 },
                 "matches_won": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.PlayerPredictions": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "expected_kd": {
+                    "type": "number"
+                },
+                "guid": {
+                    "type": "string"
+                },
+                "last_updated": {
+                    "type": "string"
+                },
+                "predicted_deaths": {
+                    "type": "integer"
+                },
+                "predicted_kills": {
+                    "type": "integer"
+                },
+                "recent_performance": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "rival_analysis": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RivalPrediction"
+                    }
+                },
+                "trend": {
+                    "description": "\"improving\", \"declining\", \"stable\"",
+                    "type": "string"
                 }
             }
         },
@@ -4611,6 +4750,23 @@ const docTemplate = `{
                 "label": {
                     "description": "Optional label",
                     "type": "string"
+                }
+            }
+        },
+        "models.RivalPrediction": {
+            "type": "object",
+            "properties": {
+                "nemesis": {
+                    "type": "boolean"
+                },
+                "opponent_guid": {
+                    "type": "string"
+                },
+                "opponent_name": {
+                    "type": "string"
+                },
+                "win_prob": {
+                    "type": "number"
                 }
             }
         },
