@@ -202,12 +202,12 @@ type MatchSummary struct {
 
 // RawEvent is the incoming event from game servers
 type RawEvent struct {
-	Type        EventType `json:"type"`
-	MatchID     string    `json:"match_id"`
+	Type        EventType `json:"type" validate:"required"`
+	MatchID     string    `json:"match_id" validate:"required"`
 	SessionID   string    `json:"session_id"`
-	ServerID    string    `json:"server_id"`
+	ServerID    string    `json:"server_id" validate:"required"`
 	ServerToken string    `json:"server_token"`
-	Timestamp   float64   `json:"timestamp"`
+	Timestamp   float64   `json:"timestamp" validate:"required,gt=0"`
 	MapName     string    `json:"map_name,omitempty"`
 
 	// Player info (primary actor for single-player events)
