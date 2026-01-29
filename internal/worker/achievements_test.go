@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -33,7 +34,7 @@ func (m *mockRow) Scan(dest ...interface{}) error {
 	return nil
 }
 
-func TestGetWeaponKills(t *testing.T) {
+func TestFetchWeaponKillsFromDB(t *testing.T) {
 	expectedCount := uint64(42)
 	smfID := 123
 	weapon := "kar98k"
@@ -46,7 +47,7 @@ func TestGetWeaponKills(t *testing.T) {
 				t.Errorf("expected query %q, got %q", expectedQuery, query)
 			}
 			if len(args) != 2 {
-				t.Errorf("expected 2 args, got %d", len(args))
+				t.Fatalf("expected 2 args, got %d", len(args))
 			}
 			if args[0] != smfID {
 				t.Errorf("expected arg[0] %v, got %v", smfID, args[0])
@@ -72,17 +73,30 @@ func TestGetWeaponKills(t *testing.T) {
 		},
 	}
 
+	mockStatStore := NewMockStatStore()
 	logger := zap.NewNop().Sugar()
-	// passing nil for db because we don't use it in getWeaponKills
+
 	worker := &AchievementWorker{
-		ch:     mockCh,
-		logger: logger,
-		ctx:    context.Background(),
+		ch:        mockCh,
+		statStore: mockStatStore,
+		logger:    logger,
+		ctx:       context.Background(),
 	}
 
-	count := worker.getWeaponKills(smfID, weapon)
+	// incrementPlayerStat will increment Redis (returning 1) then call fetchFromDB
+	count := worker.incrementPlayerStat(smfID, "weapon_kills:"+weapon)
 	if count != int(expectedCount) {
 		t.Errorf("expected count %d, got %d", expectedCount, count)
+	}
+
+	// Verify Redis is updated
+	key := fmt.Sprintf("stats:smf:%d:weapon_kills:%s", smfID, weapon)
+	val, err := mockStatStore.Get(context.Background(), key)
+	if err != nil {
+		t.Errorf("expected key %s to be present in Redis", key)
+	}
+	if val != fmt.Sprintf("%d", expectedCount) {
+		t.Errorf("expected Redis value %d, got %s", expectedCount, val)
 	}
 }
 
