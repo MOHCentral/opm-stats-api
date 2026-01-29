@@ -475,7 +475,8 @@ func (w *AchievementWorker) checkTeamplayAchievements(smfID int64, event *models
 // Helper functions
 
 func (w *AchievementWorker) checkWeaponMasteryAchievement(smfID int, weapon string, serverID int, ts time.Time) {
-	weaponKills := w.getWeaponKills(smfID, weapon)
+	statName := fmt.Sprintf("weapon_kills:%s", weapon)
+	weaponKills := w.incrementPlayerStat(smfID, statName)
 
 	// Example: 100 kills with Kar98k unlocks "Sniper Master"
 	// Mapped to kar98k_elite (Gold, 500 kills) in DB
@@ -553,29 +554,38 @@ func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
 
 // fetchFromDB retrieves a player stat from ClickHouse (DB fallback)
 func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
-	// Map stat names to ClickHouse queries
 	var query string
-	switch statName {
-	case "total_kills":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill'`
-	case "total_headshots":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND hitloc = 'head'`
-	case "total_distance":
-		query = `SELECT SUM(walked + sprinted + swam + driven) FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'distance'`
-	case "vehicle_kills":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND inflictor LIKE '%vehicle%'`
-	case "health_pickups":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'item_pickup' AND item LIKE '%health%'`
-	case "objectives_completed":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'objective_capture'`
-	case "total_wins":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND (event_type = 'team_win' OR (event_type = 'match_outcome' AND match_outcome = 1))`
-	default:
-		return 0
+	var args []interface{}
+	args = append(args, smfID)
+
+	if strings.HasPrefix(statName, "weapon_kills:") {
+		weapon := strings.TrimPrefix(statName, "weapon_kills:")
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND actor_weapon = ?`
+		args = append(args, weapon)
+	} else {
+		// Map stat names to ClickHouse queries
+		switch statName {
+		case "total_kills":
+			query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill'`
+		case "total_headshots":
+			query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND hitloc = 'head'`
+		case "total_distance":
+			query = `SELECT SUM(walked + sprinted + swam + driven) FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'distance'`
+		case "vehicle_kills":
+			query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND inflictor LIKE '%vehicle%'`
+		case "health_pickups":
+			query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'item_pickup' AND item LIKE '%health%'`
+		case "objectives_completed":
+			query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'objective_capture'`
+		case "total_wins":
+			query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND (event_type = 'team_win' OR (event_type = 'match_outcome' AND match_outcome = 1))`
+		default:
+			return 0
+		}
 	}
 
 	var value uint64
-	err := w.ch.QueryRow(w.ctx, query, smfID).Scan(&value)
+	err := w.ch.QueryRow(w.ctx, query, args...).Scan(&value)
 	if err != nil {
 		w.logger.Errorw("ClickHouse query error",
 			"statName", statName,
@@ -592,26 +602,6 @@ func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 		"value", value,
 	)
 	return int(value)
-}
-
-// getWeaponKills gets kills for specific weapon
-func (w *AchievementWorker) getWeaponKills(smfID int, weapon string) int {
-	query := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND actor_weapon = ?`
-
-	var count uint64
-	err := w.ch.QueryRow(w.ctx, query, smfID, weapon).Scan(&count)
-	if err != nil {
-		w.logger.Errorw("ClickHouse query error",
-			"func", "getWeaponKills",
-			"smfID", smfID,
-			"weapon", weapon,
-			"query", query,
-			"error", err,
-		)
-		return 0
-	}
-
-	return int(count)
 }
 
 // unlockAchievement records an achievement unlock
