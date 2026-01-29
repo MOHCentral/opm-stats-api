@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/openmohaa/stats-api/internal/logic"
+	"github.com/openmohaa/stats-api/internal/models"
 )
 
 // ============================================================================
@@ -62,6 +63,84 @@ func (h *Handler) GetServerMaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.jsonResponse(w, http.StatusOK, maps)
+}
+
+// GetServerStats returns stats for a specific server
+func (h *Handler) GetServerStats(w http.ResponseWriter, r *http.Request) {
+	serverID := chi.URLParam(r, "serverId")
+	ctx := r.Context()
+
+	var response models.ServerStatsResponse
+	response.ServerID = serverID
+
+	// 1. Get Aggregate Totals
+	// Using a single query to get multiple aggregates
+	// Note: total_deaths = total_kills for global stats (each kill = one death)
+	row := h.ch.QueryRow(ctx, `
+		SELECT
+			countIf(event_type = 'kill') as total_kills,
+			countIf(event_type = 'kill') as total_deaths,
+			uniq(match_id) as total_matches,
+			uniq(actor_id) as unique_players,
+			toFloat64(0) as total_playtime,
+			max(timestamp) as last_activity
+		FROM mohaa_stats.raw_events
+		WHERE server_id = ?
+	`, serverID)
+
+	if err := row.Scan(
+		&response.TotalKills,
+		&response.TotalDeaths,
+		&response.TotalMatches,
+		&response.UniquePlayers,
+		&response.TotalPlaytime,
+		&response.LastActivity,
+	); err != nil {
+		h.logger.Errorw("Failed to query server totals", "error", err)
+		h.errorResponse(w, http.StatusInternalServerError, "Query failed")
+		return
+	}
+
+	// 2. Top Killers Leaderboard
+	rows, err := h.ch.Query(ctx, `
+		SELECT actor_id, any(actor_name), count() as val
+		FROM mohaa_stats.raw_events
+		WHERE server_id = ? AND event_type = 'kill' AND actor_id != ''
+		GROUP BY actor_id
+		ORDER BY val DESC
+		LIMIT 10
+	`, serverID)
+	if err == nil {
+		rank := 1
+		for rows.Next() {
+			var e models.ServerLeaderboardEntry
+			rows.Scan(&e.PlayerID, &e.PlayerName, &e.Value)
+			e.Rank = rank
+			response.TopKillers = append(response.TopKillers, e)
+			rank++
+		}
+		rows.Close()
+	}
+
+	// 3. Map Stats
+	rows, err = h.ch.Query(ctx, `
+		SELECT map_name, count() as times_played
+		FROM mohaa_stats.raw_events
+		WHERE server_id = ? AND event_type = 'match_start'
+		GROUP BY map_name
+		ORDER BY times_played DESC
+		LIMIT 10
+	`, serverID)
+	if err == nil {
+		for rows.Next() {
+			var m models.ServerMapStat
+			rows.Scan(&m.MapName, &m.TimesPlayed)
+			response.MapStats = append(response.MapStats, m)
+		}
+		rows.Close()
+	}
+
+	h.jsonResponse(w, http.StatusOK, response)
 }
 
 // ============================================================================

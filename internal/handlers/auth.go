@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -93,7 +94,13 @@ func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-trust the IP that was used to generate the token
-	if req.ClientIP != "" {
+	// SECURITY: Use RemoteAddr instead of body param to prevent spoofing
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+
+	if host != "" {
 		_, err = h.pg.Exec(ctx, `
 			INSERT INTO trusted_ips (forum_user_id, ip_address, source, label)
 			VALUES ($1, $2::inet, 'website', 'Auto-approved (website)')
@@ -102,9 +109,9 @@ func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 				is_active = true,
 				last_used_at = NOW(),
 				revoked_at = NULL
-		`, req.ForumUserID, req.ClientIP)
+		`, req.ForumUserID, host)
 		if err != nil {
-			h.logger.Errorw("Failed to auto-trust client IP", "error", err, "ip", req.ClientIP)
+			h.logger.Errorw("Failed to auto-trust client IP", "error", err, "ip", host)
 			// Don't fail the request, just log it
 		}
 	}

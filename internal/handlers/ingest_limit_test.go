@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/openmohaa/stats-api/internal/models"
 	"go.uber.org/zap"
 )
@@ -56,8 +57,9 @@ func TestIngestEvents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Handler{
-				logger: logger.Sugar(),
-				pool:   &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
+				logger:    logger.Sugar(),
+				pool:      &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
+				validator: validator.New(),
 			}
 
 			req := httptest.NewRequest("POST", "/api/v1/ingest/events", strings.NewReader(tt.body))
