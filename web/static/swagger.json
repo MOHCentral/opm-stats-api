@@ -2674,6 +2674,53 @@
                 }
             }
         },
+        "/system/install": {
+            "post": {
+                "security": [
+                    {
+                        "ServerToken": []
+                    }
+                ],
+                "description": "Executes consolidated SQL migrations for ClickHouse and PostgreSQL",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "Install Database Schema",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/tournaments": {
             "get": {
                 "produces": [

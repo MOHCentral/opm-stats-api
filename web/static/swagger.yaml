@@ -3475,6 +3475,36 @@ paths:
       summary: Get Global Weapon Stats
       tags:
       - Server
+  /system/install:
+    post:
+      consumes:
+      - application/json
+      description: Executes consolidated SQL migrations for ClickHouse and PostgreSQL
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ServerToken: []
+      summary: Install Database Schema
+      tags:
+      - System
   /tournaments:
     get:
       produces:

@@ -183,6 +183,12 @@ func main() {
 
 		r.Post("/servers/register", h.RegisterServer)
 
+		// System endpoints
+		r.Route("/system", func(r chi.Router) {
+			r.Use(h.ServerAuthMiddleware)
+			r.Post("/install", h.InstallDatabase)
+		})
+
 		// Stats endpoints (for frontend)
 		r.Route("/stats", func(r chi.Router) {
 			r.Get("/global", h.GetGlobalStats)
