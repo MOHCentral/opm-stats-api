@@ -194,6 +194,8 @@ const (
 type MatchSummary struct {
 	ID          string    `json:"id"`
 	Map         string    `json:"map"`
+	ServerID    string    `json:"server_id"`
+	ServerName  string    `json:"server_name"`
 	StartTime   time.Time `json:"start_time"`
 	Duration    float64   `json:"duration"`
 	PlayerCount uint64    `json:"player_count"`

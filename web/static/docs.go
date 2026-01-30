@@ -3965,6 +3965,12 @@ const docTemplate = `{
                 "player_count": {
                     "type": "integer"
                 },
+                "server_id": {
+                    "type": "string"
+                },
+                "server_name": {
+                    "type": "string"
+                },
                 "start_time": {
                     "type": "string"
                 }

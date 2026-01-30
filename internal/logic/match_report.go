@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/openmohaa/stats-api/internal/models"
@@ -71,17 +72,30 @@ func (s *matchReportService) getMatchInfo(ctx context.Context, matchID string) (
 	query := `
 		SELECT 
 			any(map_name), 
-			any(gametype), 
-			toInt64(max(timestamp) - min(timestamp))
-		FROM raw_events
+			anyIf(JSONExtractString(raw_json, 'gametype'), event_type = 'match_start'), 
+			dateDiff('second', min(timestamp), max(timestamp)),
+			anyIf(JSONExtractString(raw_json, 'server_id'), event_type = 'match_start'),
+			toInt32(maxIf(JSONExtractInt(raw_json, 'allies_score'), event_type IN ('match_end', 'heartbeat'))),
+			toInt32(maxIf(JSONExtractInt(raw_json, 'axis_score'), event_type IN ('match_end', 'heartbeat'))),
+			toInt32(maxIf(JSONExtractInt(raw_json, 'player_count'), event_type IN ('match_start', 'heartbeat'))),
+			toInt32(anyIf(JSONExtractInt(raw_json, 'maxclients'), event_type = 'match_start')),
+			min(timestamp)
+		FROM mohaa_stats.raw_events
 		WHERE match_id = toUUID(?)
 	`
 	var duration int64
-	if err := s.ch.QueryRow(ctx, query, matchID).Scan(&m.MapName, &m.Gametype, &duration); err != nil {
-		// If fails, just return partial
-		return &m, nil
+	var alliesScore, axisScore, playerCount, maxPlayers int32
+	if err := s.ch.QueryRow(ctx, query, matchID).Scan(
+		&m.MapName, &m.Gametype, &duration, &m.ServerID, 
+		&alliesScore, &axisScore, &playerCount, &maxPlayers, &m.StartedAt,
+	); err != nil {
+		return nil, err
 	}
-	// duration is seconds, m.Duration is float64 usually
+
+	m.AlliesScore = int(alliesScore)
+	m.AxisScore = int(axisScore)
+	m.PlayerCount = int(playerCount)
+	m.MaxPlayers = int(maxPlayers)
 	// m.Duration = float64(duration)
 
 	return &m, nil
@@ -94,8 +108,8 @@ func (s *matchReportService) getTimeline(ctx context.Context, matchID string) ([
 			event_type, 
 			actor_name, 
 			target_name, 
-			extract(extra, 'weapon') as detail
-		FROM raw_events
+			JSONExtractString(raw_json, 'weapon') as detail
+		FROM mohaa_stats.raw_events
 		WHERE match_id = toUUID(?) AND event_type IN ('kill', 'flag_capture', 'match_start', 'match_end')
 		ORDER BY timestamp ASC
 		LIMIT 500
@@ -109,9 +123,11 @@ func (s *matchReportService) getTimeline(ctx context.Context, matchID string) ([
 	var timeline []MatchTimelineEvent
 	for rows.Next() {
 		var t MatchTimelineEvent
-		if err := rows.Scan(&t.Timestamp, &t.Type, &t.Actor, &t.Target, &t.Detail); err != nil {
+		var ts time.Time
+		if err := rows.Scan(&ts, &t.Type, &t.Actor, &t.Target, &t.Detail); err != nil {
 			continue
 		}
+		t.Timestamp = float64(ts.UnixNano()) / 1e9
 		timeline = append(timeline, t)
 	}
 	return timeline, nil
@@ -123,8 +139,8 @@ func (s *matchReportService) getVersusMatrix(ctx context.Context, matchID string
 		SELECT 
 			actor_name,
 			target_name,
-			count() as kills
-		FROM raw_events
+			toInt32(count()) as kills
+		FROM mohaa_stats.raw_events
 		WHERE match_id = toUUID(?) AND event_type = 'kill' AND actor_name != '' AND target_name != ''
 		GROUP BY actor_name, target_name
 	`
@@ -134,28 +150,43 @@ func (s *matchReportService) getVersusMatrix(ctx context.Context, matchID string
 	}
 	defer rows.Close()
 
-	// Organize by Actor -> [List of Victims]
-	// Ideally checking logical matrix
-	matrix := make(map[string][]VersusRow)
-
-	type record struct {
-		Actor  string
-		Target string
-		Kills  int
-	}
-	var records []record
+	// Intermediary map to hold bidirectional data: map[PlayerName][OpponentName] = VersusRow
+	data := make(map[string]map[string]*VersusRow)
 
 	for rows.Next() {
-		var r record
-		rows.Scan(&r.Actor, &r.Target, &r.Kills)
-		records = append(records, r)
+		var actor, target string
+		var kills int32
+		if err := rows.Scan(&actor, &target, &kills); err != nil {
+			continue
+		}
+
+		// Actor killed Target
+		if data[actor] == nil {
+			data[actor] = make(map[string]*VersusRow)
+		}
+		if data[actor][target] == nil {
+			data[actor][target] = &VersusRow{OpponentName: target}
+		}
+		data[actor][target].Kills += int(kills)
+
+		// Target was killed by Actor (Target has a death from Actor)
+		if data[target] == nil {
+			data[target] = make(map[string]*VersusRow)
+		}
+		if data[target][actor] == nil {
+			data[target][actor] = &VersusRow{OpponentName: actor}
+		}
+		data[target][actor].Deaths += int(kills)
 	}
 
-	// Transform to struct expected by frontend
-	// ... logic to aggregate ...
-	// Simple pass: key by Actor
-	for _, r := range records {
-		matrix[r.Actor] = append(matrix[r.Actor], VersusRow{OpponentName: r.Target, Kills: r.Kills, Deaths: 0})
+	// Flatten map to slices
+	matrix := make(map[string][]VersusRow)
+	for player, opponents := range data {
+		rows := make([]VersusRow, 0, len(opponents))
+		for _, row := range opponents {
+			rows = append(rows, *row)
+		}
+		matrix[player] = rows
 	}
 
 	return matrix, nil

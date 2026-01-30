@@ -411,6 +411,7 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		SELECT 
 			toString(match_id) as match_id,
 			map_name,
+			any(server_id) as server_id,
 			min(timestamp) as start_time,
 			toFloat64(dateDiff('second', min(timestamp), max(timestamp))) as duration,
 			uniq(actor_id) as player_count,
@@ -429,13 +430,37 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	matches := make([]models.MatchSummary, 0)
+	serverIDs := make(map[string]bool)
 	for rows.Next() {
 		var m models.MatchSummary
-		if err := rows.Scan(&m.ID, &m.Map, &m.StartTime, &m.Duration, &m.PlayerCount, &m.Kills); err != nil {
+		if err := rows.Scan(&m.ID, &m.Map, &m.ServerID, &m.StartTime, &m.Duration, &m.PlayerCount, &m.Kills); err != nil {
 			h.logger.Warnw("Scan error in GetMatches", "error", err)
 			continue
 		}
 		matches = append(matches, m)
+		serverIDs[m.ServerID] = true
+	}
+
+	// Look up server names from PostgreSQL
+	serverNames := make(map[string]string)
+	for serverID := range serverIDs {
+		if serverID == "" {
+			continue
+		}
+		var name string
+		err := h.pg.QueryRow(ctx, "SELECT name FROM servers WHERE id = $1", serverID).Scan(&name)
+		if err == nil {
+			serverNames[serverID] = name
+		}
+	}
+
+	// Apply server names to matches
+	for i := range matches {
+		if name, ok := serverNames[matches[i].ServerID]; ok {
+			matches[i].ServerName = name
+		} else if matches[i].ServerID != "" {
+			matches[i].ServerName = "Unknown Server"
+		}
 	}
 
 	h.jsonResponse(w, http.StatusOK, matches)
@@ -598,7 +623,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	query := fmt.Sprintf(`
 		SELECT 
 			player_id AS actor_id,
-			player_name AS actor_name,
+			argMax(player_name, last_active) AS actor_name,
 			sum(kills) AS kills,
 			sum(deaths) AS deaths,
 			sum(headshots) AS headshots,
@@ -634,7 +659,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			max(last_active) AS last_active
 		FROM mohaa_stats.player_stats_daily
 		WHERE player_id != '' AND %s
-		GROUP BY player_id, player_name
+		GROUP BY player_id
 		HAVING %s
 		ORDER BY %s DESC
 		LIMIT ? OFFSET ?
@@ -671,13 +696,30 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		if entry.ShotsFired > 0 {
 			entry.Accuracy = (float64(entry.ShotsHit) / float64(entry.ShotsFired)) * 100.0
 		}
+
+		// Map the requested stat to the Value field for AG Grid
+		switch stat {
+		case "kills": entry.Value = entry.Kills
+		case "deaths": entry.Value = entry.Deaths
+		case "headshots": entry.Value = entry.Headshots
+		case "accuracy": entry.Value = fmt.Sprintf("%.1f%%", entry.Accuracy)
+		case "damage", "total_damage": entry.Value = entry.Damage
+		case "wins": entry.Value = entry.Wins
+		case "rounds": entry.Value = entry.Rounds
+		case "looter": entry.Value = entry.ItemsPicked
+		case "distance", "distance_km": entry.Value = fmt.Sprintf("%.2fkm", entry.Distance/1000.0) // Convert units to km if distance is in units
+		default: entry.Value = entry.Kills
+		}
+
 		entry.Rank = rank
 		entries = append(entries, entry)
 		rank++
 	}
 
-	var total int64
-	h.ch.QueryRow(ctx, "SELECT uniq(actor_id) FROM mohaa_stats.player_stats_daily_mv").Scan(&total)
+	var total uint64
+	if err := h.ch.QueryRow(ctx, "SELECT uniq(player_id) FROM mohaa_stats.player_stats_daily").Scan(&total); err != nil {
+		h.logger.Errorw("Failed to scan total leaderboard count", "error", err)
+	}
 
 	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
 		"players": entries,
@@ -694,13 +736,13 @@ func (h *Handler) GetWeeklyLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			actor_id,
-			actor_name,
+			argMax(actor_name, timestamp) as actor_name,
 			count() as kills
 		FROM mohaa_stats.raw_events
 		WHERE event_type = 'kill' 
 		  AND actor_id != 'world'
 		  AND timestamp >= now() - INTERVAL 7 DAY
-		GROUP BY actor_id, actor_name
+		GROUP BY actor_id
 		ORDER BY kills DESC
 		LIMIT 100
 	`)
@@ -735,13 +777,13 @@ func (h *Handler) GetWeaponLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			actor_id,
-			actor_name,
+			argMax(actor_name, timestamp) as actor_name,
 			count() as kills
 		FROM mohaa_stats.raw_events
 		WHERE event_type = 'kill' 
 		  AND actor_weapon = ?
 		  AND actor_id != 'world'
-		GROUP BY actor_id, actor_name
+		GROUP BY actor_id
 		ORDER BY kills DESC
 		LIMIT 100
 	`, weapon)
@@ -779,13 +821,13 @@ func (h *Handler) GetMapLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			actor_id,
-			actor_name,
+			argMax(actor_name, timestamp) as actor_name,
 			count() as kills
 		FROM mohaa_stats.raw_events
 		WHERE event_type = 'kill' 
 		  AND map_name = ?
 		  AND actor_id != 'world'
-		GROUP BY actor_id, actor_name
+		GROUP BY actor_id
 		ORDER BY kills DESC
 		LIMIT 100
 	`, mapName)

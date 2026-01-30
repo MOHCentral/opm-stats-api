@@ -551,10 +551,12 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 
 // convertToClickHouseEvent normalizes a raw event for ClickHouse
 func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) *models.ClickHouseEvent {
-	// Parse match_id as UUID or generate one
+	// Parse match_id as UUID or generate a consistent one from the string
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
-		matchID = uuid.New()
+		// Use a consistent namespace for non-standard match IDs
+		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
 	}
 
 	sec := int64(event.Timestamp)
@@ -756,11 +758,13 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 			}
 		}
 
-		// Prepare pipeline for SMF ID lookups
+		// Prepare pipeline for SMF ID and Name lookups
 		pipe := p.config.Redis.Pipeline()
 		smfLookups := make(map[string]*redis.StringCmd)
+		nameLookups := make(map[string]*redis.StringCmd)
 		for guid := range teams {
 			smfLookups[guid] = pipe.HGet(ctx, "player_smfids", guid)
+			nameLookups[guid] = pipe.HGet(ctx, "player_names", guid)
 		}
 		pipe.Exec(ctx)
 
@@ -770,17 +774,20 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 				outcome = 1 // Win
 			}
 
-			// Get SMFID from lookup result
+			// Get SMFID and Name from lookup result
 			var smfid int64
 			if cmd, ok := smfLookups[guid]; ok {
 				if val, err := cmd.Result(); err == nil {
-					// Use fmt.Sscanf or just ignore error as default is 0
 					fmt.Sscanf(val, "%d", &smfid)
 				}
 			}
+			playerName := ""
+			if cmd, ok := nameLookups[guid]; ok {
+				playerName, _ = cmd.Result()
+			}
 
 			// Create Outcome Event
-			go func(playerGUID, playerTeam string, won int, gType string, pid int64) {
+			go func(playerGUID, playerTeam, name string, won int, gType string, pid int64) {
 				outcomeEvent := &models.RawEvent{
 					Type:         models.EventMatchOutcome,
 					MatchID:      event.MatchID,
@@ -788,13 +795,14 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 					MapName:      event.MapName,
 					Timestamp:    float64(time.Now().Unix()),
 					PlayerGUID:   playerGUID,
+					PlayerName:   name,
 					PlayerTeam:   playerTeam,
 					Gametype:     gType,
 					MatchOutcome: uint8(won), // 1 = win, 0 = loss
 					PlayerSMFID:  pid,
 				}
 				p.Enqueue(outcomeEvent)
-			}(guid, team, outcome, gametype, smfid)
+			}(guid, team, playerName, outcome, gametype, smfid)
 		}
 	}
 

@@ -172,7 +172,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.mv_feed_actor_stats TO mohaa_
 AS SELECT
     toStartOfDay(timestamp) AS day,
     actor_id AS player_id,
-    argMax(actor_name, timestamp) AS player_name,
+    argMax(actor_name, if(actor_name != '', toUnixTimestamp64Nano(timestamp), 0)) AS player_name,
     
     -- Combat (Actor side)
     countIf(event_type = 'kill') AS kills,
@@ -227,7 +227,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.mv_feed_target_stats TO mohaa
 AS SELECT
     toStartOfDay(timestamp) AS day,
     target_id AS player_id,
-    argMax(target_name, timestamp) AS player_name,
+    argMax(target_name, if(target_name != '', toUnixTimestamp64Nano(timestamp), 0)) AS player_name,
     
     0 AS kills,
     count() AS deaths, -- Target of a 'kill' event IS the death
@@ -280,7 +280,7 @@ AS SELECT
     toStartOfDay(timestamp) AS day,
     actor_weapon,
     actor_id,
-    argMax(actor_name, timestamp) AS actor_name,
+    argMax(actor_name, if(actor_name != '', toUnixTimestamp64Nano(timestamp), 0)) AS actor_name,
     countIf(event_type = 'kill') AS kills,
     countIf(event_type = 'headshot') AS headshots,
     countIf(event_type = 'weapon_fire') AS shots_fired,
