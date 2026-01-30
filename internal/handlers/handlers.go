@@ -409,10 +409,10 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	// Fetch matches
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
-			match_id,
+			toString(match_id) as match_id,
 			map_name,
 			min(timestamp) as start_time,
-			dateDiff('second', min(timestamp), max(timestamp)) as duration,
+			toFloat64(dateDiff('second', min(timestamp), max(timestamp))) as duration,
 			uniq(actor_id) as player_count,
 			countIf(event_type = 'kill') as kills
 		FROM mohaa_stats.raw_events
@@ -594,46 +594,47 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		whereExpr += " AND day >= now() - INTERVAL 365 DAY"
 	}
 
+	// Query the unified Aggregation Table
 	query := fmt.Sprintf(`
 		SELECT 
-			actor_id,
-			actor_name,
-			sum(kills) as kills,
-			sum(deaths) as deaths,
-			sum(headshots) as headshots,
-			sum(shots_fired) as shots_fired,
-			sum(shots_hit) as shots_hit,
-			sum(total_damage) as total_damage,
-			sum(bash_kills) as bash_kills,
-			sum(grenade_kills) as grenade_kills,
-			sum(roadkills) as roadkills,
-			sum(telefrags) as telefrags,
-			sum(crushed) as crushed,
-			sum(teamkills) as teamkills,
-			sum(suicides) as suicides,
-			sum(reloads) as reloads,
-			sum(weapon_swaps) as weapon_swaps,
-			sum(no_ammo) as no_ammo,
-			sum(distance_units) as distance,
-			sum(sprinted) as sprinted,
-			sum(swam) as swam,
-			sum(driven) as driven,
-			sum(jumps) as jumps,
-			sum(crouch_events) as crouches,
-			sum(prone_events) as prone,
-			sum(ladders) as ladders,
-			sum(health_picked) as health_picked,
-			sum(ammo_picked) as ammo_picked,
-			sum(armor_picked) as armor_picked,
-			sum(items_picked) as items_picked,
-			sum(matches_won) as wins,
-			sum(matches_played) as rounds,
-			sum(games_finished) as games,
-			sum(playtime_seconds) as playtime,
-			max(last_active) as last_active
-		FROM mohaa_stats.player_stats_daily_mv
-		WHERE %s
-		GROUP BY actor_id
+			player_id AS actor_id,
+			player_name AS actor_name,
+			sum(kills) AS kills,
+			sum(deaths) AS deaths,
+			sum(headshots) AS headshots,
+			sum(shots_fired) AS shots_fired,
+			sum(shots_hit) AS shots_hit,
+			sum(total_damage) AS total_damage,
+			sum(bash_kills) AS bash_kills,
+			sum(grenade_kills) AS grenade_kills,
+			sum(roadkills) AS roadkills,
+			sum(telefrags) AS telefrags,
+			sum(crushed) AS crushed,
+			sum(teamkills) AS teamkills,
+			sum(suicides) AS suicides,
+			sum(reloads) AS reloads,
+			sum(weapon_swaps) AS weapon_swaps,
+			sum(no_ammo) AS no_ammo,
+			sum(distance_units) AS distance,
+			sum(sprinted) AS sprinted,
+			sum(swam) AS swam,
+			sum(driven) AS driven,
+			sum(jumps) AS jumps,
+			sum(crouch_events) AS crouches,
+			sum(prone_events) AS prone,
+			sum(ladders) AS ladders,
+			sum(health_picked) AS health_picked,
+			sum(ammo_picked) AS ammo_picked,
+			sum(armor_picked) AS armor_picked,
+			sum(items_picked) AS items_picked,
+			sum(matches_won) AS wins,
+			uniqExactMerge(matches_played) AS rounds, -- Using uniqExactMerge on the state
+			sum(games_finished) AS games,
+			toUInt64(0) AS playtime, -- Not calculated by MV currently
+			max(last_active) AS last_active
+		FROM mohaa_stats.player_stats_daily
+		WHERE player_id != '' AND %s
+		GROUP BY player_id, player_name
 		HAVING %s
 		ORDER BY %s DESC
 		LIMIT ? OFFSET ?
@@ -839,7 +840,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	// We re-implement the query here to ensure data flow
 	perfRows, err := h.ch.Query(ctx, `
 		SELECT 
-			match_id,
+			toString(match_id) as match_id,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
 			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			min(timestamp) as played_at
@@ -914,7 +915,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	// 4. Get Matches List (Recent)
 	matchRows, err := h.ch.Query(ctx, `
 		SELECT 
-			match_id,
+			toString(match_id) as match_id,
 			map_name,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
 			countIf(event_type = 'kill' AND target_id = ?) as deaths,
@@ -1055,7 +1056,7 @@ func (h *Handler) GetPlayerMatches(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
-			match_id,
+			toString(match_id) as match_id,
 			map_name,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
 			countIf(event_type = 'kill' AND target_id = ?) as deaths,
@@ -1348,7 +1349,7 @@ func (h *Handler) GetPlayerPerformanceHistory(w http.ResponseWriter, r *http.Req
 	// Deaths = when player is target of a kill event (target_id = guid)
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
-			match_id,
+			toString(match_id) as match_id,
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
 			countIf(event_type = 'kill' AND target_id = ?) as deaths,
 			min(timestamp) as played_at
@@ -1813,6 +1814,9 @@ func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 		if token == "" {
 			token = r.Header.Get("Authorization")
 			token = strings.TrimPrefix(token, "Bearer ")
+		}
+		if token == "" {
+			token = r.URL.Query().Get("server_token")
 		}
 		
 		if token == "" {

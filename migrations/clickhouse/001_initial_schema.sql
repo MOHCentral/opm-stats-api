@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS mohaa_stats.raw_events
     hitloc LowCardinality(String),
     distance Float32 CODEC(Gorilla, ZSTD(1)),
     match_outcome UInt8 DEFAULT 0,
+    round_number UInt16 DEFAULT 0,
     
     -- Raw JSON for debugging/replay
     raw_json String CODEC(ZSTD(3)),
@@ -110,21 +111,72 @@ CREATE TABLE IF NOT EXISTS mohaa_stats.player_name_history (
 ORDER BY (player_guid, player_name);
 
 -- ============================================================================
--- Materialized Views for Pre-Aggregation
+-- Unified Player Stats (The "One Table" Pattern)
 -- ============================================================================
 
--- Daily player stats (comprehensive - 38 categories)
-CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.player_stats_daily_mv
+-- 1. The Target Table (SummingMergeTree)
+-- This table holds the aggregated state. It does NOT do the calculation itself,
+-- it just sums up whatever the Materialized Views feed it.
+CREATE TABLE IF NOT EXISTS mohaa_stats.player_stats_daily
+(
+    day DateTime,
+    player_id String,
+    player_name SimpleAggregateFunction(anyLast, String), -- Keep latest name
+    
+    -- Metrics
+    kills UInt64,
+    deaths UInt64, -- Now lives alongside kills!
+    headshots UInt64,
+    shots_fired UInt64,
+    shots_hit UInt64,
+    total_damage UInt64,
+    
+    bash_kills UInt64,
+    grenade_kills UInt64,
+    roadkills UInt64,
+    telefrags UInt64,
+    crushed UInt64,
+    teamkills UInt64,
+    suicides UInt64,
+    
+    reloads UInt64,
+    weapon_swaps UInt64,
+    no_ammo UInt64,
+    
+    distance_units Float64,
+    sprinted Float64,
+    swam Float64,
+    driven Float64,
+    jumps UInt64,
+    crouch_events UInt64,
+    prone_events UInt64,
+    ladders UInt64,
+    
+    health_picked UInt64,
+    ammo_picked UInt64,
+    armor_picked UInt64,
+    items_picked UInt64,
+    
+    matches_played AggregateFunction(uniqExact, UUID),
+    matches_won UInt64,
+    games_finished UInt64,
+    
+    last_active SimpleAggregateFunction(max, DateTime64(3))
+)
 ENGINE = SummingMergeTree()
 PARTITION BY toYYYYMM(day)
-ORDER BY (actor_id, day)
+ORDER BY (player_id, day);
+
+-- 2. Actor View (Feeds actions: kills, movement, pickups)
+CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.mv_feed_actor_stats TO mohaa_stats.player_stats_daily
 AS SELECT
     toStartOfDay(timestamp) AS day,
-    actor_id,
-    argMax(actor_name, timestamp) AS actor_name,
+    actor_id AS player_id,
+    argMax(actor_name, timestamp) AS player_name,
     
-    -- Combat
+    -- Combat (Actor side)
     countIf(event_type = 'kill') AS kills,
+    0 AS deaths, -- Actor doesn't die in a kill event (usually)
     countIf(event_type = 'headshot') AS headshots,
     countIf(event_type = 'weapon_fire') AS shots_fired,
     countIf(event_type = 'weapon_hit') AS shots_hit,
@@ -161,7 +213,7 @@ AS SELECT
     countIf(event_type = 'item_pickup') AS items_picked,
     
     -- Results
-    uniqExact(match_id) AS matches_played,
+    uniqExactState(match_id) AS matches_played,
     countIf((event_type = 'match_outcome') AND (match_outcome = 1)) AS matches_won,
     countIf((event_type = 'match_outcome')) AS games_finished,
     
@@ -170,15 +222,51 @@ FROM mohaa_stats.raw_events
 WHERE actor_id != '' AND actor_id != 'world'
 GROUP BY day, actor_id;
 
--- Deaths MV
-CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.player_deaths_daily_mv
-ENGINE = SummingMergeTree()
-PARTITION BY toYYYYMM(day)
-ORDER BY (target_id, day)
+-- 3. Target View (Feeds passive events: DEATHS)
+CREATE MATERIALIZED VIEW IF NOT EXISTS mohaa_stats.mv_feed_target_stats TO mohaa_stats.player_stats_daily
 AS SELECT
     toStartOfDay(timestamp) AS day,
-    target_id,
-    count() AS deaths
+    target_id AS player_id,
+    argMax(target_name, timestamp) AS player_name,
+    
+    0 AS kills,
+    count() AS deaths, -- Target of a 'kill' event IS the death
+    0 AS headshots,
+    0 AS shots_fired,
+    0 AS shots_hit,
+    0 AS total_damage,
+    
+    0 AS bash_kills,
+    0 AS grenade_kills,
+    0 AS roadkills,
+    0 AS telefrags,
+    0 AS crushed,
+    0 AS teamkills,
+    0 AS suicides,
+    
+    0 AS reloads,
+    0 AS weapon_swaps,
+    0 AS no_ammo,
+    
+    0 AS distance_units,
+    0 AS sprinted,
+    0 AS swam,
+    0 AS driven,
+    0 AS jumps,
+    0 AS crouch_events,
+    0 AS prone_events,
+    0 AS ladders,
+    
+    0 AS health_picked,
+    0 AS ammo_picked,
+    0 AS armor_picked,
+    0 AS items_picked,
+    
+    uniqExactState(match_id) AS matches_played, -- Being killed counts as playing!
+    0 AS matches_won,
+    0 AS games_finished,
+    
+    max(timestamp) AS last_active
 FROM mohaa_stats.raw_events
 WHERE event_type = 'kill' AND target_id != '' AND target_id != 'world'
 GROUP BY day, target_id;

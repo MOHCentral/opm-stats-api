@@ -196,8 +196,8 @@ type MatchSummary struct {
 	Map         string    `json:"map"`
 	StartTime   time.Time `json:"start_time"`
 	Duration    float64   `json:"duration"`
-	PlayerCount int       `json:"player_count"`
-	Kills       int       `json:"kills"`
+	PlayerCount uint64    `json:"player_count"`
+	Kills       uint64    `json:"kills"`
 }
 
 // RawEvent is the incoming event from game servers
