@@ -70,6 +70,7 @@ type TournamentService interface {
 type AchievementsService interface {
 	GetAchievements(ctx context.Context, scope AchievementScope, contextID string, playerID string) ([]models.ContextualAchievement, error)
 	GetPlayerAchievements(ctx context.Context, playerGUID string) ([]models.PlayerAchievement, error)
+	GetRecentAchievements(ctx context.Context, limit int) ([]models.PlayerAchievement, error)
 }
 
 type PredictionService interface {

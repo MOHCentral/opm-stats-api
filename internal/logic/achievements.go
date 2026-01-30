@@ -233,14 +233,15 @@ func (s *achievementsService) getTournamentAchievements(ctx context.Context, tou
 func (s *achievementsService) GetPlayerAchievements(ctx context.Context, playerGUID string) ([]models.PlayerAchievement, error) {
 	// Query persistent achievements from Postgres
 	// Join with definitions to get metadata
-	// Schema 001: player_achievements (player_guid, achievement_id) -> achievements (id)
+	// Schema 001: player_achievements (smf_member_id, achievement_id) -> achievements (id)
 	query := `
 		SELECT
-			pa.player_achievement_id, pa.player_guid, pa.achievement_id, pa.unlocked_at,
+			pa.player_achievement_id, reg.player_guid, pa.achievement_id, pa.unlocked_at,
 			a.achievement_id, a.achievement_name, a.description, a.category, a.points, a.icon_url
 		FROM mohaa_player_achievements pa
 		JOIN mohaa_achievements a ON pa.achievement_id = a.achievement_id
-		WHERE pa.player_guid = $1
+		JOIN player_guid_registry reg ON pa.smf_member_id = reg.smf_member_id
+		WHERE reg.player_guid = $1
 	`
 	rows, err := s.pg.Query(ctx, query, playerGUID)
 	if err != nil {
@@ -268,6 +269,67 @@ func (s *achievementsService) GetPlayerAchievements(ctx context.Context, playerG
 		}
 
 		// Set default Tier based on points (10=Bronze/1, 25=Silver/2, 50=Gold/3, 100=Platinum/4)
+		switch pa.Achievement.Points {
+		case 10:
+			pa.Achievement.Tier = 1
+		case 25:
+			pa.Achievement.Tier = 2
+		case 50:
+			pa.Achievement.Tier = 3
+		case 100:
+			pa.Achievement.Tier = 4
+		case 200, 250:
+			pa.Achievement.Tier = 5
+		default:
+			pa.Achievement.Tier = 1
+		}
+
+		list = append(list, pa)
+	}
+	return list, nil
+}
+
+func (s *achievementsService) GetRecentAchievements(ctx context.Context, limit int) ([]models.PlayerAchievement, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := `
+		SELECT
+			pa.player_achievement_id, reg.player_guid, pa.achievement_id, pa.unlocked_at,
+			a.achievement_id, a.achievement_name, a.description, a.category, a.points, a.icon_url
+		FROM mohaa_player_achievements pa
+		JOIN mohaa_achievements a ON pa.achievement_id = a.achievement_id
+		JOIN player_guid_registry reg ON pa.smf_member_id = reg.smf_member_id
+		ORDER BY pa.unlocked_at DESC
+		LIMIT $1
+	`
+	rows, err := s.pg.Query(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.PlayerAchievement
+	for rows.Next() {
+		var pa models.PlayerAchievement
+		pa.Achievement = &models.Achievement{}
+
+		var iconURL *string // Handle nullable
+
+		if err := rows.Scan(
+			&pa.ID, &pa.PlayerGUID, &pa.AchievementID, &pa.UnlockedAt,
+			&pa.Achievement.ID, &pa.Achievement.Name, &pa.Achievement.Description,
+			&pa.Achievement.Category, &pa.Achievement.Points, &iconURL,
+		); err != nil {
+			return nil, err
+		}
+
+		if iconURL != nil {
+			pa.Achievement.IconURL = *iconURL
+		}
+
+		// Set default Tier based on points
 		switch pa.Achievement.Points {
 		case 10:
 			pa.Achievement.Tier = 1
