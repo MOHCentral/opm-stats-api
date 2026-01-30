@@ -568,45 +568,85 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	havingExpr := "kills > 0"
 
 	switch stat {
-	case "kills": orderExpr = "kills"
-	case "deaths": orderExpr = "deaths"; havingExpr = "deaths > 0"
-	case "kd_ratio", "kd": orderExpr = "kills / nullIf(deaths, 0)"
-	case "headshots": orderExpr = "headshots"
-	case "accuracy": orderExpr = "shots_hit / nullIf(shots_fired, 0)"
-	case "shots_fired": orderExpr = "shots_fired"
-	case "damage": orderExpr = "total_damage"
-	case "bash_kills": orderExpr = "bash_kills"
-	case "grenade_kills": orderExpr = "grenade_kills"
-	case "roadkills": orderExpr = "roadkills"
-	case "telefrags": orderExpr = "telefrags"
-	case "crushed": orderExpr = "crushed"
-	case "teamkills": orderExpr = "teamkills"
-	case "suicides": orderExpr = "suicides"
-	case "reloads": orderExpr = "reloads"
-	case "weapon_swaps": orderExpr = "weapon_swaps"
-	case "no_ammo": orderExpr = "no_ammo"
-	case "looter": orderExpr = "items_picked"
-	case "distance": orderExpr = "distance_units"
-	case "sprinted": orderExpr = "sprinted"
-	case "swam": orderExpr = "swam"
-	case "driven": orderExpr = "driven"
-	case "jumps": orderExpr = "jumps"
-	case "crouch_time": orderExpr = "crouch_events"
-	case "prone_time": orderExpr = "prone_events"
-	case "ladders": orderExpr = "ladders"
-	case "health_picked": orderExpr = "health_picked"
-	case "ammo_picked": orderExpr = "ammo_picked"
-	case "armor_picked": orderExpr = "armor_picked"
-	case "items_picked": orderExpr = "items_picked"
-	case "wins": orderExpr = "matches_won"
-	case "team_wins": orderExpr = "matches_won" // Simplify for now
-	case "ffa_wins": orderExpr = "matches_won"
-	case "losses": orderExpr = "matches_played - matches_won"
-	case "objectives": orderExpr = "objectives"
-	case "rounds": orderExpr = "matches_played"
-	case "playtime": orderExpr = "playtime_seconds"
-	case "games": orderExpr = "games_finished"
-	default: orderExpr = "kills"
+	case "kills":
+		orderExpr = "kills"
+	case "deaths":
+		orderExpr = "deaths"
+		havingExpr = "deaths > 0"
+	case "kd_ratio", "kd":
+		orderExpr = "kills / nullIf(deaths, 0)"
+	case "headshots":
+		orderExpr = "headshots"
+	case "accuracy":
+		orderExpr = "shots_hit / nullIf(shots_fired, 0)"
+	case "shots_fired":
+		orderExpr = "shots_fired"
+	case "damage":
+		orderExpr = "total_damage"
+	case "bash_kills":
+		orderExpr = "bash_kills"
+	case "grenade_kills":
+		orderExpr = "grenade_kills"
+	case "roadkills":
+		orderExpr = "roadkills"
+	case "telefrags":
+		orderExpr = "telefrags"
+	case "crushed":
+		orderExpr = "crushed"
+	case "teamkills":
+		orderExpr = "teamkills"
+	case "suicides":
+		orderExpr = "suicides"
+	case "reloads":
+		orderExpr = "reloads"
+	case "weapon_swaps":
+		orderExpr = "weapon_swaps"
+	case "no_ammo":
+		orderExpr = "no_ammo"
+	case "looter":
+		orderExpr = "items_picked"
+	case "distance":
+		orderExpr = "distance_units"
+	case "sprinted":
+		orderExpr = "sprinted"
+	case "swam":
+		orderExpr = "swam"
+	case "driven":
+		orderExpr = "driven"
+	case "jumps":
+		orderExpr = "jumps"
+	case "crouch_time":
+		orderExpr = "crouch_events"
+	case "prone_time":
+		orderExpr = "prone_events"
+	case "ladders":
+		orderExpr = "ladders"
+	case "health_picked":
+		orderExpr = "health_picked"
+	case "ammo_picked":
+		orderExpr = "ammo_picked"
+	case "armor_picked":
+		orderExpr = "armor_picked"
+	case "items_picked":
+		orderExpr = "items_picked"
+	case "wins":
+		orderExpr = "matches_won"
+	case "team_wins":
+		orderExpr = "matches_won" // Simplify for now
+	case "ffa_wins":
+		orderExpr = "matches_won"
+	case "losses":
+		orderExpr = "matches_played - matches_won"
+	case "objectives":
+		orderExpr = "objectives"
+	case "rounds":
+		orderExpr = "matches_played"
+	case "playtime":
+		orderExpr = "playtime_seconds"
+	case "games":
+		orderExpr = "games_finished"
+	default:
+		orderExpr = "kills"
 	}
 
 	whereExpr := "actor_id != ''"
@@ -656,7 +696,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			uniqExactMerge(matches_played) AS rounds, -- Using uniqExactMerge on the state
 			sum(games_finished) AS games,
 			toUInt64(0) AS playtime, -- Not calculated by MV currently
-			max(last_active) AS last_active
+			max(last_active) AS max_last_active
 		FROM mohaa_stats.player_stats_daily
 		WHERE player_id != '' AND %s
 		GROUP BY player_id
@@ -699,16 +739,26 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 		// Map the requested stat to the Value field for AG Grid
 		switch stat {
-		case "kills": entry.Value = entry.Kills
-		case "deaths": entry.Value = entry.Deaths
-		case "headshots": entry.Value = entry.Headshots
-		case "accuracy": entry.Value = fmt.Sprintf("%.1f%%", entry.Accuracy)
-		case "damage", "total_damage": entry.Value = entry.Damage
-		case "wins": entry.Value = entry.Wins
-		case "rounds": entry.Value = entry.Rounds
-		case "looter": entry.Value = entry.ItemsPicked
-		case "distance", "distance_km": entry.Value = fmt.Sprintf("%.2fkm", entry.Distance/1000.0) // Convert units to km if distance is in units
-		default: entry.Value = entry.Kills
+		case "kills":
+			entry.Value = entry.Kills
+		case "deaths":
+			entry.Value = entry.Deaths
+		case "headshots":
+			entry.Value = entry.Headshots
+		case "accuracy":
+			entry.Value = fmt.Sprintf("%.1f%%", entry.Accuracy)
+		case "damage", "total_damage":
+			entry.Value = entry.Damage
+		case "wins":
+			entry.Value = entry.Wins
+		case "rounds":
+			entry.Value = entry.Rounds
+		case "looter":
+			entry.Value = entry.ItemsPicked
+		case "distance", "distance_km":
+			entry.Value = fmt.Sprintf("%.2fkm", entry.Distance/1000.0) // Convert units to km if distance is in units
+		default:
+			entry.Value = entry.Kills
 		}
 
 		entry.Rank = rank
@@ -1860,16 +1910,13 @@ func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 		if token == "" {
 			token = r.URL.Query().Get("server_token")
 		}
-		
+
 		if token == "" {
 			// DO NOT call r.FormValue here as it consumes the body
 			// Game servers use the header now
 			h.errorResponse(w, http.StatusUnauthorized, "Missing server token")
 			return
 		}
-
-
-
 
 		// Validate token against database - lookup server by token hash
 		ctx := r.Context()
@@ -1880,7 +1927,7 @@ func (h *Handler) ServerAuthMiddleware(next http.Handler) http.Handler {
 		err := h.pg.QueryRow(ctx,
 			"SELECT id FROM servers WHERE token = $1 AND is_active = true",
 			hashedToken).Scan(&serverID)
-		
+
 		if err != nil {
 			h.logger.Errorw("Auth Database Error", "error", err, "hash", hashedToken)
 		}

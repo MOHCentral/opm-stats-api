@@ -2,9 +2,9 @@ package models
 
 // LeaderboardEntry for leaderboard display with ALL stats
 type LeaderboardEntry struct {
-	Rank       int    `json:"rank"`
-	PlayerID   string `json:"player_id"`
-	PlayerName string `json:"player_name"`
+	Rank       int         `json:"rank"`
+	PlayerID   string      `json:"id"`
+	PlayerName string      `json:"name"`
 	Value      interface{} `json:"value,omitempty"` // For AG Grid dynamic stat column
 
 	// Combat Stats
@@ -47,14 +47,14 @@ type LeaderboardEntry struct {
 	ArmorPicked  uint64 `json:"armor_picked"`
 
 	// Results
-	Wins           uint64 `json:"wins"`
-	FFAWins        uint64 `json:"ffa_wins"`
-	TeamWins       uint64 `json:"team_wins"`
-	Losses         uint64 `json:"losses"`
-	Rounds         uint64 `json:"rounds"`
-	Objectives     uint64 `json:"objectives"`
-	GamesFinished  uint64 `json:"games"`
-	Playtime       uint64 `json:"playtime_seconds"`
+	Wins          uint64 `json:"wins"`
+	FFAWins       uint64 `json:"ffa_wins"`
+	TeamWins      uint64 `json:"team_wins"`
+	Losses        uint64 `json:"losses"`
+	Rounds        uint64 `json:"rounds"`
+	Objectives    uint64 `json:"objectives"`
+	GamesFinished uint64 `json:"games"`
+	Playtime      uint64 `json:"playtime_seconds"`
 }
 
 type LeaderboardCard struct {
@@ -65,8 +65,8 @@ type LeaderboardCard struct {
 }
 
 type LeaderboardCardEntry struct {
-	PlayerID     string  `json:"player_id"`
-	PlayerName   string  `json:"player_name"`
+	PlayerID     string  `json:"id"`
+	PlayerName   string  `json:"name"`
 	Value        float64 `json:"value"`
 	Rank         int     `json:"rank"`
 	DisplayValue string  `json:"display_value,omitempty"`

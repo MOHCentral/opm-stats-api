@@ -869,13 +869,13 @@ definitions:
     properties:
       deaths:
         type: integer
+      id:
+        type: string
       kd:
         type: number
       kills:
         type: integer
-      player_id:
-        type: string
-      player_name:
+      name:
         type: string
       rank:
         type: integer
@@ -1510,9 +1510,9 @@ definitions:
     type: object
   models.StatLeaderboardEntry:
     properties:
-      player_id:
+      id:
         type: string
-      player_name:
+      name:
         type: string
       rank:
         type: integer
