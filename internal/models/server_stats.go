@@ -26,8 +26,8 @@ type ServerStatsResponse struct {
 }
 
 type ServerLeaderboardEntry struct {
-	PlayerID   string  `json:"id"`
-	PlayerName string  `json:"name"`
+	PlayerID   string  `json:"player_id"`
+	PlayerName string  `json:"player_name"`
 	Value      float64 `json:"value"` // Generic value (kills, K/D, time)
 	Rank       int     `json:"rank"`
 }

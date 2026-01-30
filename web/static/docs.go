@@ -4059,16 +4059,16 @@ const docTemplate = `{
                 "deaths": {
                     "type": "integer"
                 },
-                "id": {
-                    "type": "string"
-                },
                 "kd": {
                     "type": "number"
                 },
                 "kills": {
                     "type": "integer"
                 },
-                "name": {
+                "player_id": {
+                    "type": "string"
+                },
+                "player_name": {
                     "type": "string"
                 },
                 "rank": {
@@ -5018,10 +5018,10 @@ const docTemplate = `{
         "models.StatLeaderboardEntry": {
             "type": "object",
             "properties": {
-                "id": {
+                "player_id": {
                     "type": "string"
                 },
-                "name": {
+                "player_name": {
                     "type": "string"
                 },
                 "rank": {

@@ -3,8 +3,8 @@ package models
 // LeaderboardEntry for leaderboard display with ALL stats
 type LeaderboardEntry struct {
 	Rank       int         `json:"rank"`
-	PlayerID   string      `json:"id"`
-	PlayerName string      `json:"name"`
+	PlayerID   string      `json:"player_id"`
+	PlayerName string      `json:"player_name"`
 	Value      interface{} `json:"value,omitempty"` // For AG Grid dynamic stat column
 
 	// Combat Stats
@@ -65,8 +65,8 @@ type LeaderboardCard struct {
 }
 
 type LeaderboardCardEntry struct {
-	PlayerID     string  `json:"id"`
-	PlayerName   string  `json:"name"`
+	PlayerID     string  `json:"player_id"`
+	PlayerName   string  `json:"player_name"`
 	Value        float64 `json:"value"`
 	Rank         int     `json:"rank"`
 	DisplayValue string  `json:"display_value,omitempty"`

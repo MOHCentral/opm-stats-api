@@ -328,9 +328,9 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			}
 
 			top3 = append(top3, map[string]interface{}{
-				"player_name":  best[i].Name,
-				"value":        valStr,
-				"player_id":    best[i].ID,
+				"player_name": best[i].Name,
+				"value":       valStr,
+				"player_id":   best[i].ID,
 			})
 		}
 		result[cat] = top3

@@ -277,8 +277,8 @@ type BotTypeStat struct {
 
 type StatLeaderboardEntry struct {
 	Rank       int     `json:"rank"`
-	PlayerID   string  `json:"id"`
-	PlayerName string  `json:"name"`
+	PlayerID   string  `json:"player_id"`
+	PlayerName string  `json:"player_name"`
 	Value      float64 `json:"value"`
 	Secondary  float64 `json:"secondary,omitempty"`
 }
@@ -328,8 +328,8 @@ type PeakLeaderboardResponse struct {
 
 type PeakLeaderboardEntry struct {
 	Rank       int     `json:"rank"`
-	PlayerID   string  `json:"id"`
-	PlayerName string  `json:"name"`
+	PlayerID   string  `json:"player_id"`
+	PlayerName string  `json:"player_name"`
 	Kills      int64   `json:"kills"`
 	Deaths     int64   `json:"deaths"`
 	KD         float64 `json:"kd"`
