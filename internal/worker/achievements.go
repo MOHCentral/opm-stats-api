@@ -230,6 +230,7 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 	// Check for vehicle kills
 	if strings.Contains(event.Inflictor, "vehicle") {
 		w.incrementPlayerStat(int(smfID), "vehicle_kills")
+		w.checkVehicleAchievements(smfID, event)
 	}
 
 	w.logger.Infow("Player kill stats",
