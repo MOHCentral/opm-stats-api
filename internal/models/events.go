@@ -204,52 +204,52 @@ type MatchSummary struct {
 
 // RawEvent is the incoming event from game servers
 type RawEvent struct {
-	Type        EventType `json:"type"`
-	MatchID     string    `json:"match_id"`
-	SessionID   string    `json:"session_id"`
-	ServerID    string    `json:"server_id"`
-	ServerToken string    `json:"server_token"`
-	Timestamp   float64   `json:"timestamp"`
-	MapName     string    `json:"map_name,omitempty"`
+	Type        EventType `json:"type" validate:"required"`
+	MatchID     string    `json:"match_id" validate:"required,max=100"`
+	SessionID   string    `json:"session_id" validate:"max=100"`
+	ServerID    string    `json:"server_id" validate:"required,max=100"`
+	ServerToken string    `json:"server_token" validate:"max=100"`
+	Timestamp   float64   `json:"timestamp" validate:"required"`
+	MapName     string    `json:"map_name,omitempty" validate:"max=100"`
 
 	// Player info (primary actor for single-player events)
-	PlayerName   string  `json:"player_name,omitempty"`
-	PlayerGUID   string  `json:"player_guid,omitempty"`
-	PlayerTeam   string  `json:"player_team,omitempty"`
+	PlayerName   string  `json:"player_name,omitempty" validate:"max=100"`
+	PlayerGUID   string  `json:"player_guid,omitempty" validate:"max=100"`
+	PlayerTeam   string  `json:"player_team,omitempty" validate:"max=20"`
 	PlayerSMFID  int64   `json:"player_smf_id,omitempty"` // SMF member ID (if authenticated)
 	PosX         float32 `json:"pos_x,omitempty"`
 	PosY         float32 `json:"pos_y,omitempty"`
 	PosZ         float32 `json:"pos_z,omitempty"`
-	PlayerStance string  `json:"player_stance,omitempty"`
+	PlayerStance string  `json:"player_stance,omitempty" validate:"max=20"`
 
 	// Attacker info (for kill/damage events)
-	AttackerName   string  `json:"attacker_name,omitempty"`
-	AttackerGUID   string  `json:"attacker_guid,omitempty"`
-	AttackerTeam   string  `json:"attacker_team,omitempty"`
+	AttackerName   string  `json:"attacker_name,omitempty" validate:"max=100"`
+	AttackerGUID   string  `json:"attacker_guid,omitempty" validate:"max=100"`
+	AttackerTeam   string  `json:"attacker_team,omitempty" validate:"max=20"`
 	AttackerSMFID  int64   `json:"attacker_smf_id,omitempty"` // SMF member ID (if authenticated)
 	AttackerX      float32 `json:"attacker_x,omitempty"`
 	AttackerY      float32 `json:"attacker_y,omitempty"`
 	AttackerZ      float32 `json:"attacker_z,omitempty"`
 	AttackerPitch  float32 `json:"attacker_pitch,omitempty"`
 	AttackerYaw    float32 `json:"attacker_yaw,omitempty"`
-	AttackerStance string  `json:"attacker_stance,omitempty"`
+	AttackerStance string  `json:"attacker_stance,omitempty" validate:"max=20"`
 
 	// Victim info
-	VictimName   string  `json:"victim_name,omitempty"`
-	VictimGUID   string  `json:"victim_guid,omitempty"`
-	VictimTeam   string  `json:"victim_team,omitempty"`
+	VictimName   string  `json:"victim_name,omitempty" validate:"max=100"`
+	VictimGUID   string  `json:"victim_guid,omitempty" validate:"max=100"`
+	VictimTeam   string  `json:"victim_team,omitempty" validate:"max=20"`
 	VictimSMFID  int64   `json:"victim_smf_id,omitempty"` // SMF member ID (if authenticated)
 	VictimX      float32 `json:"victim_x,omitempty"`
 	VictimY      float32 `json:"victim_y,omitempty"`
 	VictimZ      float32 `json:"victim_z,omitempty"`
-	VictimStance string  `json:"victim_stance,omitempty"`
+	VictimStance string  `json:"victim_stance,omitempty" validate:"max=20"`
 
 	// Weapon/damage info
-	Weapon        string `json:"weapon,omitempty"`
-	OldWeapon     string `json:"old_weapon,omitempty"`
-	NewWeapon     string `json:"new_weapon,omitempty"`
-	Hitloc        string `json:"hitloc,omitempty"`
-	Inflictor     string `json:"inflictor,omitempty"`
+	Weapon        string `json:"weapon,omitempty" validate:"max=50"`
+	OldWeapon     string `json:"old_weapon,omitempty" validate:"max=50"`
+	NewWeapon     string `json:"new_weapon,omitempty" validate:"max=50"`
+	Hitloc        string `json:"hitloc,omitempty" validate:"max=50"`
+	Inflictor     string `json:"inflictor,omitempty" validate:"max=50"`
 	Damage        int    `json:"damage,omitempty"`
 	AmmoRemaining int    `json:"ammo_remaining,omitempty"`
 
@@ -266,29 +266,29 @@ type RawEvent struct {
 	AimYaw   float32 `json:"aim_yaw,omitempty"`
 
 	// Items
-	Item  string `json:"item,omitempty"`
+	Item  string `json:"item,omitempty" validate:"max=50"`
 	Count int    `json:"count,omitempty"`
 
 	// Target info (for hits)
-	TargetName   string `json:"target_name,omitempty"`
-	TargetGUID   string `json:"target_guid,omitempty"`
+	TargetName   string `json:"target_name,omitempty" validate:"max=100"`
+	TargetGUID   string `json:"target_guid,omitempty" validate:"max=100"`
 	TargetSMFID  int64  `json:"target_smf_id,omitempty"` // SMF member ID (if authenticated)
-	TargetStance string `json:"target_stance,omitempty"`
+	TargetStance string `json:"target_stance,omitempty" validate:"max=20"`
 
 	// Team change
-	OldTeam string `json:"old_team,omitempty"`
-	NewTeam string `json:"new_team,omitempty"`
+	OldTeam string `json:"old_team,omitempty" validate:"max=20"`
+	NewTeam string `json:"new_team,omitempty" validate:"max=20"`
 
 	// Chat
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" validate:"max=500"`
 
 	// Match lifecycle
-	Gametype    string  `json:"gametype,omitempty"`
-	Timelimit   string  `json:"timelimit,omitempty"`
-	Fraglimit   string  `json:"fraglimit,omitempty"`
-	Maxclients  string  `json:"maxclients,omitempty"`
+	Gametype    string  `json:"gametype,omitempty" validate:"max=20"`
+	Timelimit   string  `json:"timelimit,omitempty" validate:"max=20"`
+	Fraglimit   string  `json:"fraglimit,omitempty" validate:"max=20"`
+	Maxclients  string  `json:"maxclients,omitempty" validate:"max=20"`
 	Duration    float64 `json:"duration,omitempty"`
-	WinningTeam string  `json:"winning_team,omitempty"`
+	WinningTeam string  `json:"winning_team,omitempty" validate:"max=20"`
 	AlliesScore int     `json:"allies_score,omitempty"`
 	AxisScore   int     `json:"axis_score,omitempty"`
 	RoundNumber int     `json:"round_number,omitempty"`
@@ -297,17 +297,17 @@ type RawEvent struct {
 	ClientNum   int     `json:"client_num,omitempty"`
 
 	// Identity claim
-	Code string `json:"code,omitempty"`
+	Code string `json:"code,omitempty" validate:"max=20"`
 
 	// Entity
-	Entity     string `json:"entity,omitempty"`
-	Projectile string `json:"projectile,omitempty"`
+	Entity     string `json:"entity,omitempty" validate:"max=50"`
+	Projectile string `json:"projectile,omitempty" validate:"max=50"`
 
 	// New Tracker Fields
-	Objective       string `json:"objective,omitempty"`
-	ObjectiveStatus string `json:"objective_status,omitempty"`
-	BotID           string `json:"bot_id,omitempty"`
-	Seat            string `json:"seat,omitempty"`
+	Objective       string `json:"objective,omitempty" validate:"max=50"`
+	ObjectiveStatus string `json:"objective_status,omitempty" validate:"max=20"`
+	BotID           string `json:"bot_id,omitempty" validate:"max=50"`
+	Seat            string `json:"seat,omitempty" validate:"max=20"`
 
 	// Match Outcome (1 = Win, 0 = Loss)
 	MatchOutcome uint8 `json:"match_outcome,omitempty"`
@@ -359,19 +359,19 @@ type ClickHouseEvent struct {
 
 // MatchResult is sent at the end of a match
 type MatchResult struct {
-	MatchID     string  `json:"match_id"`
-	ServerID    string  `json:"server_id"`
-	MapName     string  `json:"map_name"`
-	Gametype    string  `json:"gametype"`
+	MatchID     string  `json:"match_id" validate:"required,max=100"`
+	ServerID    string  `json:"server_id" validate:"required,max=100"`
+	MapName     string  `json:"map_name" validate:"max=100"`
+	Gametype    string  `json:"gametype" validate:"max=20"`
 	Duration    float64 `json:"duration"`
-	WinningTeam string  `json:"winning_team"`
+	WinningTeam string  `json:"winning_team" validate:"max=20"`
 	AlliesScore int     `json:"allies_score"`
 	AxisScore   int     `json:"axis_score"`
 	TotalRounds int     `json:"total_rounds"`
 
 	// Tournament context (optional)
-	TournamentID string `json:"tournament_id,omitempty"`
-	BracketMatch string `json:"bracket_match,omitempty"`
+	TournamentID string `json:"tournament_id,omitempty" validate:"max=100"`
+	BracketMatch string `json:"bracket_match,omitempty" validate:"max=100"`
 }
 
 // PlayerStats aggregated stats for a player

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"github.com/openmohaa/stats-api/internal/testutils"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -87,7 +88,7 @@ func TestGetWeaponKills(t *testing.T) {
 }
 
 func TestNotifyPlayer(t *testing.T) {
-	mockStatStore := NewMockStatStore()
+	mockStatStore := testutils.NewMockStatStore()
 	logger := zap.NewNop().Sugar()
 	worker := &AchievementWorker{
 		statStore: mockStatStore,

@@ -104,6 +104,7 @@ type Pool struct {
 	cancel            context.CancelFunc
 	logger            *zap.SugaredLogger
 	achievementWorker *AchievementWorker
+	sideEffectSem     chan struct{} // Semaphore to limit concurrent side-effect goroutines
 }
 
 // NewPool creates a new worker pool
@@ -122,9 +123,10 @@ func NewPool(cfg PoolConfig) *Pool {
 	}
 
 	pool := &Pool{
-		config:   cfg,
-		jobQueue: make(chan Job, cfg.QueueSize),
-		logger:   cfg.Logger.Sugar(),
+		config:        cfg,
+		jobQueue:      make(chan Job, cfg.QueueSize),
+		logger:        cfg.Logger.Sugar(),
+		sideEffectSem: make(chan struct{}, cfg.WorkerCount*2), // Allow buffer for side effects
 	}
 
 	// Initialize Achievement Worker with both Postgres and ClickHouse
@@ -340,7 +342,13 @@ func (p *Pool) processBatch(batch []Job) error {
 	// Must copy batch because the slice is reused in the worker loop
 	batchCopy := make([]Job, len(batch))
 	copy(batchCopy, batch)
-	go p.processBatchSideEffects(ctx, batchCopy)
+
+	// Acquire semaphore to limit concurrency (blocking)
+	p.sideEffectSem <- struct{}{}
+	go func() {
+		defer func() { <-p.sideEffectSem }()
+		p.processBatchSideEffects(ctx, batchCopy)
+	}()
 
 	// Send batch to ClickHouse FIRST
 	err = chBatch.Send()

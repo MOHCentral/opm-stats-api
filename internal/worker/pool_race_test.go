@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/openmohaa/stats-api/internal/models"
+	"github.com/openmohaa/stats-api/internal/testutils"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -26,7 +27,7 @@ func TestPool_RaceCondition(t *testing.T) {
 		QueueSize:     1000,
 		BatchSize:     10,
 		FlushInterval: 10 * time.Millisecond,
-		ClickHouse:    &MockClickHouseConn{},
+		ClickHouse:    &MockClickHouseConntestutils.MockClickHouseConn{},
 		// Postgres left nil, hope we don't hit it
 		Redis:         rdb,
 		Logger:        logger,
@@ -40,8 +41,8 @@ func TestPool_RaceCondition(t *testing.T) {
 
 	// Manually init achievement worker with mocks to avoid panic if called
 	// We don't care if it works, just that it doesn't crash immediately
-	statStore := NewMockStatStore()
-	p.achievementWorker = NewAchievementWorker(&MockDBStore{}, &MockClickHouseConn{}, statStore, logger.Sugar())
+	statStore := testutils.NewMockStatStore()
+	p.achievementWorker = NewAchievementWorker(&MockDBStoretestutils.MockDBStore{}, &MockClickHouseConntestutils.MockClickHouseConn{}, statStore, logger.Sugar())
 
 	// Start pool
 	ctx, cancel := context.WithCancel(context.Background())
