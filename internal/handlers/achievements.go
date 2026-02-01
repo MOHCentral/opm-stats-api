@@ -147,9 +147,6 @@ func (h *Handler) GetMatchAchievements(w http.ResponseWriter, r *http.Request) {
 		h.errorResponse(w, http.StatusInternalServerError, "Failed to get achievements")
 		return
 	}
-	// Convert logic.Achievement to models.Achievement if necessary, but assuming they are compatible or same type
-	// If logic returns []logic.Achievement (which might be interface alias), we might need casting.
-	// But let's assume `logic` uses `models` internally or `list` is compatible with JSON marshalling.
 	h.jsonResponse(w, http.StatusOK, list)
 }
 
@@ -180,4 +177,50 @@ func (h *Handler) GetTournamentAchievements(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	h.jsonResponse(w, http.StatusOK, list)
+}
+
+// GetPlayerAchievements returns player achievements (GUID based)
+func (h *Handler) GetPlayerAchievements(w http.ResponseWriter, r *http.Request) {
+	guid := chi.URLParam(r, "guid")
+	achievements, err := h.achievements.GetPlayerAchievements(r.Context(), guid)
+	if err != nil {
+		h.logger.Errorw("Failed to get player achievements", "error", err, "guid", guid)
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to get achievements")
+		return
+	}
+
+	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
+		"achievements": achievements,
+	})
+}
+
+// ListAchievements returns a message directing to SMF database
+// Achievement definitions are stored in SMF MariaDB, not Go
+func (h *Handler) ListAchievements(w http.ResponseWriter, r *http.Request) {
+	h.jsonResponse(w, http.StatusOK, map[string]string{
+		"message": "Achievement definitions are stored in SMF database (smf_mohaa_achievement_defs). Use the SMF forum to view achievements.",
+		"source":  "smf_database",
+	})
+}
+
+// GetAchievement returns a message directing to SMF database
+func (h *Handler) GetAchievement(w http.ResponseWriter, r *http.Request) {
+	h.jsonResponse(w, http.StatusOK, map[string]string{
+		"message": "Achievement definitions are stored in SMF database. Use the SMF forum to view achievements.",
+		"source":  "smf_database",
+	})
+}
+
+// GetRecentAchievements returns a global feed of recent unlocks from database
+func (h *Handler) GetRecentAchievements(w http.ResponseWriter, r *http.Request) {
+	// Recent achievement unlocks are stored in SMF database
+	// Return empty array - frontend should query SMF directly or use PHP endpoint
+	h.jsonResponse(w, http.StatusOK, []interface{}{})
+}
+
+// GetAchievementLeaderboard returns players ranked by achievement points
+func (h *Handler) GetAchievementLeaderboard(w http.ResponseWriter, r *http.Request) {
+	_ = r.Context()
+	// Achievement data is stored in SMF database - return empty array
+	h.jsonResponse(w, http.StatusOK, []interface{}{})
 }

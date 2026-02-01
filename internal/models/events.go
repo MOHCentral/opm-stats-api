@@ -204,7 +204,7 @@ type MatchSummary struct {
 
 // RawEvent is the incoming event from game servers
 type RawEvent struct {
-	Type        EventType `json:"type"`
+	Type        EventType `json:"type" validate:"required"`
 	MatchID     string    `json:"match_id"`
 	SessionID   string    `json:"session_id"`
 	ServerID    string    `json:"server_id"`
