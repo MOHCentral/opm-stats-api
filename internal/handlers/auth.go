@@ -60,7 +60,7 @@ func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 		var expiresAt time.Time
 		err := h.pg.QueryRow(ctx, `
 			SELECT token, expires_at FROM login_tokens 
-			WHERE forum_user_id = $1 AND is_active = true AND used_at IS NULL AND expires_at > NOW()
+			WHERE forum_user_id = $1 AND is_active = true AND used_at IS NULL
 			ORDER BY created_at DESC LIMIT 1
 		`, req.ForumUserID).Scan(&existingToken, &expiresAt)
 
@@ -78,7 +78,8 @@ func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 
 	// Generate a new unique token (8 chars, no confusing chars)
 	userCode := generateUserCode()
-	expiresAt := time.Now().Add(10 * time.Minute)
+	// User requested tokens to essentially never expire (100 years)
+	expiresAt := time.Now().Add(24 * 365 * 100 * time.Hour)
 
 	// Insert new token into Postgres
 	_, err := h.pg.Exec(ctx, `
@@ -109,12 +110,12 @@ func (h *Handler) InitDeviceAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Also cache in Redis for quick game server lookups
-	h.redis.Set(ctx, "login_token:"+userCode, fmt.Sprintf("%d", req.ForumUserID), 10*time.Minute)
+	// Also cache in Redis for quick game server lookups (100 years)
+	h.redis.Set(ctx, "login_token:"+userCode, fmt.Sprintf("%d", req.ForumUserID), 24*365*100*time.Hour)
 
 	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
 		"user_code":  userCode,
-		"expires_in": 600,
+		"expires_in": 3153600000, // 100 years in seconds
 		"expires_at": expiresAt,
 		"is_new":     true,
 	})
@@ -192,14 +193,13 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	var tokenID string
 	var expiresAt time.Time
 	var usedAt *time.Time
-	var usedFromIP *string
 	var isActive bool
 
 	err := h.pg.QueryRow(ctx, `
-		SELECT id, forum_user_id, expires_at, used_at, used_from_ip::text, is_active
+		SELECT id::text, forum_user_id, expires_at, used_at, is_active
 		FROM login_tokens
 		WHERE token = $1
-	`, req.Token).Scan(&tokenID, &forumUserID, &expiresAt, &usedAt, &usedFromIP, &isActive)
+	`, req.Token).Scan(&tokenID, &forumUserID, &expiresAt, &usedAt, &isActive)
 
 	// Log the attempt
 	logAttempt := func(success bool, reason string) {
@@ -226,11 +226,11 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if token expired
-	if time.Now().After(expiresAt) {
-		logAttempt(false, "token_expired")
-		h.errorResponse(w, http.StatusUnauthorized, "Token has expired")
-		return
-	}
+	// if time.Now().After(expiresAt) {
+	// 	logAttempt(false, "token_expired")
+	// 	h.errorResponse(w, http.StatusUnauthorized, fmt.Sprintf("Token has expired (expired at %s)", expiresAt.Format(time.RFC3339)))
+	// 	return
+	// }
 
 	// Check if token was already used
 	if usedAt != nil {
@@ -260,11 +260,17 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 
 			logAttempt(true, "trusted_ip_reconnect")
 
+			// Fetch member name for the greeting
+			var memberName string
+			h.pg.QueryRow(ctx, "SELECT smf_username FROM smf_user_mappings WHERE smf_member_id = $1", forumUserID).Scan(&memberName)
+
 			h.jsonResponse(w, http.StatusOK, map[string]interface{}{
 				"valid":         true,
 				"forum_user_id": forumUserID,
+				"member_name":   memberName,
 				"message":       "Reconnected from trusted IP",
 				"trusted_ip":    true,
+				"player_guid":   req.PlayerGUID,				
 			})
 			return
 		}
@@ -316,7 +322,7 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	// Token is valid and unused! Mark it as used
 	_, err = h.pg.Exec(ctx, `
 		UPDATE login_tokens 
-		SET used_at = NOW(), used_from_ip = $1::inet, used_player_guid = $2
+		SET used_at = NOW(), used_player_guid = $2
 		WHERE id = $3
 	`, req.PlayerIP, req.PlayerGUID, tokenID)
 
@@ -359,11 +365,51 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	// Clean up from Redis
 	h.redis.Del(ctx, "login_token:"+req.Token)
 
+	// Fetch member name for the greeting
+	var memberName string
+	h.pg.QueryRow(ctx, "SELECT smf_username FROM smf_user_mappings WHERE smf_member_id = $1", forumUserID).Scan(&memberName)
+
 	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
 		"valid":         true,
 		"forum_user_id": forumUserID,
+		"member_name":   memberName,
 		"message":       "Identity verified successfully",
 		"ip_trusted":    true,
+		"player_guid":   req.PlayerGUID,
+	})
+}
+
+// SMFLogout handles the logout request from tracker.scr
+func (h *Handler) SMFLogout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req struct {
+		ForumUserID int    `json:"forum_user_id"`
+		PlayerGUID  string `json:"player_guid"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.errorResponse(w, http.StatusBadRequest, "Invalid JSON")
+		return
+	}
+
+	// Unlink the primary GUID for this user
+	if req.ForumUserID > 0 {
+		_, err := h.pg.Exec(ctx, `
+			UPDATE smf_user_mappings 
+			SET primary_guid = NULL, updated_at = NOW() 
+			WHERE smf_member_id = $1
+		`, req.ForumUserID)
+		if err != nil {
+			h.logger.Errorw("Failed to logout user", "error", err)
+			h.errorResponse(w, http.StatusInternalServerError, "Database error")
+			return
+		}
+	}
+
+	h.jsonResponse(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Logged out successfully",
 	})
 }
 
@@ -417,7 +463,7 @@ func (h *Handler) SMFVerifyToken(w http.ResponseWriter, r *http.Request) {
 	var isActive bool
 
 	err := h.pg.QueryRow(ctx, `
-		SELECT id, forum_user_id, expires_at, used_at, is_active
+		SELECT id::text, forum_user_id, expires_at, used_at, is_active
 		FROM login_tokens
 		WHERE token = $1
 	`, token).Scan(&tokenID, &forumUserID, &expiresAt, &usedAt, &isActive)
@@ -430,7 +476,7 @@ func (h *Handler) SMFVerifyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isActive || time.Now().After(expiresAt) {
+	if !isActive { // || time.Now().After(expiresAt) {
 		h.jsonResponse(w, http.StatusUnauthorized, map[string]interface{}{
 			"success": false,
 			"message": "Token expired or inactive",
@@ -609,6 +655,7 @@ func (h *Handler) GetTrustedIPs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
+
 
 	type TrustedIP struct {
 		ID         string    `json:"id"`

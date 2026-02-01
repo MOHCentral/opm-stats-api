@@ -2127,6 +2127,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/stats/member/{memberId}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Get Player Stats by SMF ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "SMF Member ID",
+                        "name": "memberId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Player Stats",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/stats/player/{guid}": {
             "get": {
                 "description": "Fetch detailed statistics for a player using their GUID",

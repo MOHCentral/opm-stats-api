@@ -220,7 +220,7 @@ func main() {
 			r.Get("/leaderboard/cards", h.GetLeaderboardCards)
 			r.Get("/leaderboard/weapon/{weapon}", h.GetWeaponLeaderboard)
 			r.Get("/leaderboard/map/{map}", h.GetMapLeaderboard)
-
+			r.Get("/member/{memberId}", h.GetPlayerStatsBySMFID) // Fetch stats using SMF Member ID from tracker.scr
 			r.Get("/player/name/{name}", h.GetPlayerStatsByName)
 			r.Get("/player/{guid}", h.GetPlayerStats)
 			r.Get("/player/{guid}/deep", h.GetPlayerDeepStats)
@@ -315,6 +315,7 @@ func main() {
 			r.Post("/claim/init", h.InitIdentityClaim)
 			r.Post("/claim/verify", h.VerifyIdentityClaim)
 			r.Post("/smf-verify", h.SMFVerifyToken) // Legacy tracker script auth
+			r.Post("/smf-logout", h.SMFLogout)      // Logout endpoint for tracker
 		})
 
 		// User endpoints

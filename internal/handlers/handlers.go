@@ -779,6 +779,61 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetPlayerStatsBySMFID resolves SMF member ID to GUID and returns stats
+// @Summary Get Player Stats by SMF ID
+// @Tags Stats
+// @Produce json
+// @Param memberId path int true "SMF Member ID"
+// @Success 200 {object} map[string]interface{} "Player Stats"
+// @Failure 404 {object} map[string]string "Not Found"
+// @Router /stats/member/{memberId} [get]
+func (h *Handler) GetPlayerStatsBySMFID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	memberID := chi.URLParam(r, "memberId")
+	if memberID == "" {
+		h.errorResponse(w, http.StatusBadRequest, "memberId is required")
+		return
+	}
+
+	// 1. Resolve SMF ID to GUID
+	var guid string
+	
+	// Check primary mapping first
+	err := h.pg.QueryRow(ctx, `
+		SELECT primary_guid FROM smf_user_mappings WHERE smf_member_id = $1
+	`, memberID).Scan(&guid)
+	
+	if err != nil || guid == "" {
+		// Fallback: Check for ANY identity
+		err = h.pg.QueryRow(ctx, `
+			SELECT player_guid FROM player_identities 
+			WHERE forum_user_id = $1 
+			ORDER BY last_seen DESC LIMIT 1
+		`, memberID).Scan(&guid)
+
+		if err != nil || guid == "" {
+			h.errorResponse(w, http.StatusNotFound, "No player profile linked to this forum account")
+			return
+		}
+	}
+
+	// 2. Fetch stats for the resolved GUID
+	// Reuse existing service logic by creating a new request context for the GUID
+	// Or simpler: just call the service method directly since we have the GUID.
+	// But h.GetPlayerStats expects parameters in URL context. 
+	// Easier to just call the service layer or redirect? 
+	// Service call is cleaner.
+
+	stats, err := h.playerStats.GetDeepStats(ctx, guid)
+	if err != nil {
+		h.logger.Errorw("Failed to get player stats by SMF ID", "error", err)
+		h.errorResponse(w, http.StatusInternalServerError, "Internal Service Error")
+		return
+	}
+	
+	h.jsonResponse(w, http.StatusOK, stats)
+}
+
 // GetWeeklyLeaderboard returns weekly stats
 func (h *Handler) GetWeeklyLeaderboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

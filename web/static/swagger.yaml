@@ -3164,6 +3164,31 @@ paths:
       summary: Get Recent Matches
       tags:
       - Match
+  /stats/member/{memberId}:
+    get:
+      parameters:
+      - description: SMF Member ID
+        in: path
+        name: memberId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Player Stats
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Player Stats by SMF ID
+      tags:
+      - Stats
   /stats/player/{guid}:
     get:
       description: Fetch detailed statistics for a player using their GUID
