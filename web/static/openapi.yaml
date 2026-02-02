@@ -60,6 +60,142 @@ components:
         timestamp: { type: string, format: date-time }
 
     # ==========================
+    # Event Types (CANONICAL SOURCE OF TRUTH)
+    # ==========================
+    # All event types used across the system. Game scripts, API, and PHP
+    # must use these exact values. Run `make generate-types` to sync.
+    EventType:
+      type: string
+      description: |
+        Canonical event type enumeration. This is the single source of truth
+        for all event types across the system (Go API, PHP SMF, game scripts).
+      enum:
+        # Game Flow & Match Lifecycle
+        - game_init
+        - game_start
+        - game_end
+        - match_start
+        - match_end
+        - match_outcome
+        - round_start
+        - round_end
+        - warmup_start
+        - warmup_end
+        - intermission_start
+        # Combat Events (Core)
+        - player_kill             # Game script canonical type (was "kill")
+        - death
+        - damage
+        - player_pain
+        - headshot
+        # Combat Events (Special Kills)
+        - player_suicide
+        - player_crushed
+        - player_telefragged
+        - player_roadkill
+        - player_bash
+        - player_teamkill
+        # Weapon Events
+        - weapon_fire
+        - weapon_hit
+        - weapon_change
+        - reload                  # Game script canonical type (was "weapon_reload")
+        - weapon_reload_done
+        - weapon_ready
+        - weapon_no_ammo
+        - weapon_holster
+        - weapon_raise
+        - weapon_drop
+        # Grenades
+        - grenade_throw
+        - grenade_explode
+        # Movement Events
+        - jump
+        - land
+        - crouch
+        - prone
+        - player_stand
+        - player_spawn
+        - player_respawn
+        - distance
+        - player_movement
+        - ladder_mount
+        - ladder_dismount
+        # Interaction Events
+        - use                     # Game script canonical type (was "player_use")
+        - player_use_object_start
+        - player_use_object_finish
+        - player_spectate
+        - player_freeze
+        - chat                    # Game script canonical type (was "player_say")
+        # Item Events
+        - item_pickup
+        - item_drop
+        - item_respawn
+        - health_pickup
+        - ammo_pickup
+        - armor_pickup
+        # Vehicle & Turret Events
+        - vehicle_enter
+        - vehicle_exit
+        - vehicle_death
+        - vehicle_crash           # Game script canonical type (was "vehicle_collision")
+        - vehicle_change
+        - turret_enter
+        - turret_exit
+        # Server Lifecycle Events
+        - server_init
+        - server_start
+        - server_shutdown
+        - server_spawned
+        - server_console_command
+        - heartbeat
+        # Map Lifecycle Events
+        - map_init
+        - map_start
+        - map_ready
+        - map_shutdown
+        - map_load_start
+        - map_load_end
+        - map_change_start
+        - map_restart
+        # Team & Vote Events
+        - team_join
+        - team_change
+        - team_win
+        - vote_start
+        - vote_passed
+        - vote_failed
+        # Client/Session Events
+        - connect                 # Game script canonical type (was "client_connect")
+        - disconnect              # Game script canonical type (was "client_disconnect")
+        - client_begin
+        - client_userinfo_changed
+        - player_inactivity_drop
+        # World Events
+        - door_open
+        - door_close
+        - explosion
+        # AI/Actor/Bot Events
+        - actor_spawn
+        - actor_killed
+        - bot_spawn
+        - bot_killed
+        - bot_roam
+        - bot_curious
+        - bot_attack
+        # Objective Events
+        - objective_update
+        - objective_capture
+        # Score & Admin Events
+        - score_change
+        - teamkill_kick
+        # Custom/Extension Events
+        - player_auth
+        - accuracy_summary
+        - identity_claim
+
+    # ==========================
     # Server Tracking
     # ==========================
     ServerOverview:

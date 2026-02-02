@@ -8,7 +8,9 @@ type LeaderboardEntry struct {
 	Value      interface{} `json:"value,omitempty"` // For AG Grid dynamic stat column
 
 	// Combat Stats
-	Kills      uint64  `json:"kills"`
+	Kills      uint64  `json:"kills"`       // Player kills only (competitive)
+	BotKills   uint64  `json:"bot_kills"`   // Bot kills
+	TotalKills uint64  `json:"total_kills"` // Both combined
 	Deaths     uint64  `json:"deaths"`
 	Headshots  uint64  `json:"headshots"`
 	Accuracy   float64 `json:"accuracy"`

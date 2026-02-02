@@ -127,8 +127,8 @@ func (s *DrilldownService) getBaseStat(ctx context.Context, guid string, stat st
 				kills + deaths as sample
 			FROM (
 				SELECT 
-					countIf(event_type = 'player_kill' AND actor_id = ?) as kills,
-					countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = ?) as deaths
+					countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
+					countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = ?) as deaths
 				FROM raw_events
 				WHERE actor_id = ? OR target_id = ?
 			)
@@ -152,7 +152,7 @@ func (s *DrilldownService) getBaseStat(ctx context.Context, guid string, stat st
 				count() as value,
 				count() as sample
 			FROM raw_events
-			WHERE event_type = 'player_kill' AND actor_id = ?
+			WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ?
 		`
 	case "headshots":
 		query = `
@@ -160,7 +160,7 @@ func (s *DrilldownService) getBaseStat(ctx context.Context, guid string, stat st
 				count() as value,
 				count() as sample
 			FROM raw_events
-			WHERE event_type = 'player_headshot' AND actor_id = ?
+			WHERE event_type = 'headshot' AND actor_id = ?
 		`
 	case "winrate":
 		query = `
@@ -212,8 +212,8 @@ func (s *DrilldownService) getDimensionBreakdown(ctx context.Context, guid, stat
 			%s as dim_label,
 			%s as stat_value,
 			count() as sample_size,
-			countIf(event_type = 'player_kill' AND actor_id = ?) as kills,
-			countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = ?) as deaths
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
+			countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = ?) as deaths
 		FROM raw_events
 		WHERE (actor_id = ? OR target_id = ?) AND %s != ''
 		GROUP BY dim_label
@@ -304,10 +304,10 @@ func (s *DrilldownService) getStatExpression(stat, guid string) string {
 	switch stat {
 	case "kd":
 		return fmt.Sprintf(`if(
-			countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = '%s') > 0,
-			countIf(event_type = 'player_kill' AND actor_id = '%s') / 
-			countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = '%s'),
-			countIf(event_type = 'player_kill' AND actor_id = '%s')
+			countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = '%s') > 0,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = '%s') / 
+			countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = '%s'),
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = '%s')
 		)`, guid, guid, guid, guid)
 	case "accuracy":
 		return fmt.Sprintf(`if(
@@ -317,9 +317,9 @@ func (s *DrilldownService) getStatExpression(stat, guid string) string {
 			0
 		)`, guid, guid, guid)
 	case "kills":
-		return fmt.Sprintf("countIf(event_type = 'player_kill' AND actor_id = '%s')", guid)
+		return fmt.Sprintf("countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = '%s')", guid)
 	case "headshots":
-		return fmt.Sprintf("countIf(event_type = 'player_headshot' AND actor_id = '%s')", guid)
+		return fmt.Sprintf("countIf(event_type = 'headshot' AND actor_id = '%s')", guid)
 	case "winrate":
 		return fmt.Sprintf(`if(
 			uniq(match_id) > 0,
@@ -395,8 +395,8 @@ func (s *DrilldownService) GetStatLeaders(ctx context.Context, stat, dimension, 
 		SELECT 
 			actor_id as player_id,
 			any(actor_name) as player_name,
-			countIf(event_type = 'player_kill') as kills,
-			countIf(event_type = 'player_death') as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+			countIf(event_type = 'death') as deaths,
 			countIf(event_type = 'weapon_fire') as shots,
 			countIf(event_type = 'weapon_hit') as hits,
 			%s

@@ -17,8 +17,6 @@ func NewAdvancedStatsService(ch driver.Conn) AdvancedStatsService {
 	return &advancedStatsService{ch: ch}
 }
 
-
-
 // GetPeakPerformance returns when a player performs best
 func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid string) (*models.PeakPerformance, error) {
 	peak := &models.PeakPerformance{}
@@ -27,8 +25,10 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	rows, err := s.ch.Query(ctx, `
 		SELECT 
 			toHour(timestamp) as hour,
-			toInt64(countIf(event_type = 'player_kill' AND actor_id = ?)) as kills,
-			toInt64(countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = ?)) as deaths,
+			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?)) as kills,
+			toInt64(countIf(event_type = 'player_kill' AND actor_id = ?)) as player_kills,
+			toInt64(countIf(event_type = 'bot_killed' AND actor_id = ?)) as bot_kills,
+			toInt64(countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = ?)) as deaths,
 			toInt64(countIf(event_type = 'weapon_fire' AND actor_id = ?)) as shots,
 			toInt64(countIf(event_type = 'weapon_hit' AND actor_id = ?)) as hits,
 			toInt64(countIf(event_type = 'team_win' AND actor_id = ?)) as wins
@@ -36,7 +36,7 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 		WHERE actor_id = ? OR target_id = ?
 		GROUP BY hour
 		ORDER BY hour
-	`, guid, guid, guid, guid, guid, guid, guid)
+	`, guid, guid, guid, guid, guid, guid, guid, guid, guid)
 	if err != nil {
 		return nil, fmt.Errorf("hourly query: %w", err)
 	}
@@ -53,7 +53,7 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	for rows.Next() {
 		var h models.HourStats
 		var shots, hits int64
-		if err := rows.Scan(&h.Hour, &h.Kills, &h.Deaths, &shots, &hits, &h.Wins); err != nil {
+		if err := rows.Scan(&h.Hour, &h.Kills, &h.PlayerKills, &h.BotKills, &h.Deaths, &shots, &hits, &h.Wins); err != nil {
 			continue
 		}
 		if h.Deaths > 0 {
@@ -95,15 +95,17 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	dayRows, err := s.ch.Query(ctx, `
 		SELECT 
 			toDayOfWeek(timestamp) as dow,
-			toInt64(countIf(event_type = 'player_kill' AND actor_id = ?)) as kills,
-			toInt64(countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = ?)) as deaths,
+			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?)) as kills,
+			toInt64(countIf(event_type = 'player_kill' AND actor_id = ?)) as player_kills,
+			toInt64(countIf(event_type = 'bot_killed' AND actor_id = ?)) as bot_kills,
+			toInt64(countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = ?)) as deaths,
 			toInt64(countIf(event_type = 'weapon_fire' AND actor_id = ?)) as shots,
 			toInt64(countIf(event_type = 'weapon_hit' AND actor_id = ?)) as hits
 		FROM raw_events
 		WHERE actor_id = ? OR target_id = ?
 		GROUP BY dow
 		ORDER BY dow
-	`, guid, guid, guid, guid, guid, guid)
+	`, guid, guid, guid, guid, guid, guid, guid, guid)
 	if err == nil {
 		defer dayRows.Close()
 		dayNames := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
@@ -112,7 +114,7 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 			var d models.DayStats
 			var dow int
 			var shots, hits int64
-			if err := dayRows.Scan(&dow, &d.Kills, &d.Deaths, &shots, &hits); err != nil {
+			if err := dayRows.Scan(&dow, &d.Kills, &d.PlayerKills, &d.BotKills, &d.Deaths, &shots, &hits); err != nil {
 				continue
 			}
 			d.DayNum = dow
@@ -140,14 +142,16 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	s.ch.QueryRow(ctx, `
 		SELECT 
 			map_name,
-			toInt64(countIf(event_type = 'player_kill' AND actor_id = ?)) as kills,
-			toInt64(countIf((event_type = 'player_kill' OR event_type = 'player_death') AND target_id = ?)) as deaths
+			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?)) as kills,
+			toInt64(countIf(event_type = 'player_kill' AND actor_id = ?)) as player_kills,
+			toInt64(countIf(event_type = 'bot_killed' AND actor_id = ?)) as bot_kills,
+			toInt64(countIf((event_type IN ('player_kill', 'bot_killed') OR event_type = 'death') AND target_id = ?)) as deaths
 		FROM raw_events
 		WHERE (actor_id = ? OR target_id = ?) AND map_name != ''
 		GROUP BY map_name
 		ORDER BY kills DESC
 		LIMIT 1
-	`, guid, guid, guid, guid).Scan(&peak.BestMap.MapName, &peak.BestMap.Kills, &peak.BestMap.Deaths)
+	`, guid, guid, guid, guid, guid, guid).Scan(&peak.BestMap.MapName, &peak.BestMap.Kills, &peak.BestMap.PlayerKills, &peak.BestMap.BotKills, &peak.BestMap.Deaths)
 	if peak.BestMap.Deaths > 0 {
 		peak.BestMap.KDRatio = float64(peak.BestMap.Kills) / float64(peak.BestMap.Deaths)
 	}
@@ -157,13 +161,15 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 		SELECT 
 			actor_weapon,
 			toInt64(count()) as kills,
-			toInt64(countIf(event_type = 'player_headshot')) as headshots
+			toInt64(countIf(event_type = 'player_kill')) as player_kills,
+			toInt64(countIf(event_type = 'bot_killed')) as bot_kills,
+			toInt64(countIf(event_type = 'headshot')) as headshots
 		FROM raw_events
-		WHERE event_type = 'player_kill' AND actor_id = ? AND actor_weapon != ''
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon != ''
 		GROUP BY actor_weapon
 		ORDER BY kills DESC
 		LIMIT 1
-	`, guid).Scan(&peak.BestWeapon.WeaponName, &peak.BestWeapon.Kills, &peak.BestWeapon.Headshots)
+	`, guid).Scan(&peak.BestWeapon.WeaponName, &peak.BestWeapon.Kills, &peak.BestWeapon.PlayerKills, &peak.BestWeapon.BotKills, &peak.BestWeapon.Headshots)
 	if peak.BestWeapon.Kills > 0 {
 		peak.BestWeapon.HSPercent = (float64(peak.BestWeapon.Headshots) / float64(peak.BestWeapon.Kills)) * 100
 	}
@@ -190,8 +196,6 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 
 	return peak, nil
 }
-
-
 
 // GetDrillDown breaks down a stat by a dimension
 func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, stat string, dimension string, limit int) (*models.DrillDownResult, error) {
@@ -295,8 +299,6 @@ func (s *advancedStatsService) GetDrillDown(ctx context.Context, guid string, st
 	return result, nil
 }
 
-
-
 // GetComboMetrics returns cross-dimensional stat combinations
 func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string) (*models.ComboMetrics, error) {
 	combo := &models.ComboMetrics{}
@@ -308,7 +310,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 			actor_weapon,
 			toInt64(count()) as kills
 		FROM raw_events
-		WHERE event_type = 'player_kill' AND actor_id = ? AND actor_weapon != '' AND map_name != ''
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon != '' AND map_name != ''
 		GROUP BY map_name, actor_weapon
 		ORDER BY map_name, kills DESC
 	`, guid)
@@ -333,13 +335,13 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 			kills AS (
 				SELECT target_name as name, toInt64(count()) as k, any(actor_weapon) as wpn
 				FROM raw_events
-				WHERE event_type = 'player_kill' AND actor_id = ? AND target_name != ''
+				WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND target_name != ''
 				GROUP BY target_name
 			),
 			deaths AS (
 				SELECT actor_name as name, toInt64(count()) as d
 				FROM raw_events
-				WHERE event_type = 'player_kill' AND target_id = ? AND actor_name != ''
+				WHERE event_type IN ('player_kill', 'bot_killed') AND target_id = ? AND actor_name != ''
 				GROUP BY actor_name
 			)
 		SELECT 
@@ -374,13 +376,13 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 			deaths AS (
 				SELECT actor_name as name, toInt64(count()) as d, any(actor_weapon) as wpn
 				FROM raw_events
-				WHERE event_type = 'player_kill' AND target_id = ? AND actor_name != ''
+				WHERE event_type IN ('player_kill', 'bot_killed') AND target_id = ? AND actor_name != ''
 				GROUP BY actor_name
 			),
 			kills AS (
 				SELECT target_name as name, toInt64(count()) as k
 				FROM raw_events
-				WHERE event_type = 'player_kill' AND actor_id = ? AND target_name != ''
+				WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND target_name != ''
 				GROUP BY target_name
 			)
 		SELECT 
@@ -412,7 +414,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 			max(distance) as max_dist,
 			min(distance) as min_dist
 		FROM raw_events
-		WHERE event_type = 'player_kill' AND actor_id = ? AND actor_weapon != '' AND distance > 0
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon != '' AND distance > 0
 		GROUP BY actor_weapon
 		ORDER BY avg_dist DESC
 		LIMIT 10
@@ -436,7 +438,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 			countIf(hitloc = 'torso') * 100.0 / count() as torso_pct,
 			countIf(hitloc IN ('left_arm', 'right_arm', 'left_leg', 'right_leg')) * 100.0 / count() as limb_pct
 		FROM raw_events
-		WHERE event_type = 'player_kill' AND actor_id = ? AND actor_weapon != '' AND hitloc != ''
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon != '' AND hitloc != ''
 		GROUP BY actor_weapon
 		HAVING count() >= 10
 		ORDER BY head_pct DESC
@@ -463,7 +465,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	// Check best weapon for style hint
 	s.ch.QueryRow(ctx, `
 		SELECT any(actor_weapon) FROM raw_events 
-		WHERE event_type = 'player_kill' AND actor_id = ? 
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? 
 		GROUP BY actor_weapon ORDER BY count() DESC LIMIT 1
 	`, guid).Scan(&combo.Signature.PlayStyle)
 
@@ -497,7 +499,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	// 4. Run & Gun Index (Velocity while killing)
 	s.ch.QueryRow(ctx, `
 		SELECT avg(toFloat64OrZero(extract(extra, 'velocity'))) 
-		FROM raw_events WHERE event_type = 'player_kill' AND actor_id = ?
+		FROM raw_events WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ?
 	`, guid).Scan(&combo.MovementCombat.RunGunIndex)
 
 	// Normalize index (0-100), assuming max velocity ~300-400
@@ -514,7 +516,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	s.ch.QueryRow(ctx, `
 		SELECT 
 			countIf(event_type = 'jump'),
-			countIf(event_type = 'player_kill')
+			countIf(event_type IN ('player_kill', 'bot_killed'))
 		FROM raw_events WHERE actor_id = ?
 	`, guid).Scan(&jumps, &kills)
 
@@ -524,8 +526,6 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 
 	return combo, nil
 }
-
-
 
 // GetVehicleStats returns vehicle and turret statistics
 func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string) (*models.VehicleStats, error) {
@@ -537,7 +537,7 @@ func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string)
 			toInt64(countIf(event_type = 'vehicle_enter' AND actor_id = ?)) as uses,
 			toInt64(countIf(event_type = 'player_roadkill' AND actor_id = ?)) as kills,
 			toInt64(countIf(event_type = 'vehicle_death' AND actor_id = ?)) as deaths,
-			sumIf(JSONExtractFloat(raw_json, 'driven', 'Float64'), event_type = 'player_distance' AND actor_id = ?) / 100000.0 as driven_km
+			sumIf(JSONExtractFloat(raw_json, 'driven', 'Float64'), event_type = 'distance' AND actor_id = ?) / 100000.0 as driven_km
 		FROM raw_events
 		WHERE actor_id = ?
 	`, guid, guid, guid, guid, guid).Scan(&stats.VehicleUses, &stats.VehicleKills, &stats.VehicleDeaths, &stats.TotalDriven)
@@ -549,8 +549,8 @@ func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string)
 	s.ch.QueryRow(ctx, `
 		SELECT 
 			toInt64(countIf(event_type = 'turret_enter' AND actor_id = ?)) as uses,
-			toInt64(countIf(event_type = 'player_kill' AND actor_id = ? AND actor_weapon LIKE '%turret%')) as kills,
-			toInt64(countIf(event_type = 'player_kill' AND target_id = ? AND actor_weapon LIKE '%turret%')) as deaths
+			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon LIKE '%turret%')) as kills,
+			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ? AND actor_weapon LIKE '%turret%')) as deaths
 		FROM raw_events
 		WHERE actor_id = ? OR target_id = ?
 	`, guid, guid, guid, guid, guid).Scan(&stats.TurretStats.TurretUses, &stats.TurretStats.TurretKills, &stats.TurretStats.TurretDeaths)
@@ -579,8 +579,6 @@ func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string)
 
 	return stats, nil
 }
-
-
 
 // GetGameFlowStats returns round/objective/team statistics
 func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string) (*models.GameFlowStats, error) {
@@ -637,8 +635,6 @@ func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string
 	return stats, nil
 }
 
-
-
 // GetWorldStats returns world interaction statistics
 func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (*models.WorldStats, error) {
 	stats := &models.WorldStats{}
@@ -651,10 +647,10 @@ func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (
 			toInt64(countIf(event_type = 'door_close')) as doors_closed,
 			toInt64(countIf(event_type = 'item_pickup')) as items_picked,
 			toInt64(countIf(event_type = 'item_drop')) as items_dropped,
-			toInt64(countIf(event_type = 'player_use')) as use_interactions,
-			toInt64(countIf(event_type = 'player_say')) as chat_messages,
-			sumIf(JSONExtractInt(raw_json, 'fall_damage', 'Int64'), event_type = 'player_land') as fall_damage,
-			toInt64(countIf(event_type = 'player_death' AND JSONExtractString(raw_json, 'mod') = 'MOD_FALLING')) as fall_deaths
+			toInt64(countIf(event_type = 'use')) as use_interactions,
+			toInt64(countIf(event_type = 'chat')) as chat_messages,
+			sumIf(JSONExtractInt(raw_json, 'fall_damage', 'Int64'), event_type = 'land') as fall_damage,
+			toInt64(countIf(event_type = 'death' AND JSONExtractString(raw_json, 'mod') = 'MOD_FALLING')) as fall_deaths
 		FROM raw_events
 		WHERE actor_id = ?
 	`, guid).Scan(
@@ -671,21 +667,20 @@ func (s *advancedStatsService) GetWorldStats(ctx context.Context, guid string) (
 	return stats, nil
 }
 
-
-
 // GetBotStats returns bot-related statistics
 func (s *advancedStatsService) GetBotStats(ctx context.Context, guid string) (*models.BotStats, error) {
 	stats := &models.BotStats{}
 
-	// Bot kills/deaths (assuming bots have 'bot' in their name or a flag)
+	// Bot kills use the bot_killed event type
+	// Deaths to bots currently not tracked (bots don't emit kill events when they kill players)
 	err := s.ch.QueryRow(ctx, `
 		SELECT 
-			toInt64(countIf(event_type = 'player_kill' AND actor_id = ? AND target_name LIKE '%bot%')) as bot_kills,
-			toInt64(countIf(event_type = 'player_kill' AND target_id = ? AND actor_name LIKE '%bot%')) as deaths_to_bots,
-			ifNotFinite(avgIf(distance, event_type = 'player_kill' AND actor_id = ? AND target_name LIKE '%bot%'), 0) as avg_dist
+			toInt64(countIf(event_type = 'bot_killed' AND actor_id = ?)) as bot_kills,
+			toInt64(0) as deaths_to_bots,
+			ifNotFinite(avgIf(distance, event_type = 'bot_killed' AND actor_id = ?), 0) as avg_dist
 		FROM raw_events
-		WHERE (actor_id = ? OR target_id = ?)
-	`, guid, guid, guid, guid, guid).Scan(&stats.BotKills, &stats.DeathsToBots, &stats.AvgBotKillDist)
+		WHERE actor_id = ?
+	`, guid, guid, guid).Scan(&stats.BotKills, &stats.DeathsToBots, &stats.AvgBotKillDist)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +732,7 @@ func (s *advancedStatsService) GetDrillDownNested(ctx context.Context, guid, sta
 			%s as child_val,
 			toInt64(count()) as count
 		FROM raw_events
-		WHERE event_type = 'player_kill' AND actor_id = ? AND %s = ? AND %s != ''
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND %s = ? AND %s != ''
 		GROUP BY child_val
 		ORDER BY count DESC
 		LIMIT ?
@@ -794,7 +789,7 @@ func (s *advancedStatsService) GetStatLeaders(ctx context.Context, stat, dimensi
 			any(actor_name) as name,
 			toInt64(count()) as val
 		FROM raw_events
-		WHERE event_type = 'player_kill' AND %s = ? AND actor_id != ''
+		WHERE event_type IN ('player_kill', 'bot_killed') AND %s = ? AND actor_id != ''
 		GROUP BY actor_id
 		ORDER BY val DESC
 		LIMIT ?

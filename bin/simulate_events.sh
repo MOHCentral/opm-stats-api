@@ -69,7 +69,7 @@ for player in $PLAYER1 $PLAYER2 $PLAYER3 $PLAYER4; do
     pos_x=$((RANDOM % 1000))
     pos_y=$((RANDOM % 1000))
     pos_z=$((RANDOM % 100))
-    send_event "type=spawn&match_id=test_match&player_guid=$player&player_name=TestPlayer_${player:0:8}&pos_x=$pos_x&pos_y=$pos_y&pos_z=$pos_z&team=$((RANDOM % 2))&timestamp=$(timestamp)"
+    send_event "type=player_spawn&match_id=test_match&player_guid=$player&player_name=TestPlayer_${player:0:8}&pos_x=$pos_x&pos_y=$pos_y&pos_z=$pos_z&team=$((RANDOM % 2))&timestamp=$(timestamp)"
     sleep 0.05
 done
 
@@ -103,7 +103,7 @@ for i in {1..20}; do
     victim_z=$((RANDOM % 100))
     
     echo "Kill #$i: $killer -> $victim ($weapon, $hitloc)"
-    send_event "type=kill&match_id=test_match&attacker_guid=$killer&attacker_name=TestPlayer_${killer:0:8}&victim_guid=$victim&victim_name=TestPlayer_${victim:0:8}&weapon=$weapon&hitloc=$hitloc&attacker_x=$killer_x&attacker_y=$killer_y&attacker_z=$killer_z&victim_x=$victim_x&victim_y=$victim_y&victim_z=$victim_z&timestamp=$(timestamp)"
+    send_event "type=player_kill&match_id=test_match&attacker_guid=$killer&attacker_name=TestPlayer_${killer:0:8}&victim_guid=$victim&victim_name=TestPlayer_${victim:0:8}&weapon=$weapon&hitloc=$hitloc&attacker_x=$killer_x&attacker_y=$killer_y&attacker_z=$killer_z&victim_x=$victim_x&victim_y=$victim_y&victim_z=$victim_z&timestamp=$(timestamp)"
     
     # Also send corresponding death event
     send_event "type=death&match_id=test_match&player_guid=$victim&player_name=TestPlayer_${victim:0:8}&inflictor=$weapon&pos_x=$victim_x&pos_y=$victim_y&pos_z=$victim_z&timestamp=$(timestamp)"

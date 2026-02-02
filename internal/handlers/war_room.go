@@ -356,8 +356,8 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 				SELECT 
 					actor_id,
 					any(actor_name) as name,
-					countIf(event_type = 'player_kill') as kills,
-					sumIf(toFloat64OrZero(extract(extra, 'velocity')), event_type = 'player_distance') as total_velocity
+					countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+					sumIf(toFloat64OrZero(extract(extra, 'velocity')), event_type = 'distance') as total_velocity
 				FROM mohaa_stats.raw_events
 				WHERE actor_id != ''
 				GROUP BY actor_id
@@ -393,8 +393,8 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 				SELECT 
 					actor_id,
 					match_id,
-					countIf(event_type = 'player_kill') as kills,
-					countIf(event_type = 'player_death') as deaths,
+					countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+					countIf(event_type = 'death') as deaths,
 					if(deaths > 0, kills/deaths, kills) as kd
 				FROM mohaa_stats.raw_events
 				WHERE actor_id != ''
@@ -498,8 +498,8 @@ func (h *Handler) GetPeakPerformanceLeaderboard(w http.ResponseWriter, r *http.R
 		SELECT 
 			actor_id,
 			any(actor_name) as name,
-			countIf(event_type = 'player_kill') as kills,
-			countIf(event_type = 'player_death') as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+			countIf(event_type = 'death') as deaths,
 			if(deaths > 0, kills/deaths, kills) as kd
 		FROM mohaa_stats.raw_events
 		WHERE actor_id != '' AND ` + timeFilter + `

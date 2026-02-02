@@ -17,8 +17,6 @@ func NewPlayerStatsService(ch driver.Conn) PlayerStatsService {
 	return &playerStatsService{ch: ch}
 }
 
-
-
 // GetDeepStats fetches all categories for a player
 func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*models.DeepStats, error) {
 	stats := &models.DeepStats{}
@@ -90,17 +88,19 @@ func (s *playerStatsService) GetDeepStats(ctx context.Context, guid string) (*mo
 func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, out *models.CombatStats) error {
 	query := `
 		SELECT 
-			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'kill' AND target_id = ?) as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
+			countIf(event_type = 'player_kill' AND actor_id = ?) as player_kills,
+			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ?) as deaths,
 			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
-			countIf(event_type = 'kill' AND actor_id = ? AND hitloc IN ('torso','torso_lower','torso_upper')) as torso,
-			countIf(event_type = 'kill' AND actor_id = ? AND hitloc IN ('left_arm','right_arm','left_leg','right_leg','left_arm_lower','left_arm_upper','right_arm_lower','right_arm_upper','left_leg_lower','left_leg_upper','right_leg_lower','right_leg_upper')) as limbs,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('torso','torso_lower','torso_upper')) as torso,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('left_arm','right_arm','left_leg','right_leg','left_arm_lower','left_arm_upper','right_arm_lower','right_arm_upper','left_leg_lower','left_leg_upper','right_leg_lower','right_leg_upper')) as limbs,
 			countIf((event_type = 'bash' OR event_type = 'player_bash') AND actor_id = ?) as melee,
-			countIf(event_type = 'kill' AND actor_id = ? AND actor_id = target_id) as suicides,
-			countIf(event_type = 'kill' AND actor_id = ? AND actor_team != '' AND actor_team = target_team AND actor_id != target_id) as team_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_id = target_id) as suicides,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_team != '' AND actor_team = target_team AND actor_id != target_id) as team_kills,
 			countIf(event_type = 'player_roadkill' AND actor_id = ?) as roadkills,
 			countIf((event_type = 'bash' OR event_type = 'player_bash') AND actor_id = ?) as bash_kills,
-			countIf(event_type = 'grenade_kill' AND actor_id = ?) as grenade_kills,
+			countIf(event_type = 'grenade_explode' AND actor_id = ?) as grenade_kills,
 			countIf(event_type = 'grenade_throw' AND actor_id = ?) as grenades_thrown,
 			sumIf(damage, event_type = 'damage' AND target_id = ?) as damage_dealt,
 			sumIf(damage, event_type = 'damage' AND actor_id = ?) as damage_taken
@@ -108,12 +108,13 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 		WHERE (actor_id = ? OR target_id = ?)
 	`
 	if err := s.ch.QueryRow(ctx, query,
-		guid, guid, guid, guid, guid, guid, guid, guid, guid, guid,
-		guid, guid, // Grenade Kills, Grenade Throws
+		guid, guid, guid, // kills, player_kills, bot_kills
+		guid, guid, guid, guid, guid, guid, guid, // deaths through team_kills
+		guid, guid, guid, guid, // roadkills through grenades_thrown
 		guid, guid, // Damage Dealt, Damage Taken
 		guid, guid, // WHERE clause
 	).Scan(
-		&out.Kills, &out.Deaths, &out.Headshots,
+		&out.Kills, &out.PlayerKills, &out.BotKills, &out.Deaths, &out.Headshots,
 		&out.TorsoKills, &out.LimbKills, &out.MeleeKills, &out.Suicides,
 		&out.TeamKills, &out.Roadkills, &out.BashKills,
 		&out.GrenadeKills, &out.GrenadesThrown,
@@ -142,7 +143,9 @@ func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 	query := `
 		SELECT 
 			actor_weapon as weapon_name,
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+			countIf(event_type = 'player_kill') as player_kills,
+			countIf(event_type = 'bot_killed') as bot_kills,
 			countIf(event_type = 'headshot') as headshots,
 			countIf(event_type = 'weapon_fire') as shots,
 			countIf(event_type = 'weapon_hit') as hits,
@@ -160,7 +163,7 @@ func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 
 	for rows.Next() {
 		var w models.PlayerWeaponStats
-		if err := rows.Scan(&w.Name, &w.Kills, &w.Headshots, &w.Shots, &w.Hits, &w.Damage); err != nil {
+		if err := rows.Scan(&w.Name, &w.Kills, &w.PlayerKills, &w.BotKills, &w.Headshots, &w.Shots, &w.Hits, &w.Damage); err != nil {
 			continue
 		}
 		if w.Shots > 0 {
@@ -207,7 +210,7 @@ func (s *playerStatsService) fillAccuracyStats(ctx context.Context, guid string,
 			countIf(event_type = 'weapon_fire') as shots,
 			countIf(event_type = 'weapon_hit') as hits,
 			countIf(event_type = 'headshot') as headshots,
-			sumIf(distance, event_type = 'kill') / NULLIF(countIf(event_type = 'kill'), 0) as avg_dist
+			sumIf(distance, event_type IN ('player_kill', 'bot_killed')) / NULLIF(countIf(event_type IN ('player_kill', 'bot_killed')), 0) as avg_dist
 		FROM mohaa_stats.raw_events
 		WHERE actor_id = ?
 	`
@@ -235,14 +238,13 @@ func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, 
 		return err
 	}
 
-	// Count wins using materialized view which tracks wins via match_outcome=1
+	// Count wins using aggregation table
 	winsQuery := `
 		SELECT sum(matches_won)
-		FROM mohaa_stats.player_stats_daily_mv
-		WHERE actor_id = ?
+		FROM mohaa_stats.player_stats_daily
+		WHERE player_id = ?
 	`
 	if err := s.ch.QueryRow(ctx, winsQuery, guid).Scan(&out.Wins); err != nil {
-		// Default to 0 on error
 		out.Wins = 0
 	}
 
@@ -269,7 +271,7 @@ func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, 
 
 func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid string, out *models.InteractionStats) error {
 	// Chat (both player_say and chat events)
-	s.ch.QueryRow(ctx, "SELECT countIf((event_type='player_say' OR event_type='chat') AND actor_id=?) FROM mohaa_stats.raw_events", guid).Scan(&out.ChatMessages)
+	s.ch.QueryRow(ctx, "SELECT countIf((event_type='chat' OR event_type='chat') AND actor_id=?) FROM mohaa_stats.raw_events", guid).Scan(&out.ChatMessages)
 
 	// Vehicle/Turret Uses
 	s.ch.QueryRow(ctx, `
@@ -316,7 +318,7 @@ func (s *playerStatsService) fillRivalStats(ctx context.Context, guid string, ou
 	err := s.ch.QueryRow(ctx, `
 		SELECT actor_name, count() as c 
 		FROM mohaa_stats.raw_events 
-		WHERE event_type='kill' AND target_id = ? AND actor_id != ? AND actor_id != '' AND actor_id != 'world'
+		WHERE event_type='player_kill' AND target_id = ? AND actor_id != ? AND actor_id != '' AND actor_id != 'world'
 		GROUP BY actor_name 
 		ORDER BY c DESC LIMIT 1
 	`, guid, guid).Scan(&out.NemesisName, &out.NemesisKills)
@@ -328,7 +330,7 @@ func (s *playerStatsService) fillRivalStats(ctx context.Context, guid string, ou
 	err = s.ch.QueryRow(ctx, `
 		SELECT target_name, count() as c 
 		FROM mohaa_stats.raw_events 
-		WHERE event_type='kill' AND actor_id = ? AND target_id != ? AND target_id != '' AND target_id != 'world'
+		WHERE event_type='player_kill' AND actor_id = ? AND target_id != ? AND target_id != '' AND target_id != 'world'
 		GROUP BY target_name 
 		ORDER BY c DESC LIMIT 1
 	`, guid, guid).Scan(&out.VictimName, &out.VictimKills)
@@ -341,20 +343,26 @@ func (s *playerStatsService) fillStanceStats(ctx context.Context, guid string, o
 		return nil
 	}
 
-	// Stance stats: Use stance-specific events that occurred near kill events
-	// Since raw_events may not have actor_stance field, infer from recent stance events
+	// Stance stats with player/bot breakdown
 	query := `
 		SELECT 
-			countIf(actor_stance = 'stand' OR actor_stance = 'standing') as standing,
-			countIf(actor_stance = 'crouch' OR actor_stance = 'crouching') as crouching,
-			countIf(actor_stance = 'prone') as prone
+			countIf((actor_stance = 'stand' OR actor_stance = 'standing') AND event_type IN ('player_kill', 'bot_killed')) as standing,
+			countIf((actor_stance = 'stand' OR actor_stance = 'standing') AND event_type = 'player_kill') as standing_player,
+			countIf((actor_stance = 'stand' OR actor_stance = 'standing') AND event_type = 'bot_killed') as standing_bot,
+			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type IN ('player_kill', 'bot_killed')) as crouching,
+			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type = 'player_kill') as crouch_player,
+			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type = 'bot_killed') as crouch_bot,
+			countIf(actor_stance = 'prone' AND event_type IN ('player_kill', 'bot_killed')) as prone,
+			countIf(actor_stance = 'prone' AND event_type = 'player_kill') as prone_player,
+			countIf(actor_stance = 'prone' AND event_type = 'bot_killed') as prone_bot
 		FROM mohaa_stats.raw_events 
-		WHERE event_type = 'kill' AND actor_id = ? AND actor_stance != ''
+		WHERE actor_id = ? AND actor_stance != ''
 	`
 	if err := s.ch.QueryRow(ctx, query, guid).Scan(
-		&out.StandingKills, &out.CrouchKills, &out.ProneKills,
+		&out.StandingKills, &out.StandingPlayerKills, &out.StandingBotKills,
+		&out.CrouchKills, &out.CrouchPlayerKills, &out.CrouchBotKills,
+		&out.ProneKills, &out.PronePlayerKills, &out.ProneBotKills,
 	); err != nil {
-		// If query fails, leave at 0 - do not fabricate
 		return nil
 	}
 
@@ -365,7 +373,6 @@ func (s *playerStatsService) fillStanceStats(ctx context.Context, guid string, o
 		out.CrouchPct = (float64(out.CrouchKills) / float64(stanceTotal)) * 100
 		out.PronePct = (float64(out.ProneKills) / float64(stanceTotal)) * 100
 	}
-	// If no stance data tracked, percentages stay at 0
 
 	return nil
 }
@@ -399,7 +406,7 @@ func (s *playerStatsService) ResolvePlayerGUID(ctx context.Context, name string)
 // GetPlayerStatsByGametype returns stats grouped by gametype (derived from map prefix)
 func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid string) ([]models.GametypeStats, error) {
 	// Derive gametype from map_name prefix (dm_, obj_, lib_, tdm_)
-	// Aggregate kills, deaths, headshots per gametype
+	// Aggregate kills, deaths, headshots per gametype with player/bot breakdown
 	rows, err := s.ch.Query(ctx, `
 		SELECT
 			multiIf(
@@ -410,8 +417,10 @@ func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid 
 				startsWith(map_name, 'ctf_'), 'ctf',
 				'other'
 			) as gametype,
-			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type IN ('death', 'kill') AND target_id = ?) as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
+			countIf(event_type = 'player_kill' AND actor_id = ?) as player_kills,
+			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
+			countIf(event_type IN ('death', 'player_kill') AND target_id = ?) as deaths,
 			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
 			uniq(match_id) as matches_played
 		FROM mohaa_stats.raw_events
@@ -420,7 +429,7 @@ func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid 
 		GROUP BY gametype
 		HAVING kills > 0 OR deaths > 0
 		ORDER BY kills DESC
-	`, guid, guid, guid, guid, guid)
+	`, guid, guid, guid, guid, guid, guid, guid)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query gametype stats: %w", err)
@@ -430,7 +439,7 @@ func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid 
 	stats := []models.GametypeStats{}
 	for rows.Next() {
 		var s models.GametypeStats
-		if err := rows.Scan(&s.Gametype, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
+		if err := rows.Scan(&s.Gametype, &s.Kills, &s.PlayerKills, &s.BotKills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
 			continue
 		}
 		if s.Deaths > 0 {
@@ -446,12 +455,14 @@ func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid 
 
 // GetPlayerStatsByMap returns detailed stats grouped by map
 func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid string) ([]models.PlayerMapStats, error) {
-	// Query map stats - aggregating kills, deaths, headshots per map
+	// Query map stats with player/bot kill breakdown
 	rows, err := s.ch.Query(ctx, `
 		SELECT
 			map_name,
-			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type IN ('death', 'kill') AND target_id = ?) as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
+			countIf(event_type = 'player_kill' AND actor_id = ?) as player_kills,
+			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
+			countIf(event_type IN ('death', 'player_kill') AND target_id = ?) as deaths,
 			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
 			uniq(match_id) as matches_played
 		FROM mohaa_stats.raw_events
@@ -460,7 +471,7 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 		GROUP BY map_name
 		HAVING kills > 0 OR deaths > 0
 		ORDER BY kills DESC
-	`, guid, guid, guid, guid, guid)
+	`, guid, guid, guid, guid, guid, guid, guid)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query map breakdown: %w", err)
@@ -470,7 +481,7 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 	stats := []models.PlayerMapStats{}
 	for rows.Next() {
 		var s models.PlayerMapStats
-		if err := rows.Scan(&s.MapName, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
+		if err := rows.Scan(&s.MapName, &s.Kills, &s.PlayerKills, &s.BotKills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
 			continue
 		}
 		if s.Deaths > 0 {

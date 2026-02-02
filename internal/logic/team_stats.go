@@ -31,12 +31,12 @@ func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (
 	metricsQuery := `
 		SELECT
 			-- Axis
-			countIf(event_type = 'kill' AND actor_team = 'axis') as axis_kills,
-			countIf(event_type = 'kill' AND target_team = 'axis') as axis_deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_team = 'axis') as axis_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND target_team = 'axis') as axis_deaths,
 			countIf(event_type IN ('objective_update', 'objective_capture') AND actor_team = 'axis') as axis_objs,
 			-- Allies
-			countIf(event_type = 'kill' AND actor_team = 'allies') as allies_kills,
-			countIf(event_type = 'kill' AND target_team = 'allies') as allies_deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_team = 'allies') as allies_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND target_team = 'allies') as allies_deaths,
 			countIf(event_type IN ('objective_update', 'objective_capture') AND actor_team = 'allies') as allies_objs
 		FROM raw_events
 		WHERE timestamp >= now() - INTERVAL ? DAY
@@ -95,7 +95,7 @@ func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (
 	topWeaponQuery := `
 		SELECT actor_team, actor_weapon
 		FROM raw_events
-		WHERE event_type = 'kill' AND actor_team IN ('axis', 'allies')
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_team IN ('axis', 'allies')
 		  AND timestamp >= now() - INTERVAL ? DAY
 		  AND actor_weapon != ''
 		GROUP BY actor_team, actor_weapon

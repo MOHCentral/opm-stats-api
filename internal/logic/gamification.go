@@ -27,10 +27,10 @@ func (s *gamificationService) GetPlaystyle(ctx context.Context, playerID string)
 	query := `
 		SELECT 
 			avg(distance) as avg_dist,
-			(SELECT actor_weapon FROM raw_events WHERE event_type='kill' AND actor_id = ? GROUP BY actor_weapon ORDER BY count() DESC LIMIT 1) as top_wep,
+			(SELECT actor_weapon FROM raw_events WHERE event_type='player_kill' AND actor_id = ? GROUP BY actor_weapon ORDER BY count() DESC LIMIT 1) as top_wep,
 			count() as kills
 		FROM raw_events 
-		WHERE event_type = 'kill' AND actor_id = ?
+		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ?
 	`
 	// Note: Simple subquery for top weapon might be slow on huge datasets, but okay for MVP filtering by actor_id
 	if err := s.ch.QueryRow(ctx, query, playerID, playerID).Scan(&avgDist, &topWeapon, &totalKills); err != nil {

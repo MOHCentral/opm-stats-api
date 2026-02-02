@@ -58,7 +58,7 @@ func (s *tournamentService) GetTournamentStats(ctx context.Context, tournamentID
 	s.ch.QueryRow(ctx, `
 		SELECT count() 
 		FROM raw_events 
-		WHERE tournament_id = ? AND event_type = 'player_kill'
+		WHERE tournament_id = ? AND event_type IN ('player_kill', 'bot_killed')
 	`, tournamentID).Scan(&totalKills)
 	stats["total_kills"] = totalKills
 
@@ -70,7 +70,7 @@ func (s *tournamentService) GetTournamentStats(ctx context.Context, tournamentID
 	if err := s.ch.QueryRow(ctx, `
 		SELECT actor_name 
 		FROM raw_events 
-		WHERE tournament_id = ? AND event_type = 'player_kill'
+		WHERE tournament_id = ? AND event_type IN ('player_kill', 'bot_killed')
 		GROUP BY actor_name 
 		ORDER BY count() DESC LIMIT 1
 	`, tournamentID).Scan(&mvp); err == nil {

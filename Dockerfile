@@ -33,6 +33,8 @@ COPY --from=builder /api .
 
 # Copy web assets
 COPY --from=builder /app/web ./web
+# Copy migrations
+COPY --from=builder /app/migrations ./migrations
 
 # Expose port
 EXPOSE 8080

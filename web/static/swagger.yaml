@@ -77,6 +77,8 @@ definitions:
         type: integer
       bash_kills:
         type: integer
+      bot_kills:
+        type: integer
       damage_dealt:
         type: integer
       damage_taken:
@@ -108,6 +110,8 @@ definitions:
       melee_kills:
         type: integer
       nutshots:
+        type: integer
+      player_kills:
         type: integer
       revenge_kills:
         type: integer
@@ -196,6 +200,8 @@ definitions:
     properties:
       accuracy:
         type: number
+      bot_kills:
+        type: integer
       day_num:
         description: 0=Sunday
         type: integer
@@ -206,6 +212,8 @@ definitions:
       kd_ratio:
         type: number
       kills:
+        type: integer
+      player_kills:
         type: integer
       playtime_hours:
         type: number
@@ -329,7 +337,7 @@ definitions:
     - warmup_start
     - warmup_end
     - intermission_start
-    - kill
+    - player_kill
     - death
     - damage
     - player_pain
@@ -343,7 +351,7 @@ definitions:
     - weapon_fire
     - weapon_hit
     - weapon_change
-    - weapon_reload
+    - reload
     - weapon_reload_done
     - weapon_ready
     - weapon_no_ammo
@@ -360,23 +368,26 @@ definitions:
     - player_spawn
     - player_respawn
     - distance
+    - player_movement
     - ladder_mount
     - ladder_dismount
-    - player_use
+    - use
     - player_use_object_start
     - player_use_object_finish
     - player_spectate
     - player_freeze
-    - player_say
+    - chat
     - item_pickup
     - item_drop
     - item_respawn
     - health_pickup
     - ammo_pickup
+    - armor_pickup
     - vehicle_enter
     - vehicle_exit
     - vehicle_death
-    - vehicle_collision
+    - vehicle_crash
+    - vehicle_change
     - turret_enter
     - turret_exit
     - server_init
@@ -385,17 +396,22 @@ definitions:
     - server_spawned
     - server_console_command
     - heartbeat
+    - map_init
+    - map_start
+    - map_ready
+    - map_shutdown
     - map_load_start
     - map_load_end
     - map_change_start
     - map_restart
     - team_join
     - team_change
+    - team_win
     - vote_start
     - vote_passed
     - vote_failed
-    - client_connect
-    - client_disconnect
+    - connect
+    - disconnect
     - client_begin
     - client_userinfo_changed
     - player_inactivity_drop
@@ -413,128 +429,10 @@ definitions:
     - objective_capture
     - score_change
     - teamkill_kick
-    - connect
-    - disconnect
-    - spawn
-    - chat
-    - use
-    - reload
-    - team_win
+    - player_auth
+    - accuracy_summary
     - identity_claim
     type: string
-    x-enum-comments:
-      EventChat: Alias for player_say
-      EventConnect: Alias for client_connect
-      EventDisconnect: Alias for client_disconnect
-      EventIdentityClaim: Special event (not in 92)
-      EventReload: Alias for weapon_reload
-      EventSpawn: Alias for player_spawn
-      EventTeamWin: Special event (not in 92)
-      EventUse: Alias for player_use
-    x-enum-descriptions:
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - ""
-    - Alias for client_connect
-    - Alias for client_disconnect
-    - Alias for player_spawn
-    - Alias for player_say
-    - Alias for player_use
-    - Alias for weapon_reload
-    - Special event (not in 92)
-    - Special event (not in 92)
     x-enum-varnames:
     - EventGameInit
     - EventGameStart
@@ -547,7 +445,7 @@ definitions:
     - EventWarmupStart
     - EventWarmupEnd
     - EventIntermissionStart
-    - EventKill
+    - EventPlayerKill
     - EventDeath
     - EventDamage
     - EventPlayerPain
@@ -561,7 +459,7 @@ definitions:
     - EventWeaponFire
     - EventWeaponHit
     - EventWeaponChange
-    - EventWeaponReload
+    - EventReload
     - EventWeaponReloadDone
     - EventWeaponReady
     - EventWeaponNoAmmo
@@ -578,23 +476,26 @@ definitions:
     - EventPlayerSpawn
     - EventPlayerRespawn
     - EventDistance
+    - EventPlayerMovement
     - EventLadderMount
     - EventLadderDismount
-    - EventPlayerUse
+    - EventUse
     - EventPlayerUseObjectStart
     - EventPlayerUseObjectFinish
     - EventPlayerSpectate
     - EventPlayerFreeze
-    - EventPlayerSay
+    - EventChat
     - EventItemPickup
     - EventItemDrop
     - EventItemRespawn
     - EventHealthPickup
     - EventAmmoPickup
+    - EventArmorPickup
     - EventVehicleEnter
     - EventVehicleExit
     - EventVehicleDeath
-    - EventVehicleCollision
+    - EventVehicleCrash
+    - EventVehicleChange
     - EventTurretEnter
     - EventTurretExit
     - EventServerInit
@@ -603,17 +504,22 @@ definitions:
     - EventServerSpawned
     - EventServerConsoleCommand
     - EventHeartbeat
+    - EventMapInit
+    - EventMapStart
+    - EventMapReady
+    - EventMapShutdown
     - EventMapLoadStart
     - EventMapLoadEnd
     - EventMapChangeStart
     - EventMapRestart
     - EventTeamJoin
     - EventTeamChange
+    - EventTeamWin
     - EventVoteStart
     - EventVotePassed
     - EventVoteFailed
-    - EventClientConnect
-    - EventClientDisconnect
+    - EventConnect
+    - EventDisconnect
     - EventClientBegin
     - EventClientUserinfoChanged
     - EventPlayerInactivityDrop
@@ -631,13 +537,8 @@ definitions:
     - EventObjectiveCapture
     - EventScoreChange
     - EventTeamkillKick
-    - EventConnect
-    - EventDisconnect
-    - EventSpawn
-    - EventChat
-    - EventUse
-    - EventReload
-    - EventTeamWin
+    - EventPlayerAuth
+    - EventAccuracySummary
     - EventIdentityClaim
   models.FactionStats:
     properties:
@@ -648,6 +549,8 @@ definitions:
     type: object
   models.GametypeStats:
     properties:
+      bot_kills:
+        type: integer
       deaths:
         type: integer
       gametype:
@@ -659,6 +562,8 @@ definitions:
       kills:
         type: integer
       matches_played:
+        type: integer
+      player_kills:
         type: integer
     type: object
   models.HitlocWeapon:
@@ -676,6 +581,8 @@ definitions:
     properties:
       accuracy:
         type: number
+      bot_kills:
+        type: integer
       deaths:
         type: integer
       hour:
@@ -685,6 +592,8 @@ definitions:
       kills:
         type: integer
       losses:
+        type: integer
+      player_kills:
         type: integer
       wins:
         type: integer
@@ -715,6 +624,8 @@ definitions:
     type: object
   models.MapPeakStats:
     properties:
+      bot_kills:
+        type: integer
       deaths:
         type: integer
       kd_ratio:
@@ -723,6 +634,8 @@ definitions:
         type: integer
       map_name:
         type: string
+      player_kills:
+        type: integer
       win_rate:
         type: number
     type: object
@@ -973,13 +886,13 @@ definitions:
     type: object
   models.PlayerMapStats:
     properties:
+      bot_kills:
+        type: integer
       deaths:
         type: integer
       headshots:
-        description: Added
         type: integer
       kd_ratio:
-        description: Added
         type: number
       kills:
         type: integer
@@ -988,6 +901,8 @@ definitions:
       matches_played:
         type: integer
       matches_won:
+        type: integer
+      player_kills:
         type: integer
     type: object
   models.PlayerPredictions:
@@ -1098,6 +1013,8 @@ definitions:
     properties:
       accuracy:
         type: number
+      bot_kills:
+        type: integer
       damage:
         type: integer
       deaths:
@@ -1110,6 +1027,8 @@ definitions:
         type: integer
       name:
         type: string
+      player_kills:
+        type: integer
       shots:
         type: integer
     type: object
@@ -1495,18 +1414,30 @@ definitions:
     type: object
   models.StanceStats:
     properties:
+      crouch_bot_kills:
+        type: integer
       crouch_kills:
         type: integer
       crouch_pct:
         type: number
+      crouch_player_kills:
+        type: integer
+      prone_bot_kills:
+        type: integer
       prone_kills:
         type: integer
       prone_pct:
         type: number
+      prone_player_kills:
+        type: integer
+      standing_bot_kills:
+        type: integer
       standing_kills:
         type: integer
       standing_pct:
         type: number
+      standing_player_kills:
+        type: integer
     type: object
   models.StatLeaderboardEntry:
     properties:
@@ -1727,11 +1658,15 @@ definitions:
     properties:
       accuracy:
         type: number
+      bot_kills:
+        type: integer
       headshots:
         type: integer
       hs_percent:
         type: number
       kills:
+        type: integer
+      player_kills:
         type: integer
       weapon_name:
         type: string
@@ -3634,6 +3569,37 @@ paths:
       security:
       - ServerToken: []
       summary: Install Database Schema
+      tags:
+      - System
+  /system/reset:
+    post:
+      consumes:
+      - application/json
+      description: Drops ClickHouse database and recreates schema, truncates achievement
+        progress
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ServerToken: []
+      summary: Reset Database Data
       tags:
       - System
   /tournaments:

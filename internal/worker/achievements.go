@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"strconv"
 	"strings"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -188,7 +189,7 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 
 	// Check different event types
 	switch event.Type {
-	case models.EventKill:
+	case models.EventPlayerKill:
 		w.logger.Infow("Checking combat achievements", "smfID", actorSMFID)
 		w.checkCombatAchievements(actorSMFID, event)
 		w.checkStreak(actorSMFID, event) // Check streak increment
@@ -214,7 +215,7 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 // getActorSMFID resolves the primary actor's SMF ID for the event
 func (w *AchievementWorker) getActorSMFID(event *models.RawEvent) int64 {
 	// For combat events where the killer is the actor
-	if event.Type == models.EventKill || event.Type == models.EventHeadshot || event.Type == models.EventDamage {
+	if event.Type == models.EventPlayerKill || event.Type == models.EventHeadshot || event.Type == models.EventDamage {
 		return event.AttackerSMFID
 	}
 	// For most other events, it's the player
@@ -278,7 +279,7 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 
 	// Determine guid to use for Redis key
 	guid := event.PlayerGUID
-	if event.Type == models.EventKill {
+	if event.Type == models.EventPlayerKill {
 		guid = event.AttackerGUID
 	} else if event.Type == models.EventDeath {
 		guid = event.VictimGUID
@@ -296,7 +297,7 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 		return
 	}
 
-	if event.Type == models.EventKill {
+	if event.Type == models.EventPlayerKill {
 		// Increment streak
 		val, err := w.statStore.Incr(w.ctx, key)
 		if err != nil {
@@ -333,9 +334,9 @@ func (w *AchievementWorker) checkHeadshotAchievements(smfID int64, event *models
 
 	// Updated to match DB slugs and thresholds
 	milestones := map[string]int{
-		"headshot_bronze":   100,
-		"headshot_silver":   500,
-		"headshot_gold":     1000,
+		"headshot_bronze": 100,
+		"headshot_silver": 500,
+		"headshot_gold":   1000,
 		// Assuming platinum/diamond might be added or exist
 	}
 
@@ -360,9 +361,9 @@ func (w *AchievementWorker) checkMovementAchievements(smfID int64, event *models
 	// Updated to match DB slugs (meters vs km handled by logic)
 	// DB: marathon_bronze = 10000 meters = 10km
 	milestones := map[string]float64{
-		"marathon_bronze":   10,
-		"marathon_silver":   50,
-		"marathon_gold":     100,
+		"marathon_bronze": 10,
+		"marathon_silver": 50,
+		"marathon_gold":   100,
 	}
 
 	for slug, threshold := range milestones {
@@ -386,7 +387,7 @@ func (w *AchievementWorker) checkVehicleAchievements(smfID int64, event *models.
 		"tank_destroyer_platinum": 100,
 		"tank_destroyer_diamond":  250,
 		// tank_destroyer (Gold) is 50 in DB
-		"tank_destroyer":          50,
+		"tank_destroyer": 50,
 	}
 
 	for slug, threshold := range milestones {
@@ -557,13 +558,13 @@ func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 	var query string
 	switch statName {
 	case "total_kills":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill'`
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed')`
 	case "total_headshots":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND hitloc = 'head'`
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND hitloc = 'head'`
 	case "total_distance":
 		query = `SELECT SUM(walked + sprinted + swam + driven) FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'distance'`
 	case "vehicle_kills":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND inflictor LIKE '%vehicle%'`
+		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND inflictor LIKE '%vehicle%'`
 	case "health_pickups":
 		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'item_pickup' AND item LIKE '%health%'`
 	case "objectives_completed":
@@ -596,7 +597,7 @@ func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 
 // getWeaponKills gets kills for specific weapon
 func (w *AchievementWorker) getWeaponKills(smfID int, weapon string) int {
-	query := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND actor_weapon = ?`
+	query := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND actor_weapon = ?`
 
 	var count uint64
 	err := w.ch.QueryRow(w.ctx, query, smfID, weapon).Scan(&count)

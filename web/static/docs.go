@@ -2836,6 +2836,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/system/reset": {
+            "post": {
+                "security": [
+                    {
+                        "ServerToken": []
+                    }
+                ],
+                "description": "Drops ClickHouse database and recreates schema, truncates achievement progress",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "Reset Database Data",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/tournaments": {
             "get": {
                 "produces": [
@@ -3060,6 +3107,9 @@ const docTemplate = `{
                 "bash_kills": {
                     "type": "integer"
                 },
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "damage_dealt": {
                     "type": "integer"
                 },
@@ -3106,6 +3156,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "nutshots": {
+                    "type": "integer"
+                },
+                "player_kills": {
                     "type": "integer"
                 },
                 "revenge_kills": {
@@ -3236,6 +3289,9 @@ const docTemplate = `{
                 "accuracy": {
                     "type": "number"
                 },
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "day_num": {
                     "description": "0=Sunday",
                     "type": "integer"
@@ -3250,6 +3306,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "kills": {
+                    "type": "integer"
+                },
+                "player_kills": {
                     "type": "integer"
                 },
                 "playtime_hours": {
@@ -3432,7 +3491,7 @@ const docTemplate = `{
                 "warmup_start",
                 "warmup_end",
                 "intermission_start",
-                "kill",
+                "player_kill",
                 "death",
                 "damage",
                 "player_pain",
@@ -3446,7 +3505,7 @@ const docTemplate = `{
                 "weapon_fire",
                 "weapon_hit",
                 "weapon_change",
-                "weapon_reload",
+                "reload",
                 "weapon_reload_done",
                 "weapon_ready",
                 "weapon_no_ammo",
@@ -3463,23 +3522,26 @@ const docTemplate = `{
                 "player_spawn",
                 "player_respawn",
                 "distance",
+                "player_movement",
                 "ladder_mount",
                 "ladder_dismount",
-                "player_use",
+                "use",
                 "player_use_object_start",
                 "player_use_object_finish",
                 "player_spectate",
                 "player_freeze",
-                "player_say",
+                "chat",
                 "item_pickup",
                 "item_drop",
                 "item_respawn",
                 "health_pickup",
                 "ammo_pickup",
+                "armor_pickup",
                 "vehicle_enter",
                 "vehicle_exit",
                 "vehicle_death",
-                "vehicle_collision",
+                "vehicle_crash",
+                "vehicle_change",
                 "turret_enter",
                 "turret_exit",
                 "server_init",
@@ -3488,17 +3550,22 @@ const docTemplate = `{
                 "server_spawned",
                 "server_console_command",
                 "heartbeat",
+                "map_init",
+                "map_start",
+                "map_ready",
+                "map_shutdown",
                 "map_load_start",
                 "map_load_end",
                 "map_change_start",
                 "map_restart",
                 "team_join",
                 "team_change",
+                "team_win",
                 "vote_start",
                 "vote_passed",
                 "vote_failed",
-                "client_connect",
-                "client_disconnect",
+                "connect",
+                "disconnect",
                 "client_begin",
                 "client_userinfo_changed",
                 "player_inactivity_drop",
@@ -3516,129 +3583,9 @@ const docTemplate = `{
                 "objective_capture",
                 "score_change",
                 "teamkill_kick",
-                "connect",
-                "disconnect",
-                "spawn",
-                "chat",
-                "use",
-                "reload",
-                "team_win",
+                "player_auth",
+                "accuracy_summary",
                 "identity_claim"
-            ],
-            "x-enum-comments": {
-                "EventChat": "Alias for player_say",
-                "EventConnect": "Alias for client_connect",
-                "EventDisconnect": "Alias for client_disconnect",
-                "EventIdentityClaim": "Special event (not in 92)",
-                "EventReload": "Alias for weapon_reload",
-                "EventSpawn": "Alias for player_spawn",
-                "EventTeamWin": "Special event (not in 92)",
-                "EventUse": "Alias for player_use"
-            },
-            "x-enum-descriptions": [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "Alias for client_connect",
-                "Alias for client_disconnect",
-                "Alias for player_spawn",
-                "Alias for player_say",
-                "Alias for player_use",
-                "Alias for weapon_reload",
-                "Special event (not in 92)",
-                "Special event (not in 92)"
             ],
             "x-enum-varnames": [
                 "EventGameInit",
@@ -3652,7 +3599,7 @@ const docTemplate = `{
                 "EventWarmupStart",
                 "EventWarmupEnd",
                 "EventIntermissionStart",
-                "EventKill",
+                "EventPlayerKill",
                 "EventDeath",
                 "EventDamage",
                 "EventPlayerPain",
@@ -3666,7 +3613,7 @@ const docTemplate = `{
                 "EventWeaponFire",
                 "EventWeaponHit",
                 "EventWeaponChange",
-                "EventWeaponReload",
+                "EventReload",
                 "EventWeaponReloadDone",
                 "EventWeaponReady",
                 "EventWeaponNoAmmo",
@@ -3683,23 +3630,26 @@ const docTemplate = `{
                 "EventPlayerSpawn",
                 "EventPlayerRespawn",
                 "EventDistance",
+                "EventPlayerMovement",
                 "EventLadderMount",
                 "EventLadderDismount",
-                "EventPlayerUse",
+                "EventUse",
                 "EventPlayerUseObjectStart",
                 "EventPlayerUseObjectFinish",
                 "EventPlayerSpectate",
                 "EventPlayerFreeze",
-                "EventPlayerSay",
+                "EventChat",
                 "EventItemPickup",
                 "EventItemDrop",
                 "EventItemRespawn",
                 "EventHealthPickup",
                 "EventAmmoPickup",
+                "EventArmorPickup",
                 "EventVehicleEnter",
                 "EventVehicleExit",
                 "EventVehicleDeath",
-                "EventVehicleCollision",
+                "EventVehicleCrash",
+                "EventVehicleChange",
                 "EventTurretEnter",
                 "EventTurretExit",
                 "EventServerInit",
@@ -3708,17 +3658,22 @@ const docTemplate = `{
                 "EventServerSpawned",
                 "EventServerConsoleCommand",
                 "EventHeartbeat",
+                "EventMapInit",
+                "EventMapStart",
+                "EventMapReady",
+                "EventMapShutdown",
                 "EventMapLoadStart",
                 "EventMapLoadEnd",
                 "EventMapChangeStart",
                 "EventMapRestart",
                 "EventTeamJoin",
                 "EventTeamChange",
+                "EventTeamWin",
                 "EventVoteStart",
                 "EventVotePassed",
                 "EventVoteFailed",
-                "EventClientConnect",
-                "EventClientDisconnect",
+                "EventConnect",
+                "EventDisconnect",
                 "EventClientBegin",
                 "EventClientUserinfoChanged",
                 "EventPlayerInactivityDrop",
@@ -3736,13 +3691,8 @@ const docTemplate = `{
                 "EventObjectiveCapture",
                 "EventScoreChange",
                 "EventTeamkillKick",
-                "EventConnect",
-                "EventDisconnect",
-                "EventSpawn",
-                "EventChat",
-                "EventUse",
-                "EventReload",
-                "EventTeamWin",
+                "EventPlayerAuth",
+                "EventAccuracySummary",
                 "EventIdentityClaim"
             ]
         },
@@ -3760,6 +3710,9 @@ const docTemplate = `{
         "models.GametypeStats": {
             "type": "object",
             "properties": {
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "deaths": {
                     "type": "integer"
                 },
@@ -3776,6 +3729,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "matches_played": {
+                    "type": "integer"
+                },
+                "player_kills": {
                     "type": "integer"
                 }
             }
@@ -3803,6 +3759,9 @@ const docTemplate = `{
                 "accuracy": {
                     "type": "number"
                 },
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "deaths": {
                     "type": "integer"
                 },
@@ -3816,6 +3775,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "losses": {
+                    "type": "integer"
+                },
+                "player_kills": {
                     "type": "integer"
                 },
                 "wins": {
@@ -3863,6 +3825,9 @@ const docTemplate = `{
         "models.MapPeakStats": {
             "type": "object",
             "properties": {
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "deaths": {
                     "type": "integer"
                 },
@@ -3874,6 +3839,9 @@ const docTemplate = `{
                 },
                 "map_name": {
                     "type": "string"
+                },
+                "player_kills": {
+                    "type": "integer"
                 },
                 "win_rate": {
                     "type": "number"
@@ -4257,15 +4225,16 @@ const docTemplate = `{
         "models.PlayerMapStats": {
             "type": "object",
             "properties": {
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "deaths": {
                     "type": "integer"
                 },
                 "headshots": {
-                    "description": "Added",
                     "type": "integer"
                 },
                 "kd_ratio": {
-                    "description": "Added",
                     "type": "number"
                 },
                 "kills": {
@@ -4278,6 +4247,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "matches_won": {
+                    "type": "integer"
+                },
+                "player_kills": {
                     "type": "integer"
                 }
             }
@@ -4444,6 +4416,9 @@ const docTemplate = `{
                 "accuracy": {
                     "type": "number"
                 },
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "damage": {
                     "type": "integer"
                 },
@@ -4461,6 +4436,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "player_kills": {
+                    "type": "integer"
                 },
                 "shots": {
                     "type": "integer"
@@ -5033,11 +5011,20 @@ const docTemplate = `{
         "models.StanceStats": {
             "type": "object",
             "properties": {
+                "crouch_bot_kills": {
+                    "type": "integer"
+                },
                 "crouch_kills": {
                     "type": "integer"
                 },
                 "crouch_pct": {
                     "type": "number"
+                },
+                "crouch_player_kills": {
+                    "type": "integer"
+                },
+                "prone_bot_kills": {
+                    "type": "integer"
                 },
                 "prone_kills": {
                     "type": "integer"
@@ -5045,11 +5032,20 @@ const docTemplate = `{
                 "prone_pct": {
                     "type": "number"
                 },
+                "prone_player_kills": {
+                    "type": "integer"
+                },
+                "standing_bot_kills": {
+                    "type": "integer"
+                },
                 "standing_kills": {
                     "type": "integer"
                 },
                 "standing_pct": {
                     "type": "number"
+                },
+                "standing_player_kills": {
+                    "type": "integer"
                 }
             }
         },
@@ -5373,6 +5369,9 @@ const docTemplate = `{
                 "accuracy": {
                     "type": "number"
                 },
+                "bot_kills": {
+                    "type": "integer"
+                },
                 "headshots": {
                     "type": "integer"
                 },
@@ -5380,6 +5379,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "kills": {
+                    "type": "integer"
+                },
+                "player_kills": {
                     "type": "integer"
                 },
                 "weapon_name": {

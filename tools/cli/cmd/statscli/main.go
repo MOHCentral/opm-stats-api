@@ -430,7 +430,7 @@ func viewClickHouseStats(guid string) {
 		return
 	}
 
-	url := fmt.Sprintf("%s/?query=SELECT+countIf(event_type='kill'),+countIf(event_type='death')+FROM+raw_events+WHERE+actor_id='%s'", ClickHouseURL, guid)
+	url := fmt.Sprintf("%s/?query=SELECT+countIf(event_type='player_kill'),+countIf(event_type='death')+FROM+raw_events+WHERE+actor_id='%s'", ClickHouseURL, guid)
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error fetching stats: %v\n", err)

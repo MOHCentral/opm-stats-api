@@ -28,8 +28,8 @@ func TestPool_RaceCondition(t *testing.T) {
 		FlushInterval: 10 * time.Millisecond,
 		ClickHouse:    &MockClickHouseConn{},
 		// Postgres left nil, hope we don't hit it
-		Redis:         rdb,
-		Logger:        logger,
+		Redis:  rdb,
+		Logger: logger,
 	}
 
 	p := &Pool{
@@ -67,7 +67,7 @@ func TestPool_RaceCondition(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < eventsPerWorker; j++ {
 				p.Enqueue(&models.RawEvent{
-					Type:         models.EventKill,
+					Type:         models.EventPlayerKill,
 					MatchID:      "test-match",
 					AttackerGUID: fmt.Sprintf("attacker-%d", j),
 					Timestamp:    float64(time.Now().Unix()),

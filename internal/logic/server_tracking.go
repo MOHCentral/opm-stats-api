@@ -98,7 +98,7 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]models.Ser
 			FROM (
 				SELECT 
 					server_id,
-					countIf(event_type = 'kill') as kills,
+					countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 					uniqExact(actor_id) as player_count
 				FROM raw_events
 				WHERE server_id IN (?) AND timestamp > now() - INTERVAL 24 HOUR
@@ -164,7 +164,7 @@ func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*mode
 	// Today's stats from ClickHouse
 	s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type = 'kill') as kills_today,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills_today,
 			uniq(match_id) as matches_today,
 			count() as total_kills_all
 		FROM raw_events
@@ -219,8 +219,8 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 	// Note: deaths = kills for global stats (each kill = one death)
 	s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'kill') as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as deaths,
 			countIf(event_type = 'headshot') as headshots,
 			uniq(match_id) as matches,
 			uniq(actor_id) as players,
@@ -236,7 +236,7 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 	// 24h stats
 	s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			uniq(match_id) as matches,
 			uniq(actor_id) as players
 		FROM raw_events
@@ -246,7 +246,7 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 	// 7d stats
 	s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			uniq(match_id) as matches,
 			uniq(actor_id) as players
 		FROM raw_events
@@ -256,7 +256,7 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 	// 30d stats
 	s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			uniq(match_id) as matches,
 			uniq(actor_id) as players
 		FROM raw_events
@@ -401,13 +401,13 @@ func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverI
 		WITH deaths_cte AS (
 			SELECT target_id, count() as death_count
 			FROM raw_events
-			WHERE server_id = ? AND event_type = 'kill' AND target_id != ''
+			WHERE server_id = ? AND event_type IN ('player_kill', 'bot_killed') AND target_id != ''
 			GROUP BY target_id
 		)
 		SELECT 
 			a.actor_id,
 			any(a.actor_name) as name,
-			countIf(a.event_type = 'kill') as kills,
+			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
 			countIf(a.event_type = 'headshot') as headshots,
 			uniq(a.match_id) as sessions,
@@ -468,7 +468,7 @@ func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID 
 		SELECT 
 			map_name,
 			uniq(match_id) as matches,
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			avg(player_count) as avg_players,
 			avgIf(duration, event_type = 'match_end') / 60.0 as avg_duration,
 			max(timestamp) as last_played,
@@ -513,7 +513,7 @@ func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID 
 func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, serverID string) ([]models.ServerWeaponStats, error) {
 	query := `
 		WITH totals AS (
-			SELECT countIf(event_type = 'kill') as total_kills
+			SELECT countIf(event_type IN ('player_kill', 'bot_killed')) as total_kills
 			FROM raw_events WHERE server_id = ?
 		)
 		SELECT 
@@ -523,7 +523,7 @@ func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, server
 			avg(distance) as avg_dist,
 			count() * 100.0 / (SELECT total_kills FROM totals) as usage_rate
 		FROM raw_events
-		WHERE server_id = ? AND event_type IN ('kill', 'headshot') AND actor_weapon != ''
+		WHERE server_id = ? AND event_type IN ('player_kill', 'headshot') AND actor_weapon != ''
 		GROUP BY actor_weapon
 		ORDER BY kills DESC
 		LIMIT 20
@@ -570,7 +570,7 @@ func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serv
 			any(gametype) as gametype,
 			uniq(actor_id) as players,
 			max(timestamp) - min(timestamp) as duration,
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			min(timestamp) as started,
 			max(timestamp) as ended
 		FROM raw_events
@@ -618,8 +618,8 @@ func (s *ServerTrackingService) GetServerActivityTimeline(ctx context.Context, s
 	query := `
 		SELECT 
 			toStartOfHour(timestamp) as ts,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'kill') as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as deaths,
 			uniq(actor_id) as players,
 			countIf(event_type = 'match_start') as match_starts
 		FROM raw_events
@@ -746,7 +746,7 @@ func (s *ServerTrackingService) GetServerRankings(ctx context.Context, limit int
 	query := `
 		SELECT 
 			server_id,
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			uniq(actor_id) as players,
 			uniq(match_id) as matches
 		FROM raw_events
@@ -935,7 +935,7 @@ func (s *ServerTrackingService) GetServerHistoricalPlayers(ctx context.Context, 
 		WITH deaths_cte AS (
 			SELECT target_id, count() as death_count
 			FROM raw_events
-			WHERE server_id = ? AND event_type = 'kill' AND target_id != ''
+			WHERE server_id = ? AND event_type IN ('player_kill', 'bot_killed') AND target_id != ''
 			GROUP BY target_id
 		)
 		SELECT 
@@ -944,12 +944,12 @@ func (s *ServerTrackingService) GetServerHistoricalPlayers(ctx context.Context, 
 			min(a.timestamp) as first_seen,
 			max(a.timestamp) as last_seen,
 			uniq(a.match_id) as sessions,
-			countIf(a.event_type = 'kill') as kills,
+			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
 			countIf(a.event_type = 'headshot') as headshots,
-			countIf(a.event_type = 'kill' AND a.timestamp > now() - INTERVAL 7 DAY) as kills_7d,
-			countIf(a.event_type = 'kill' AND a.timestamp > now() - INTERVAL 30 DAY) as kills_30d,
-			argMax(a.actor_weapon, countIf(a.event_type = 'kill')) as fav_weapon,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.timestamp > now() - INTERVAL 7 DAY) as kills_7d,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.timestamp > now() - INTERVAL 30 DAY) as kills_30d,
+			argMax(a.actor_weapon, countIf(a.event_type IN ('player_kill', 'bot_killed'))) as fav_weapon,
 			argMax(a.map_name, count()) as fav_map
 		FROM raw_events a
 		LEFT JOIN deaths_cte d ON a.actor_id = d.target_id
@@ -1050,7 +1050,7 @@ func (s *ServerTrackingService) GetServerMapRotation(ctx context.Context, server
 			uniq(match_id) as plays,
 			avgIf(duration, event_type = 'match_end') / 60.0 as avg_duration,
 			avg(player_count) as avg_players,
-			countIf(event_type = 'kill') as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			toHour(argMax(timestamp, count())) as peak_hour,
 			uniq(match_id) * 100.0 / (SELECT total_matches FROM totals) as popularity
 		FROM (

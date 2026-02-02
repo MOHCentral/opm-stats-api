@@ -2,14 +2,14 @@ package models
 
 // DeepStats represents the massive aggregated stats object
 type DeepStats struct {
-	Combat      CombatStats      `json:"combat"`
-	Weapons     []PlayerWeaponStats    `json:"weapons"` // Renamed to PlayerWeaponStats to avoid conflict if needed, or keep WeaponStats
-	Movement    MovementStats    `json:"movement"`
-	Accuracy    AccuracyStats    `json:"accuracy"`
-	Session     SessionStats     `json:"session"`
-	Rivals      RivalStats       `json:"rivals"`
-	Stance      StanceStats      `json:"stance"`
-	Interaction InteractionStats `json:"interaction"`
+	Combat      CombatStats         `json:"combat"`
+	Weapons     []PlayerWeaponStats `json:"weapons"` // Renamed to PlayerWeaponStats to avoid conflict if needed, or keep WeaponStats
+	Movement    MovementStats       `json:"movement"`
+	Accuracy    AccuracyStats       `json:"accuracy"`
+	Session     SessionStats        `json:"session"`
+	Rivals      RivalStats          `json:"rivals"`
+	Stance      StanceStats         `json:"stance"`
+	Interaction InteractionStats    `json:"interaction"`
 }
 
 type RivalStats struct {
@@ -20,16 +20,24 @@ type RivalStats struct {
 }
 
 type StanceStats struct {
-	StandingKills uint64  `json:"standing_kills"`
-	CrouchKills   uint64  `json:"crouch_kills"`
-	ProneKills    uint64  `json:"prone_kills"`
-	StandingPct   float64 `json:"standing_pct"`
-	CrouchPct     float64 `json:"crouch_pct"`
-	PronePct      float64 `json:"prone_pct"`
+	StandingKills       uint64  `json:"standing_kills"`
+	StandingPlayerKills uint64  `json:"standing_player_kills"`
+	StandingBotKills    uint64  `json:"standing_bot_kills"`
+	CrouchKills         uint64  `json:"crouch_kills"`
+	CrouchPlayerKills   uint64  `json:"crouch_player_kills"`
+	CrouchBotKills      uint64  `json:"crouch_bot_kills"`
+	ProneKills          uint64  `json:"prone_kills"`
+	PronePlayerKills    uint64  `json:"prone_player_kills"`
+	ProneBotKills       uint64  `json:"prone_bot_kills"`
+	StandingPct         float64 `json:"standing_pct"`
+	CrouchPct           float64 `json:"crouch_pct"`
+	PronePct            float64 `json:"prone_pct"`
 }
 
 type CombatStats struct {
 	Kills           uint64  `json:"kills"`
+	PlayerKills     uint64  `json:"player_kills"`
+	BotKills        uint64  `json:"bot_kills"`
 	Deaths          uint64  `json:"deaths"`
 	KDRatio         float64 `json:"kd_ratio"`
 	Headshots       uint64  `json:"headshots"`
@@ -56,14 +64,16 @@ type CombatStats struct {
 }
 
 type PlayerWeaponStats struct {
-	Name      string  `json:"name"`
-	Kills     uint64  `json:"kills"`
-	Deaths    uint64  `json:"deaths"`
-	Headshots uint64  `json:"headshots"`
-	Accuracy  float64 `json:"accuracy"`
-	Shots     uint64  `json:"shots"`
-	Hits      uint64  `json:"hits"`
-	Damage    uint64  `json:"damage"`
+	Name        string  `json:"name"`
+	Kills       uint64  `json:"kills"`
+	PlayerKills uint64  `json:"player_kills"`
+	BotKills    uint64  `json:"bot_kills"`
+	Deaths      uint64  `json:"deaths"`
+	Headshots   uint64  `json:"headshots"`
+	Accuracy    float64 `json:"accuracy"`
+	Shots       uint64  `json:"shots"`
+	Hits        uint64  `json:"hits"`
+	Damage      uint64  `json:"damage"`
 }
 
 type MovementStats struct {
@@ -102,12 +112,13 @@ type PickupStat struct {
 type GametypeStats struct {
 	Gametype      string  `json:"gametype"`
 	Kills         uint64  `json:"kills"`
+	PlayerKills   uint64  `json:"player_kills"`
+	BotKills      uint64  `json:"bot_kills"`
 	Deaths        uint64  `json:"deaths"`
 	Headshots     uint64  `json:"headshots"`
 	MatchesPlayed uint64  `json:"matches_played"`
 	KDRatio       float64 `json:"kd_ratio"`
 }
-
 
 type PlayerStats struct {
 	GUID            string  `json:"guid"`
@@ -165,11 +176,13 @@ type RecentMatch struct {
 type PlayerMapStats struct {
 	MapName       string  `json:"map_name"`
 	Kills         uint64  `json:"kills"`
+	PlayerKills   uint64  `json:"player_kills"`
+	BotKills      uint64  `json:"bot_kills"`
 	Deaths        uint64  `json:"deaths"`
 	MatchesPlayed uint64  `json:"matches_played"`
 	MatchesWon    uint64  `json:"matches_won"`
-	Headshots     uint64  `json:"headshots"` // Added
-	KDRatio       float64 `json:"kd_ratio"`  // Added
+	Headshots     uint64  `json:"headshots"`
+	KDRatio       float64 `json:"kd_ratio"`
 }
 
 // MapStats per-map statistics (Legacy/General)
@@ -193,4 +206,3 @@ type WeaponStats struct {
 	ShotsHit   uint64  `json:"shots_hit"`
 	Accuracy   float64 `json:"accuracy"`
 }
-

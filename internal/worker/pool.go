@@ -395,7 +395,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		event := job.Event
 
 		switch event.Type {
-		case models.EventKill:
+		case models.EventPlayerKill:
 			if event.AttackerGUID != "" && event.AttackerGUID != "world" {
 				key := "player:" + event.AttackerGUID + ":kills"
 				cmd := pipe.Incr(ctx, key)
@@ -423,7 +423,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 			if event.PlayerGUID != "" && event.NewTeam != "" {
 				pipe.HSet(ctx, "match:"+event.MatchID+":teams", event.PlayerGUID, event.NewTeam)
 			}
-		case models.EventSpawn:
+		case models.EventPlayerSpawn:
 			if event.PlayerGUID != "" && event.PlayerTeam != "" {
 				pipe.HSet(ctx, "match:"+event.MatchID+":teams", event.PlayerGUID, event.PlayerTeam)
 			}
@@ -577,7 +577,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 
 	// Set actor/target based on event type
 	switch event.Type {
-	case models.EventKill, models.EventHeadshot, models.EventPlayerBash, "bash", models.EventPlayerRoadkill, models.EventPlayerTeamkill, models.EventPlayerSuicide, models.EventPlayerCrushed, models.EventPlayerTelefragged:
+	case models.EventPlayerKill, models.EventHeadshot, models.EventPlayerBash, "bash", models.EventPlayerRoadkill, models.EventPlayerTeamkill, models.EventPlayerSuicide, models.EventPlayerCrushed, models.EventPlayerTelefragged, models.EventBotKilled:
 		ch.ActorID = event.AttackerGUID
 		ch.ActorName = sanitizeName(event.AttackerName)
 		ch.ActorTeam = event.AttackerTeam
@@ -615,7 +615,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 
 		ch.Damage = uint32(event.Damage)
 
-	case models.EventWeaponFire, models.EventWeaponReload, models.EventWeaponChange:
+	case models.EventWeaponFire, models.EventReload, models.EventWeaponChange:
 		ch.ActorID = event.PlayerGUID
 		ch.ActorName = sanitizeName(event.PlayerName)
 		ch.ActorSMFID = event.PlayerSMFID
@@ -689,8 +689,10 @@ func (p *Pool) processEventSideEffects(ctx context.Context, event *models.RawEve
 		p.handleMatchEnd(ctx, event)
 	case models.EventHeartbeat:
 		p.handleHeartbeat(ctx, event)
-	case models.EventKill:
+	case models.EventPlayerKill:
 		p.handleKill(ctx, event)
+	case models.EventBotKilled:
+		p.handleKill(ctx, event) // Bot kills count as kills
 	case models.EventHeadshot:
 		p.handleHeadshot(ctx, event)
 	case models.EventConnect:
@@ -701,7 +703,7 @@ func (p *Pool) processEventSideEffects(ctx context.Context, event *models.RawEve
 		p.handleChat(ctx, event)
 	case models.EventTeamChange:
 		p.handleTeamChange(ctx, event)
-	case models.EventSpawn:
+	case models.EventPlayerSpawn:
 		p.handleSpawn(ctx, event)
 	case models.EventTeamWin:
 		p.handleTeamWin(ctx, event)
@@ -851,7 +853,7 @@ func (p *Pool) handleHeartbeat(ctx context.Context, event *models.RawEvent) {
 			liveMatch.AxisScore = event.AxisScore
 			liveMatch.PlayerCount = event.PlayerCount
 			liveMatch.RoundNumber = event.RoundNumber
-			
+
 			newData, _ := json.Marshal(liveMatch)
 			p.config.Redis.HSet(ctx, "live_matches", event.MatchID, newData)
 		}
@@ -1026,9 +1028,9 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 
 	// 1. Update Redis "live_servers"
 	// Format: "players:%d,map:%s,gametype:%s"
-	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s", 
+	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s",
 		event.PlayerCount, event.MapName, event.Gametype)
-	
+
 	p.config.Redis.HSet(ctx, "live_servers", event.ServerID, statusStr)
 	// Set expiration handling if needed? Redis Key itself doesn't expire, field doesn't expire.
 	// Logic relies on IsOnline = true if entry exists AND LastSeen logic in Postgres which server_tracking uses
@@ -1045,7 +1047,7 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 		defer func() { recover() }() // Safely ignore panics
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		_, err := p.config.Postgres.Exec(ctx, `
 			UPDATE servers SET last_seen = NOW(), is_active = true WHERE id = $1
 		`, event.ServerID)

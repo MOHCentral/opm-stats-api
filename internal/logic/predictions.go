@@ -28,7 +28,7 @@ func (s *predictionService) GetPlayerPredictions(ctx context.Context, guid strin
 		SELECT 
 			kills / nullIf(deaths, 0) as kd
 		FROM mohaa_stats.raw_events
-		WHERE actor_id = ? AND event_type = 'kill'
+		WHERE actor_id = ? AND event_type IN ('player_kill', 'bot_killed')
 		GROUP BY match_id, kills, deaths, timestamp
 		ORDER BY max(timestamp) DESC
 		LIMIT 10
@@ -74,7 +74,7 @@ func (s *predictionService) GetPlayerPredictions(ctx context.Context, guid strin
 			any(target_name),
 			count() as kills
 		FROM mohaa_stats.raw_events
-		WHERE actor_id = ? AND event_type = 'kill' AND target_id != ''
+		WHERE actor_id = ? AND event_type IN ('player_kill', 'bot_killed') AND target_id != ''
 		GROUP BY target_id
 		ORDER BY kills DESC
 		LIMIT 3

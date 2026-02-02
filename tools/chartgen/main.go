@@ -96,7 +96,7 @@ func generateWeaponUsage(ctx context.Context, conn clickhouse.Conn) {
 	rows, err := conn.Query(ctx, `
 		SELECT actor_weapon, count() as kills
 		FROM raw_events
-		WHERE event_type = 'kill' AND actor_weapon != ''
+		WHERE event_type = 'player_kill' AND actor_weapon != ''
 		GROUP BY actor_weapon
 		ORDER BY kills DESC
 		LIMIT 10

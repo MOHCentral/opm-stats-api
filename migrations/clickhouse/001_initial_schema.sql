@@ -175,7 +175,7 @@ AS SELECT
     argMax(actor_name, if(actor_name != '', toUnixTimestamp64Nano(timestamp), 0)) AS player_name,
     
     -- Combat (Actor side)
-    countIf(event_type = 'kill') AS kills,
+    countIf(event_type = 'player_kill') AS kills,
     0 AS deaths, -- Actor doesn't die in a kill event (usually)
     countIf(event_type = 'headshot') AS headshots,
     countIf(event_type = 'weapon_fire') AS shots_fired,
@@ -184,7 +184,7 @@ AS SELECT
     
     -- Special Kills
     countIf(event_type IN ('player_bash', 'bash')) AS bash_kills,
-    countIf(event_type IN ('grenade_throw', 'explosion', 'grenade_explode', 'kill') AND actor_weapon IN ('grenade', 'm2_grenade', 'steielhandgranate')) AS grenade_kills,
+    countIf(event_type IN ('grenade_throw', 'explosion', 'grenade_explode', 'player_kill') AND actor_weapon IN ('grenade', 'm2_grenade', 'steielhandgranate')) AS grenade_kills,
     countIf(event_type IN ('player_roadkill', 'roadkill')) AS roadkills,
     countIf(event_type = 'player_telefragged') AS telefrags,
     countIf(event_type IN ('player_crushed', 'crushed')) AS crushed,
@@ -192,8 +192,8 @@ AS SELECT
     countIf(event_type IN ('player_suicide', 'suicide')) AS suicides,
     
     -- Weapons
-    countIf(event_type IN ('weapon_reload', 'reload')) AS reloads,
-    countIf(event_type IN ('weapon_change', 'weapon_swap')) AS weapon_swaps,
+    countIf(event_type IN ('reload', 'reload')) AS reloads,
+    countIf(event_type IN ('weapon_change', 'weapon_change')) AS weapon_swaps,
     countIf(event_type = 'weapon_no_ammo') AS no_ammo,
     
     -- Movement
@@ -230,7 +230,7 @@ AS SELECT
     argMax(target_name, if(target_name != '', toUnixTimestamp64Nano(timestamp), 0)) AS player_name,
     
     0 AS kills,
-    count() AS deaths, -- Target of a 'kill' event IS the death
+    count() AS deaths, -- Target of a 'player_kill' event IS the death
     0 AS headshots,
     0 AS shots_fired,
     0 AS shots_hit,
@@ -268,7 +268,7 @@ AS SELECT
     
     max(timestamp) AS last_active
 FROM mohaa_stats.raw_events
-WHERE event_type = 'kill' AND target_id != '' AND target_id != 'world'
+WHERE event_type = 'player_kill' AND target_id != '' AND target_id != 'world'
 GROUP BY day, target_id;
 
 -- Weapon usage stats
@@ -281,7 +281,7 @@ AS SELECT
     actor_weapon,
     actor_id,
     argMax(actor_name, if(actor_name != '', toUnixTimestamp64Nano(timestamp), 0)) AS actor_name,
-    countIf(event_type = 'kill') AS kills,
+    countIf(event_type = 'player_kill') AS kills,
     countIf(event_type = 'headshot') AS headshots,
     countIf(event_type = 'weapon_fire') AS shots_fired,
     countIf(event_type = 'weapon_hit') AS shots_hit
@@ -298,7 +298,7 @@ AS SELECT
     toStartOfDay(timestamp) AS day,
     map_name,
     countIf(event_type = 'match_start') AS matches_started,
-    countIf(event_type = 'kill') AS total_kills,
+    countIf(event_type = 'player_kill') AS total_kills,
     uniqExact(actor_id) AS unique_players
 FROM mohaa_stats.raw_events
 WHERE map_name != ''
@@ -316,7 +316,7 @@ AS SELECT
     round(actor_pos_y / 100) * 100 AS bucket_y,
     count() AS kill_count
 FROM mohaa_stats.raw_events
-WHERE event_type = 'kill' AND map_name != '' AND actor_pos_x != 0
+WHERE event_type = 'player_kill' AND map_name != '' AND actor_pos_x != 0
 GROUP BY day, map_name, bucket_x, bucket_y;
 
 -- Identity Materilized Views

@@ -27,39 +27,47 @@ type BestConditions struct {
 }
 
 type HourStats struct {
-	Hour     int     `json:"hour"`
-	Kills    int64   `json:"kills"`
-	Deaths   int64   `json:"deaths"`
-	KDRatio  float64 `json:"kd_ratio"`
-	Accuracy float64 `json:"accuracy"`
-	Wins     int64   `json:"wins"`
-	Losses   int64   `json:"losses"`
+	Hour        int     `json:"hour"`
+	Kills       int64   `json:"kills"`
+	PlayerKills int64   `json:"player_kills"`
+	BotKills    int64   `json:"bot_kills"`
+	Deaths      int64   `json:"deaths"`
+	KDRatio     float64 `json:"kd_ratio"`
+	Accuracy    float64 `json:"accuracy"`
+	Wins        int64   `json:"wins"`
+	Losses      int64   `json:"losses"`
 }
 
 type DayStats struct {
-	DayOfWeek string  `json:"day_of_week"`
-	DayNum    int     `json:"day_num"` // 0=Sunday
-	Kills     int64   `json:"kills"`
-	Deaths    int64   `json:"deaths"`
-	KDRatio   float64 `json:"kd_ratio"`
-	Accuracy  float64 `json:"accuracy"`
-	Playtime  float64 `json:"playtime_hours"`
+	DayOfWeek   string  `json:"day_of_week"`
+	DayNum      int     `json:"day_num"` // 0=Sunday
+	Kills       int64   `json:"kills"`
+	PlayerKills int64   `json:"player_kills"`
+	BotKills    int64   `json:"bot_kills"`
+	Deaths      int64   `json:"deaths"`
+	KDRatio     float64 `json:"kd_ratio"`
+	Accuracy    float64 `json:"accuracy"`
+	Playtime    float64 `json:"playtime_hours"`
 }
 
 type MapPeakStats struct {
-	MapName string  `json:"map_name"`
-	Kills   int64   `json:"kills"`
-	Deaths  int64   `json:"deaths"`
-	KDRatio float64 `json:"kd_ratio"`
-	WinRate float64 `json:"win_rate"`
+	MapName     string  `json:"map_name"`
+	Kills       int64   `json:"kills"`
+	PlayerKills int64   `json:"player_kills"`
+	BotKills    int64   `json:"bot_kills"`
+	Deaths      int64   `json:"deaths"`
+	KDRatio     float64 `json:"kd_ratio"`
+	WinRate     float64 `json:"win_rate"`
 }
 
 type WeaponPeak struct {
-	WeaponName string  `json:"weapon_name"`
-	Kills      int64   `json:"kills"`
-	Headshots  int64   `json:"headshots"`
-	HSPercent  float64 `json:"hs_percent"`
-	Accuracy   float64 `json:"accuracy"`
+	WeaponName  string  `json:"weapon_name"`
+	Kills       int64   `json:"kills"`
+	PlayerKills int64   `json:"player_kills"`
+	BotKills    int64   `json:"bot_kills"`
+	Headshots   int64   `json:"headshots"`
+	HSPercent   float64 `json:"hs_percent"`
+	Accuracy    float64 `json:"accuracy"`
 }
 
 type StreakStats struct {

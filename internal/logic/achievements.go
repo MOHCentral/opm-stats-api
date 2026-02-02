@@ -52,8 +52,8 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 	// Updated to use correct event types and logic
 	query := `
 		SELECT 
-			countIf(event_type = 'kill' AND actor_id = ?) as kills,
-			countIf(event_type = 'kill' AND target_id = ?) as deaths,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ?) as deaths,
 			countIf(event_type = 'weapon_fire' AND actor_id = ?) as shots,
 			countIf(event_type = 'weapon_hit' AND actor_id = ?) as hits,
 			countIf(event_type = 'match_outcome' AND match_outcome = 1 AND actor_id = ?) as wins
@@ -127,7 +127,7 @@ func (s *achievementsService) getMatchAchievements(ctx context.Context, matchID,
 			round_number,
 			uniq(target_id) as enemies_killed
 		FROM raw_events
-		WHERE match_id = ? AND actor_id = ? AND event_type = 'kill' AND target_id != '' AND target_id != 'world'
+		WHERE match_id = ? AND actor_id = ? AND event_type IN ('player_kill', 'bot_killed') AND target_id != '' AND target_id != 'world'
 		GROUP BY round_number
 	`
 	rows, err := s.ch.Query(ctx, wipeoutQuery, matchID, playerID)

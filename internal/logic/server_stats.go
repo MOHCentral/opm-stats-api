@@ -59,7 +59,7 @@ func (s *serverStatsService) GetMapPopularity(ctx context.Context) ([]models.Map
 		SELECT 
 			map_name,
 			count(DISTINCT match_id) as matches,
-			countIf(event_type='kill') as kills,
+			countIf(event_type='player_kill') as kills,
 			floor(avg(duration_sec)) as avg_duration
 		FROM (
 			SELECT 
@@ -82,7 +82,7 @@ func (s *serverStatsService) GetMapPopularity(ctx context.Context) ([]models.Map
 		SELECT 
 			map_name,
 			count(DISTINCT match_id) as matches,
-			countIf(event_type='kill') as kills
+			countIf(event_type='player_kill') as kills
 		FROM raw_events
 		WHERE map_name != ''
 		GROUP BY map_name
@@ -108,38 +108,31 @@ func (s *serverStatsService) GetMapPopularity(ctx context.Context) ([]models.Map
 	return stats, nil
 }
 
-
-
-// GetServerPulse returns high-level metrics about the server's "chaos level"
 // GetGlobalStats returns aggregate statistics for the dashboard
 func (s *serverStatsService) GetGlobalStats(ctx context.Context) (map[string]interface{}, error) {
-	var totalKills, totalMatches, activePlayers uint64
+	var totalKills, totalMatches, activePlayers, serverCount uint64
 
 	// Total Kills from aggregated daily stats
-	if err := s.ch.QueryRow(ctx, "SELECT sum(kills) FROM mohaa_stats.player_stats_daily_mv").Scan(&totalKills); err != nil {
-		return nil, err
-	}
+	s.ch.QueryRow(ctx, "SELECT sum(kills) FROM mohaa_stats.player_stats_daily").Scan(&totalKills)
 
-	// Total Matches
-	if err := s.ch.QueryRow(ctx, "SELECT count() FROM mohaa_stats.match_summary_mv").Scan(&totalMatches); err != nil {
-		return nil, err
-	}
+	// Total Matches (unique match IDs from raw events for accuracy)
+	s.ch.QueryRow(ctx, "SELECT uniq(match_id) FROM mohaa_stats.raw_events").Scan(&totalMatches)
 
-	// Active Players
-	if err := s.ch.QueryRow(ctx, "SELECT uniq(actor_id) FROM mohaa_stats.player_stats_daily_mv WHERE day >= today() - 1 AND actor_id != ''").Scan(&activePlayers); err != nil {
-		return nil, err
+	// Active Players (last 24 hours)
+	if err := s.ch.QueryRow(ctx, "SELECT uniq(player_id) FROM mohaa_stats.player_stats_daily WHERE day >= today() - 1 AND player_id != ''").Scan(&activePlayers); err != nil {
+		// Fallback to all-time if no recent activity (to show something in dev)
+		s.ch.QueryRow(ctx, "SELECT uniq(player_id) FROM mohaa_stats.player_stats_daily WHERE player_id != ''").Scan(&activePlayers)
 	}
 
 	// Server Count
-	var serverCount int64
-	s.ch.QueryRow(ctx, `SELECT uniq(server_id) FROM mohaa_stats.server_activity_mv WHERE server_id != ''`).Scan(&serverCount)
+	s.ch.QueryRow(ctx, `SELECT uniq(server_id) FROM mohaa_stats.raw_events WHERE server_id != ''`).Scan(&serverCount)
 
 	// Average Accuracy
 	var avgAccuracy float64
 	s.ch.QueryRow(ctx, `
 		SELECT
 			sum(shots_hit) / nullif(sum(shots_fired), 0) * 100
-		FROM mohaa_stats.player_stats_daily_mv
+		FROM mohaa_stats.player_stats_daily
 	`).Scan(&avgAccuracy)
 
 	// Average KD
@@ -147,7 +140,7 @@ func (s *serverStatsService) GetGlobalStats(ctx context.Context) (map[string]int
 	s.ch.QueryRow(ctx, `
 		SELECT
 			sum(kills) / nullif(sum(deaths), 0)
-		FROM mohaa_stats.player_stats_daily_mv
+		FROM mohaa_stats.player_stats_daily
 	`).Scan(&avgKD)
 
 	return map[string]interface{}{
@@ -167,7 +160,7 @@ func (s *serverStatsService) GetServerPulse(ctx context.Context) (*models.Server
 	// Total kills / 24 to get kills per hour average
 	if err := s.ch.QueryRow(ctx, `
 		SELECT 
-			countIf(event_type='kill') / 24.0 as kph
+			countIf(event_type='player_kill') / 24.0 as kph
 		FROM raw_events
 		WHERE timestamp >= now() - INTERVAL 24 HOUR
 	`).Scan(&pulse.LethalityRating); err != nil {
@@ -186,7 +179,7 @@ func (s *serverStatsService) GetServerPulse(ctx context.Context) (*models.Server
 	s.ch.QueryRow(ctx, `
 		SELECT map_name 
 		FROM raw_events 
-		WHERE event_type = 'kill' AND map_name != ''
+		WHERE event_type IN ('player_kill', 'bot_killed') AND map_name != ''
 		GROUP BY map_name 
 		ORDER BY count() DESC 
 		LIMIT 1

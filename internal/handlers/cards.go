@@ -16,7 +16,7 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 		WITH deaths_cte AS (
 			SELECT target_id as player_id, count() as death_count
 			FROM mohaa_stats.raw_events
-			WHERE event_type = 'kill' AND target_id != '' AND target_id != 'world'
+			WHERE event_type IN ('player_kill', 'bot_killed') AND target_id != '' AND target_id != 'world'
 			GROUP BY target_id
 		)
 		SELECT 
@@ -24,7 +24,7 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			anyLast(a.actor_name) as name,
 			
 			-- A. Lethality & Combat (using correct event types: kill, headshot)
-			countIf(a.event_type = 'kill') as kills,
+			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
 			countIf(a.event_type = 'headshot') as headshots,
 			countIf(a.event_type = 'weapon_fire') as shots_fired,
@@ -37,11 +37,11 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			countIf(a.event_type IN ('player_crushed', 'crushed')) as crushed,
 			countIf(a.event_type IN ('player_teamkill', 'teamkill')) as teamkills,
 			countIf(a.event_type IN ('player_suicide', 'suicide')) as suicides,
-			countIf(a.event_type IN ('player_spawn', 'spawn')) as mystery_kills,
+			countIf(a.event_type IN ('player_spawn', 'player_spawn')) as mystery_kills,
 
 			-- B. Weapon Handling
-			countIf(a.event_type IN ('weapon_reload', 'reload')) as reloads,
-			countIf(a.event_type IN ('weapon_change', 'weapon_swap')) as weapon_swaps,
+			countIf(a.event_type IN ('reload', 'reload')) as reloads,
+			countIf(a.event_type IN ('weapon_change', 'weapon_change')) as weapon_swaps,
 			countIf(a.event_type = 'weapon_no_ammo') as no_ammo,
 			countIf(a.event_type = 'item_pickup') as looter,
 
@@ -72,23 +72,23 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			-- F. Vehicles
 			countIf(a.event_type IN ('vehicle_enter', 'turret_enter')) as vehicle_enter,
 			countIf(a.event_type = 'turret_enter') as turret_enter,
-			countIf(a.event_type = 'kill' AND a.actor_id = 'vehicle') as vehicle_kills,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.actor_id = 'vehicle') as vehicle_kills,
 
 			-- G. Social & Misc
-			countIf(a.event_type IN ('chat', 'player_say')) as chat_msgs,
+			countIf(a.event_type IN ('chat', 'chat')) as chat_msgs,
 			countIf(a.event_type = 'player_spectate') as spectating,
 			countIf(a.event_type = 'door_open') as doors_opened,
 			
 			-- H. Creative Stats
 			countIf(a.event_type IN ('ladder_mount', 'jump')) as verticality,
-			uniqIf(a.actor_weapon, a.event_type IN ('kill', 'player_bash', 'bash')) as unique_weapon_kills,
+			uniqIf(a.actor_weapon, a.event_type IN ('player_kill', 'player_bash', 'bash')) as unique_weapon_kills,
 			countIf(a.event_type = 'item_drop') as items_dropped,
 			countIf(a.event_type = 'vehicle_collision') as vehicle_collisions,
 			countIf(a.event_type = 'bot_killed') as bot_kills,
 
             -- Movement specific
             sumIf(a.distance, a.event_type = 'distance') as total_distance,
-            countIf(a.event_type = 'weapon_reload') as reload_count,
+            countIf(a.event_type = 'reload') as reload_count,
             countIf(a.event_type = 'ladder_mount') as ladder_mounts,
             countIf(a.event_type = 'crouch') as manual_crouches
 
@@ -96,7 +96,7 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN deaths_cte d ON a.actor_id = d.player_id
 		WHERE a.actor_id != 'world' AND a.actor_id != ''
 		GROUP BY a.actor_id
-		HAVING countIf(a.event_type = 'kill') > 0 OR max(d.death_count) > 0 OR countIf(a.event_type = 'weapon_fire') > 0
+		HAVING countIf(a.event_type IN ('player_kill', 'bot_killed')) > 0 OR max(d.death_count) > 0 OR countIf(a.event_type = 'weapon_fire') > 0
 	`
 
 	rows, err := h.ch.Query(ctx, query)

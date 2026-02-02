@@ -189,6 +189,7 @@ func main() {
 		r.Route("/system", func(r chi.Router) {
 			r.Use(h.ServerAuthMiddleware)
 			r.Post("/install", h.InstallDatabase)
+			r.Post("/reset", h.ResetDatabase)
 		})
 
 		// Stats endpoints (for frontend)

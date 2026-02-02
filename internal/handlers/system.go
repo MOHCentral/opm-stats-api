@@ -100,6 +100,63 @@ func (h *Handler) executeClickHouseSQL(ctx context.Context, path string) error {
 	return nil
 }
 
+// ResetDatabase clears all statistical data from ClickHouse and PostgreSQL
+// @Summary Reset Database Data
+// @Description Drops ClickHouse database and recreates schema, truncates achievement progress
+// @Tags System
+// @Accept json
+// @Produce json
+// @Security ServerToken
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /system/reset [post]
+func (h *Handler) ResetDatabase(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	results := make(map[string]string)
+	hasError := false
+
+	// 1. Drop ClickHouse Database
+	// We drop the entire database to ensure all MVs and tables are clean
+	if err := h.ch.Exec(ctx, "DROP DATABASE IF EXISTS mohaa_stats"); err != nil {
+		h.logger.Errorw("failed to drop ClickHouse database", "error", err)
+		results["clickhouse_drop"] = "failed: " + err.Error()
+		hasError = true
+	} else {
+		results["clickhouse_drop"] = "success"
+
+		// 2. Re-install ClickHouse Schema
+		chSchemaPath := filepath.Join("migrations", "clickhouse", "001_initial_schema.sql")
+		if err := h.executeClickHouseSQL(ctx, chSchemaPath); err != nil {
+			results["clickhouse_reinstall"] = "failed: " + err.Error()
+			hasError = true
+		} else {
+			results["clickhouse_reinstall"] = "success"
+		}
+	}
+
+	// 3. Reset Achievement Progress in PostgreSQL
+	// We truncate the achievement mapping tables but keep the definitions
+	if _, err := h.pg.Exec(ctx, "TRUNCATE TABLE mohaa_player_achievements RESTART IDENTITY CASCADE"); err != nil {
+		h.logger.Errorw("failed to truncate achievement progress", "error", err)
+		results["postgres_reset"] = "failed: " + err.Error()
+		hasError = true
+	} else {
+		results["postgres_reset"] = "success"
+	}
+
+	statusCode := http.StatusOK
+	if hasError {
+		statusCode = http.StatusInternalServerError
+	}
+
+	h.jsonResponse(w, statusCode, map[string]interface{}{
+		"status":  "completed",
+		"results": results,
+		"error":   hasError,
+	})
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a

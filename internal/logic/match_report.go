@@ -110,7 +110,7 @@ func (s *matchReportService) getTimeline(ctx context.Context, matchID string) ([
 			target_name, 
 			JSONExtractString(raw_json, 'weapon') as detail
 		FROM mohaa_stats.raw_events
-		WHERE match_id = toUUID(?) AND event_type IN ('kill', 'flag_capture', 'match_start', 'match_end')
+		WHERE match_id = toUUID(?) AND event_type IN ('player_kill', 'flag_capture', 'match_start', 'match_end')
 		ORDER BY timestamp ASC
 		LIMIT 500
 	`
@@ -141,7 +141,7 @@ func (s *matchReportService) getVersusMatrix(ctx context.Context, matchID string
 			target_name,
 			toInt32(count()) as kills
 		FROM mohaa_stats.raw_events
-		WHERE match_id = toUUID(?) AND event_type = 'kill' AND actor_name != '' AND target_name != ''
+		WHERE match_id = toUUID(?) AND event_type IN ('player_kill', 'bot_killed') AND actor_name != '' AND target_name != ''
 		GROUP BY actor_name, target_name
 	`
 	rows, err := s.ch.Query(ctx, query, matchID)

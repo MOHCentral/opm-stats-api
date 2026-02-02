@@ -26,7 +26,7 @@ func BenchmarkProcessEvent(b *testing.B) {
 	}
 
 	event := &models.RawEvent{
-		Type:          models.EventKill,
+		Type:          models.EventPlayerKill,
 		AttackerSMFID: 123,
 		Timestamp:     float64(time.Now().Unix()),
 		Weapon:        "mp40",

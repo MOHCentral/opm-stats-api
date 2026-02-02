@@ -36,7 +36,7 @@ func (h *Handler) GetMapHeatmap(w http.ResponseWriter, r *http.Request) {
 				round(pos_y / 50) * 50 as y,
 				count() as intensity
 			FROM mohaa_stats.raw_events
-			WHERE (event_type = 'player_death' OR event_type = 'player_kill')
+			WHERE (event_type = 'death' OR event_type IN ('player_kill', 'bot_killed'))
 			  AND map_name = ?
 			  AND pos_x != 0 AND pos_y != 0
 			GROUP BY x, y
@@ -51,7 +51,7 @@ func (h *Handler) GetMapHeatmap(w http.ResponseWriter, r *http.Request) {
 				round(JSONExtractFloat(raw_json, 'actor_y') / 50) * 50 as y,
 				count() as intensity
 			FROM mohaa_stats.raw_events
-			WHERE event_type = 'kill'
+			WHERE event_type IN ('player_kill', 'bot_killed')
 			  AND map_name = ?
 			  AND JSONExtractFloat(raw_json, 'actor_x') != 0 
 			  AND JSONExtractFloat(raw_json, 'actor_y') != 0

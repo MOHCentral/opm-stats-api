@@ -1,4 +1,4 @@
-.PHONY: build docs run test clean
+.PHONY: build docs run test clean generate-types
 
 GO_BIN ?= api
 GOPATH ?= $(shell go env GOPATH)
@@ -9,6 +9,11 @@ all: build docs
 build:
 	@echo "Building API..."
 	go build -o $(GO_BIN) ./cmd/api
+
+generate-types:
+	@echo "Generating type-safe event constants from OpenAPI spec..."
+	@python3 ../tools/generate_types.py
+	@echo "Type generation complete. Run 'go build ./...' to verify."
 
 docs:
 	@echo "Checking for swag..."
