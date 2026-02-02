@@ -116,7 +116,7 @@ func TestGetPlayerStatsByMap(t *testing.T) {
 		name      string
 		guid      string
 		mockRows  [][]interface{}
-		wantStats []models.MapStats
+		wantStats []models.PlayerMapStats
 		wantErr   bool
 	}{
 		{
@@ -125,8 +125,8 @@ func TestGetPlayerStatsByMap(t *testing.T) {
 			mockRows: [][]interface{}{
 				{"map1", uint64(10), uint64(5), uint64(2), uint64(3)},
 			},
-			wantStats: []models.MapStats{
-				{MapName: "map1", Kills: 10, Deaths: 5, Headshots: 2, MatchesPlayed: 3, KDRatio: 2.0},
+			wantStats: []models.PlayerMapStats{
+				{MapName: "map1", Kills: 10, Deaths: 5, Headshots: 2, MatchesPlayed: 3, MatchesWon: 0, KDRatio: 2.0},
 			},
 			wantErr: false,
 		},
