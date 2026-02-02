@@ -36,9 +36,9 @@ func Load() *Config {
 		Port: getEnvInt("PORT", 8080),
 		Env:  getEnv("ENV", "development"),
 
-		PostgresURL:   getEnv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/mohaa_stats?sslmode=disable"),
-		ClickHouseURL: getEnv("CLICKHOUSE_URL", "clickhouse://localhost:9000/mohaa_stats"),
-		RedisURL:      getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		PostgresURL:   getEnv("POSTGRES_URL", ""),
+		ClickHouseURL: getEnv("CLICKHOUSE_URL", ""),
+		RedisURL:      getEnv("REDIS_URL", ""),
 
 		WorkerCount:   getEnvInt("WORKER_COUNT", 8),
 		QueueSize:     getEnvInt("QUEUE_SIZE", 10000),
