@@ -104,6 +104,7 @@ type Pool struct {
 	cancel            context.CancelFunc
 	logger            *zap.SugaredLogger
 	achievementWorker *AchievementWorker
+	sideEffectSem     chan struct{} // Semaphore to limit side-effect concurrency
 }
 
 // NewPool creates a new worker pool
@@ -122,9 +123,10 @@ func NewPool(cfg PoolConfig) *Pool {
 	}
 
 	pool := &Pool{
-		config:   cfg,
-		jobQueue: make(chan Job, cfg.QueueSize),
-		logger:   cfg.Logger.Sugar(),
+		config:        cfg,
+		jobQueue:      make(chan Job, cfg.QueueSize),
+		logger:        cfg.Logger.Sugar(),
+		sideEffectSem: make(chan struct{}, cfg.WorkerCount*2),
 	}
 
 	// Initialize Achievement Worker with both Postgres and ClickHouse
@@ -273,6 +275,9 @@ func (p *Pool) processBatch(batch []Job) error {
 	}
 
 	// Prepare ClickHouse batch insert
+	// Use pool context or create a new one with timeout?
+	// Using Background is okay here if we trust the driver, but typically we want propagation.
+	// However, if the pool stops, we might still want to flush the batch.
 	ctx := context.Background()
 
 	chBatch, err := p.config.ClickHouse.PrepareBatch(ctx, `
@@ -331,38 +336,26 @@ func (p *Pool) processBatch(batch []Job) error {
 			p.logger.Warnw("Failed to append event to batch", "error", err, "event_type", event.Type)
 			continue
 		}
-
-		// Process side effects (Redis state updates)
-		// Batch processed later to optimize goroutines and I/O
 	}
 
 	// Process side effects in batch (Redis state updates)
 	// Must copy batch because the slice is reused in the worker loop
 	batchCopy := make([]Job, len(batch))
 	copy(batchCopy, batch)
-	go p.processBatchSideEffects(ctx, batchCopy)
 
-	// Send batch to ClickHouse FIRST
+	// Acquire semaphore to limit concurrency
+	select {
+	case p.sideEffectSem <- struct{}{}:
+		go p.processBatchSideEffects(p.ctx, batchCopy)
+	case <-p.ctx.Done():
+		p.logger.Warn("Context cancelled while waiting for side-effect semaphore")
+	}
+
+	// Send batch to ClickHouse
 	err = chBatch.Send()
 	if err != nil {
 		p.logger.Errorw("Failed to send batch to ClickHouse", "error", err, "batchSize", len(batch))
 		return err
-	}
-
-	// THEN process achievements (after data is in ClickHouse)
-	for _, job := range batch {
-		event := job.Event
-		if p.achievementWorker != nil {
-			p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
-			go func(evt *models.RawEvent) {
-				defer func() {
-					if r := recover(); r != nil {
-						p.logger.Errorw("Achievement worker panic", "error", r, "event_type", evt.Type)
-					}
-				}()
-				p.achievementWorker.ProcessEvent(evt)
-			}(event)
-		}
 	}
 
 	return nil
@@ -370,6 +363,14 @@ func (p *Pool) processBatch(batch []Job) error {
 
 // processBatchSideEffects processes side effects for a batch of events
 func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
+	defer func() {
+		// Release semaphore
+		<-p.sideEffectSem
+		if r := recover(); r != nil {
+			p.logger.Errorw("Panic in processBatchSideEffects", "error", r)
+		}
+	}()
+
 	if len(batch) == 0 {
 		return
 	}
@@ -462,6 +463,8 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 					sIsMemberCmd:  cmd,
 				})
 			}
+		} else {
+			p.logger.Warnw("Failed to get kill count", "guid", check.guid, "error", err)
 		}
 	}
 
@@ -477,6 +480,8 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 					sIsMemberCmd:  cmd,
 				})
 			}
+		} else {
+			p.logger.Warnw("Failed to get headshot count", "guid", check.guid, "error", err)
 		}
 	}
 
@@ -506,7 +511,6 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 
 	if len(newUnlocks) > 0 {
 		// 1. Bulk Insert to Postgres
-		// Construct query: INSERT INTO player_achievements (player_guid, achievement_id, unlocked_at) VALUES ...
 		var sb strings.Builder
 		sb.WriteString("INSERT INTO player_achievements (player_guid, achievement_id, unlocked_at) VALUES ")
 		vals := []interface{}{}
@@ -543,9 +547,17 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		}
 	}
 
-	// Phase 4: Deferred Processing
+	// Phase 4: Deferred Processing (Match lifecycle events)
 	for _, event := range deferredEvents {
 		p.processEventSideEffects(ctx, event)
+	}
+
+	// Phase 5: General Achievement Processing
+	// Previously ran in parallel goroutines per event. Now strictly sequential.
+	if p.achievementWorker != nil {
+		for _, job := range batch {
+			p.achievementWorker.ProcessEvent(job.Event)
+		}
 	}
 }
 
@@ -869,7 +881,11 @@ func (p *Pool) handleKill(ctx context.Context, event *models.RawEvent) {
 
 	// Increment kill counter
 	key := "player:" + event.AttackerGUID + ":kills"
-	newCount, _ := p.config.Redis.Incr(ctx, key).Result()
+	newCount, err := p.config.Redis.Incr(ctx, key).Result()
+	if err != nil {
+		p.logger.Warnw("Failed to increment kills", "error", err)
+		return
+	}
 
 	// Check achievement thresholds
 	p.checkKillAchievements(ctx, event.AttackerGUID, newCount)
@@ -882,7 +898,11 @@ func (p *Pool) handleHeadshot(ctx context.Context, event *models.RawEvent) {
 	}
 
 	key := "player:" + event.PlayerGUID + ":headshots"
-	newCount, _ := p.config.Redis.Incr(ctx, key).Result()
+	newCount, err := p.config.Redis.Incr(ctx, key).Result()
+	if err != nil {
+		p.logger.Warnw("Failed to increment headshots", "error", err)
+		return
+	}
 
 	p.checkHeadshotAchievements(ctx, event.PlayerGUID, newCount)
 }

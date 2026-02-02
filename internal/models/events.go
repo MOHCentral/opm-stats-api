@@ -204,18 +204,18 @@ type MatchSummary struct {
 
 // RawEvent is the incoming event from game servers
 type RawEvent struct {
-	Type        EventType `json:"type"`
-	MatchID     string    `json:"match_id"`
+	Type        EventType `json:"type" validate:"required"`
+	MatchID     string    `json:"match_id" validate:"required"`
 	SessionID   string    `json:"session_id"`
-	ServerID    string    `json:"server_id"`
+	ServerID    string    `json:"server_id"` // Sometimes injected from context, so maybe not strictly required in payload if auth handles it? But typically sent.
 	ServerToken string    `json:"server_token"`
-	Timestamp   float64   `json:"timestamp"`
+	Timestamp   float64   `json:"timestamp" validate:"required"`
 	MapName     string    `json:"map_name,omitempty"`
 
 	// Player info (primary actor for single-player events)
-	PlayerName   string  `json:"player_name,omitempty"`
-	PlayerGUID   string  `json:"player_guid,omitempty"`
-	PlayerTeam   string  `json:"player_team,omitempty"`
+	PlayerName   string  `json:"player_name,omitempty" validate:"max=64"`
+	PlayerGUID   string  `json:"player_guid,omitempty" validate:"max=64"`
+	PlayerTeam   string  `json:"player_team,omitempty" validate:"max=32"`
 	PlayerSMFID  int64   `json:"player_smf_id,omitempty"` // SMF member ID (if authenticated)
 	PosX         float32 `json:"pos_x,omitempty"`
 	PosY         float32 `json:"pos_y,omitempty"`
@@ -223,9 +223,9 @@ type RawEvent struct {
 	PlayerStance string  `json:"player_stance,omitempty"`
 
 	// Attacker info (for kill/damage events)
-	AttackerName   string  `json:"attacker_name,omitempty"`
-	AttackerGUID   string  `json:"attacker_guid,omitempty"`
-	AttackerTeam   string  `json:"attacker_team,omitempty"`
+	AttackerName   string  `json:"attacker_name,omitempty" validate:"max=64"`
+	AttackerGUID   string  `json:"attacker_guid,omitempty" validate:"max=64"`
+	AttackerTeam   string  `json:"attacker_team,omitempty" validate:"max=32"`
 	AttackerSMFID  int64   `json:"attacker_smf_id,omitempty"` // SMF member ID (if authenticated)
 	AttackerX      float32 `json:"attacker_x,omitempty"`
 	AttackerY      float32 `json:"attacker_y,omitempty"`
@@ -235,9 +235,9 @@ type RawEvent struct {
 	AttackerStance string  `json:"attacker_stance,omitempty"`
 
 	// Victim info
-	VictimName   string  `json:"victim_name,omitempty"`
-	VictimGUID   string  `json:"victim_guid,omitempty"`
-	VictimTeam   string  `json:"victim_team,omitempty"`
+	VictimName   string  `json:"victim_name,omitempty" validate:"max=64"`
+	VictimGUID   string  `json:"victim_guid,omitempty" validate:"max=64"`
+	VictimTeam   string  `json:"victim_team,omitempty" validate:"max=32"`
 	VictimSMFID  int64   `json:"victim_smf_id,omitempty"` // SMF member ID (if authenticated)
 	VictimX      float32 `json:"victim_x,omitempty"`
 	VictimY      float32 `json:"victim_y,omitempty"`
@@ -245,10 +245,10 @@ type RawEvent struct {
 	VictimStance string  `json:"victim_stance,omitempty"`
 
 	// Weapon/damage info
-	Weapon        string `json:"weapon,omitempty"`
+	Weapon        string `json:"weapon,omitempty" validate:"max=64"`
 	OldWeapon     string `json:"old_weapon,omitempty"`
 	NewWeapon     string `json:"new_weapon,omitempty"`
-	Hitloc        string `json:"hitloc,omitempty"`
+	Hitloc        string `json:"hitloc,omitempty" validate:"max=32"`
 	Inflictor     string `json:"inflictor,omitempty"`
 	Damage        int    `json:"damage,omitempty"`
 	AmmoRemaining int    `json:"ammo_remaining,omitempty"`
@@ -280,7 +280,7 @@ type RawEvent struct {
 	NewTeam string `json:"new_team,omitempty"`
 
 	// Chat
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" validate:"max=512"`
 
 	// Match lifecycle
 	Gametype    string  `json:"gametype,omitempty"`
@@ -359,7 +359,7 @@ type ClickHouseEvent struct {
 
 // MatchResult is sent at the end of a match
 type MatchResult struct {
-	MatchID     string  `json:"match_id"`
+	MatchID     string  `json:"match_id" validate:"required"`
 	ServerID    string  `json:"server_id"`
 	MapName     string  `json:"map_name"`
 	Gametype    string  `json:"gametype"`
