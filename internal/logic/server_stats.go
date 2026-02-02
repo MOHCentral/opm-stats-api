@@ -116,30 +116,30 @@ func (s *serverStatsService) GetGlobalStats(ctx context.Context) (map[string]int
 	var totalKills, totalMatches, activePlayers uint64
 
 	// Total Kills from aggregated daily stats
-	if err := s.ch.QueryRow(ctx, "SELECT sum(kills) FROM mohaa_stats.player_stats_daily_mv").Scan(&totalKills); err != nil {
+	if err := s.ch.QueryRow(ctx, "SELECT sum(kills) FROM mohaa_stats.player_stats_daily").Scan(&totalKills); err != nil {
 		return nil, err
 	}
 
 	// Total Matches
-	if err := s.ch.QueryRow(ctx, "SELECT count() FROM mohaa_stats.match_summary_mv").Scan(&totalMatches); err != nil {
+	if err := s.ch.QueryRow(ctx, "SELECT count() FROM mohaa_stats.match_summary").Scan(&totalMatches); err != nil {
 		return nil, err
 	}
 
 	// Active Players
-	if err := s.ch.QueryRow(ctx, "SELECT uniq(actor_id) FROM mohaa_stats.player_stats_daily_mv WHERE day >= today() - 1 AND actor_id != ''").Scan(&activePlayers); err != nil {
+	if err := s.ch.QueryRow(ctx, "SELECT uniq(player_id) FROM mohaa_stats.player_stats_daily WHERE day >= today() - 1 AND player_id != ''").Scan(&activePlayers); err != nil {
 		return nil, err
 	}
 
 	// Server Count
 	var serverCount int64
-	s.ch.QueryRow(ctx, `SELECT uniq(server_id) FROM mohaa_stats.server_activity_mv WHERE server_id != ''`).Scan(&serverCount)
+	s.ch.QueryRow(ctx, `SELECT uniq(server_id) FROM mohaa_stats.server_activity WHERE server_id != ''`).Scan(&serverCount)
 
 	// Average Accuracy
 	var avgAccuracy float64
 	s.ch.QueryRow(ctx, `
 		SELECT
 			sum(shots_hit) / nullif(sum(shots_fired), 0) * 100
-		FROM mohaa_stats.player_stats_daily_mv
+		FROM mohaa_stats.player_stats_daily
 	`).Scan(&avgAccuracy)
 
 	// Average KD
@@ -147,7 +147,7 @@ func (s *serverStatsService) GetGlobalStats(ctx context.Context) (map[string]int
 	s.ch.QueryRow(ctx, `
 		SELECT
 			sum(kills) / nullif(sum(deaths), 0)
-		FROM mohaa_stats.player_stats_daily_mv
+		FROM mohaa_stats.player_stats_daily
 	`).Scan(&avgKD)
 
 	return map[string]interface{}{

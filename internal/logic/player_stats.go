@@ -238,8 +238,8 @@ func (s *playerStatsService) fillSessionStats(ctx context.Context, guid string, 
 	// Count wins using materialized view which tracks wins via match_outcome=1
 	winsQuery := `
 		SELECT sum(matches_won)
-		FROM mohaa_stats.player_stats_daily_mv
-		WHERE actor_id = ?
+		FROM mohaa_stats.player_stats_daily
+		WHERE player_id = ?
 	`
 	if err := s.ch.QueryRow(ctx, winsQuery, guid).Scan(&out.Wins); err != nil {
 		// Default to 0 on error

@@ -410,14 +410,14 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			toString(match_id) as match_id,
-			map_name,
+			any(map_name) as map_name,
 			any(server_id) as server_id,
-			min(timestamp) as start_time,
-			toFloat64(dateDiff('second', min(timestamp), max(timestamp))) as duration,
-			uniq(actor_id) as player_count,
-			countIf(event_type = 'kill') as kills
-		FROM mohaa_stats.raw_events
-		GROUP BY match_id, map_name
+			min(start_time) as start_time,
+			max(duration) as duration,
+			uniqExactMerge(player_count) as player_count,
+			sum(kills) as kills
+		FROM mohaa_stats.match_summary
+		GROUP BY match_id
 		ORDER BY start_time DESC
 		LIMIT ? OFFSET ?
 	`, limit, offset)
@@ -479,9 +479,9 @@ func (h *Handler) GetGlobalWeaponStats(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			actor_weapon as weapon,
-			countIf(event_type = 'kill') as kills,
-			countIf(event_type = 'headshot') as headshots
-		FROM mohaa_stats.raw_events
+			sum(kills) as kills,
+			sum(headshots) as headshots
+		FROM mohaa_stats.weapon_stats_mv
 		WHERE actor_weapon != '' 
 		GROUP BY actor_weapon
 		ORDER BY kills DESC
@@ -840,14 +840,12 @@ func (h *Handler) GetWeeklyLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
-			actor_id,
-			argMax(actor_name, timestamp) as actor_name,
-			count() as kills
-		FROM mohaa_stats.raw_events
-		WHERE event_type = 'kill' 
-		  AND actor_id != 'world'
-		  AND timestamp >= now() - INTERVAL 7 DAY
-		GROUP BY actor_id
+			player_id as actor_id,
+			argMax(player_name, last_active) as actor_name,
+			sum(kills) as kills
+		FROM mohaa_stats.player_stats_daily
+		WHERE day >= today() - 7
+		GROUP BY player_id
 		ORDER BY kills DESC
 		LIMIT 100
 	`)
@@ -882,12 +880,10 @@ func (h *Handler) GetWeaponLeaderboard(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
 			actor_id,
-			argMax(actor_name, timestamp) as actor_name,
-			count() as kills
-		FROM mohaa_stats.raw_events
-		WHERE event_type = 'kill' 
-		  AND actor_weapon = ?
-		  AND actor_id != 'world'
+			argMax(actor_name, day) as actor_name,
+			sum(kills) as kills
+		FROM mohaa_stats.weapon_stats_mv
+		WHERE actor_weapon = ?
 		GROUP BY actor_id
 		ORDER BY kills DESC
 		LIMIT 100
