@@ -453,14 +453,15 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 			countIf(event_type = 'kill' AND actor_id = ?) as kills,
 			countIf(event_type IN ('death', 'kill') AND target_id = ?) as deaths,
 			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
-			uniq(match_id) as matches_played
+			uniq(match_id) as matches_played,
+			countIf(event_type = 'match_outcome' AND match_outcome = 1 AND actor_id = ?) as matches_won
 		FROM mohaa_stats.raw_events
 		WHERE (actor_id = ? OR target_id = ?)
 		  AND map_name != ''
 		GROUP BY map_name
 		HAVING kills > 0 OR deaths > 0
 		ORDER BY kills DESC
-	`, guid, guid, guid, guid, guid)
+	`, guid, guid, guid, guid, guid, guid)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query map breakdown: %w", err)
@@ -470,7 +471,7 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 	stats := []models.PlayerMapStats{}
 	for rows.Next() {
 		var s models.PlayerMapStats
-		if err := rows.Scan(&s.MapName, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
+		if err := rows.Scan(&s.MapName, &s.Kills, &s.Deaths, &s.Headshots, &s.MatchesPlayed, &s.MatchesWon); err != nil {
 			continue
 		}
 		if s.Deaths > 0 {
