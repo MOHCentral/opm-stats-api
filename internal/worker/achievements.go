@@ -31,6 +31,7 @@ type StatStore interface {
 	IncrByFloat(ctx context.Context, key string, value float64) (float64, error)
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error)
 	Publish(ctx context.Context, channel string, message interface{}) error
 	Del(ctx context.Context, keys ...string) error
 }
@@ -56,6 +57,10 @@ func (s *RedisStatStore) Set(ctx context.Context, key string, value interface{},
 	return s.client.Set(ctx, key, value, expiration).Err()
 }
 
+func (s *RedisStatStore) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error) {
+	return s.client.SetNX(ctx, key, value, expiration).Result()
+}
+
 func (s *RedisStatStore) Publish(ctx context.Context, channel string, message interface{}) error {
 	return s.client.Publish(ctx, channel, message).Err()
 }
@@ -74,6 +79,8 @@ type AchievementWorker struct {
 	mu              sync.RWMutex
 	ctx             context.Context
 	cancel          context.CancelFunc
+	jobQueue        chan *models.RawEvent
+	wg              sync.WaitGroup
 }
 
 // AchievementDefinition holds criteria for unlocking
@@ -98,6 +105,7 @@ func NewAchievementWorker(db DBStore, ch driver.Conn, statStore StatStore, logge
 		achievementDefs: make(map[string]*AchievementDefinition),
 		ctx:             ctx,
 		cancel:          cancel,
+		jobQueue:        make(chan *models.RawEvent, 10000),
 	}
 
 	// Load achievement definitions from database
@@ -111,12 +119,42 @@ func NewAchievementWorker(db DBStore, ch driver.Conn, statStore StatStore, logge
 // Start begins the achievement worker
 func (w *AchievementWorker) Start() {
 	w.logger.Info("Achievement Worker started")
+	for i := 0; i < 4; i++ {
+		w.wg.Add(1)
+		go w.worker()
+	}
 }
 
 // Stop gracefully stops the worker
 func (w *AchievementWorker) Stop() {
 	w.cancel()
+	close(w.jobQueue)
+	w.wg.Wait()
 	w.logger.Info("Achievement Worker stopped")
+}
+
+func (w *AchievementWorker) worker() {
+	defer w.wg.Done()
+	for {
+		select {
+		case event, ok := <-w.jobQueue:
+			if !ok {
+				return
+			}
+			w.ProcessEvent(event)
+		case <-w.ctx.Done():
+			return
+		}
+	}
+}
+
+// Enqueue adds an event to the processing queue
+func (w *AchievementWorker) Enqueue(event *models.RawEvent) {
+	select {
+	case w.jobQueue <- event:
+	default:
+		w.logger.Warnw("Achievement worker queue full, dropping event", "type", event.Type)
+	}
 }
 
 // loadAchievementDefinitions loads all achievements from database
@@ -160,6 +198,7 @@ func (w *AchievementWorker) loadAchievementDefinitions() error {
 }
 
 // ProcessEvent checks if an event triggers any achievements
+// Public for testing/benchmarking; use Enqueue() in production
 func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 	// Determine Actor ID based on event type
 	actorSMFID := w.getActorSMFID(event)
@@ -504,9 +543,14 @@ func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int 
 	if val == 1 {
 		baseline := w.fetchFromDB(smfID, statName)
 		if baseline > 1 {
-			// Backfill Redis with correct value
-			w.statStore.Set(w.ctx, key, baseline, 0)
-			return baseline
+			// Backfill Redis with correct value using delta to preserve concurrent increments
+			// We assume baseline includes the current event (count=1000).
+			// Redis has 1. We want 1000. Delta = 999.
+			delta := float64(baseline - 1)
+			newVal, err := w.statStore.IncrByFloat(w.ctx, key, delta)
+			if err == nil {
+				return int(newVal)
+			}
 		}
 	}
 
@@ -527,8 +571,14 @@ func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string,
 	if val <= incrAmount+0.1 {
 		baseline := w.fetchFromDB(smfID, statName)
 		if float64(baseline) > val {
-			w.statStore.Set(w.ctx, key, baseline, 0)
-			return float64(baseline)
+			// Adjust Redis to match baseline + concurrent increments
+			// We have val (approx incrAmount). Baseline is real total (e.g. 100km).
+			// Delta = baseline - val.
+			delta := float64(baseline) - val
+			newVal, err := w.statStore.IncrByFloat(w.ctx, key, delta)
+			if err == nil {
+				return newVal
+			}
 		}
 	}
 
@@ -722,7 +772,7 @@ func (w *AchievementWorker) notifyPlayer(smfID int, slug string, def *Achievemen
 // ProcessBatch processes multiple events in batch
 func (w *AchievementWorker) ProcessBatch(events []*models.RawEvent) {
 	for _, event := range events {
-		w.ProcessEvent(event)
+		w.Enqueue(event)
 	}
 }
 
