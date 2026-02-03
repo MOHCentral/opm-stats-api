@@ -1,0 +1,37 @@
+{
+  "name": "opm-stats-api",
+  "version": "1.0.0",
+  "description": "OpenMOHAA Stats API - High-throughput telemetry backend",
+  "scripts": {
+    "bruno:sync": "python3 tools/generate_bruno.py",    "bruno:events": "python3 tools/generate_bruno_events.py",    "bruno:watch": "make bruno-watch",
+    "bruno:test": "./tools/test_bruno.sh Local",
+    "bruno:test:dev": "./tools/test_bruno.sh Development",
+    "bruno:test:prod": "./tools/test_bruno.sh Production",
+    "bruno:ingest-all": "./tools/ingest_all_events.sh Local",
+    "docs": "make docs",
+    "docs:bruno": "make docs && npm run bruno:sync",
+    "test": "make test",
+    "build": "make build",
+    "dev": "make run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openmohaa/opm-stats-system"
+  },
+  "keywords": [
+    "mohaa",
+    "stats",
+    "api",
+    "bruno",
+    "openapi",
+    "swagger"
+  ],
+  "author": "OpenMOHAA Team",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@usebruno/cli": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

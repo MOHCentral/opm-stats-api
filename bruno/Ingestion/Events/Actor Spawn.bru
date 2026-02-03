@@ -1,0 +1,57 @@
+meta {
+  name: Actor Spawn
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Server-Token: {{server_token}}
+}
+
+body:json {
+  [{"type":"actor_spawn","actor_id":"actor_123","actor_type":"soldier","location":"500 600 64","match_id":"{{match_id}}","timestamp":1738540800.0}]
+}
+
+tests {
+  test("Response status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  test("Response has status property", function() {
+    expect(res.body).to.have.property('status');
+    expect(res.body.status).to.equal('accepted');
+  });
+  
+  test("At least one event processed", function() {
+    expect(res.body).to.have.property('processed');
+    expect(res.body.processed).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  ## Actor Spawn Event
+  
+  Event Type: `actor_spawn`
+  
+  ### Description
+  This event is posted when a actor spawn occurs in the game.
+  
+  ### Payload Fields
+    - `actor_id`: str
+  - `actor_type`: str
+  - `location`: str
+  - `match_id`: str
+  - `timestamp`: float
+  
+  ### Notes
+  - Modify the payload values as needed for your test scenario
+  - The type field is set to `actor_spawn`
+  - Uses server_token from environment for authentication
+}

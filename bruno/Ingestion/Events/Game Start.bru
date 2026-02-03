@@ -1,0 +1,54 @@
+meta {
+  name: Game Start
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Server-Token: {{server_token}}
+}
+
+body:json {
+  [{"type":"game_start","timestamp":"2026-02-02T10:00:00Z","match_id":"{{match_id}}"}]
+}
+
+tests {
+  test("Response status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  test("Response has status property", function() {
+    expect(res.body).to.have.property('status');
+    expect(res.body.status).to.equal('accepted');
+  });
+  
+  test("At least one event processed", function() {
+    expect(res.body).to.have.property('processed');
+    expect(res.body.processed).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  ## Game Start Event
+  
+  Event Type: `game_start`
+  
+  ### Description
+  This event is posted when a game start occurs in the game.
+  
+  ### Payload Fields
+    - `timestamp`: str
+  - `match_id`: str
+  
+  ### Notes
+  - Modify the payload values as needed for your test scenario
+  - The type field is set to `game_start`
+  - Uses server_token from environment for authentication
+}

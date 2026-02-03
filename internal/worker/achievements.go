@@ -193,8 +193,10 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 		w.logger.Infow("Checking combat achievements", "smfID", actorSMFID)
 		w.checkCombatAchievements(actorSMFID, event)
 		w.checkStreak(actorSMFID, event) // Check streak increment
-	case models.EventHeadshot:
-		w.checkHeadshotAchievements(actorSMFID, event)
+		// Also check headshot achievements if hitloc indicates headshot
+		if event.Hitloc == "head" || event.Hitloc == "helmet" {
+			w.checkHeadshotAchievements(actorSMFID, event)
+		}
 	case models.EventDistance:
 		w.checkMovementAchievements(actorSMFID, event)
 	case models.EventVehicleEnter:
@@ -215,7 +217,7 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 // getActorSMFID resolves the primary actor's SMF ID for the event
 func (w *AchievementWorker) getActorSMFID(event *models.RawEvent) int64 {
 	// For combat events where the killer is the actor
-	if event.Type == models.EventPlayerKill || event.Type == models.EventHeadshot || event.Type == models.EventDamage {
+	if event.Type == models.EventPlayerKill || event.Type == models.EventDamage {
 		return event.AttackerSMFID
 	}
 	// For most other events, it's the player

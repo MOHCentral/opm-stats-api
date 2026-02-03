@@ -1,0 +1,33 @@
+meta {
+  name: Install Database Schema
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/system/install
+  body: none
+  auth: none
+}
+
+headers {
+  X-Server-Token: {{var:server_token}}
+}
+
+docs {
+  # Install Database Schema
+  
+  Executes consolidated SQL migrations for ClickHouse and PostgreSQL
+  
+  ## Responses
+  
+  - **200**: OK
+  - **401**: Unauthorized
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

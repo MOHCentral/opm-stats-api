@@ -1,0 +1,28 @@
+meta {
+  name: List All Servers
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers
+  body: none
+  auth: none
+}
+
+docs {
+  # List All Servers
+  
+  List active servers with status
+  
+  ## Responses
+  
+  - **200**: Server List
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

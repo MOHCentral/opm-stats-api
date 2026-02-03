@@ -1,0 +1,26 @@
+meta {
+  name: Global Network Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/global
+  body: none
+  auth: none
+}
+
+docs {
+  # Global Network Stats
+  
+  ## Responses
+  
+  - **200**: Global Stats
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

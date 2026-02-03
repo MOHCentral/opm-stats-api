@@ -1,0 +1,35 @@
+meta {
+  name: Nested drill down
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/drilldown/{{var:dimension}}/{{var:value}}
+  body: none
+  auth: none
+}
+
+params:query {
+  child_dimension: 
+  ~stat: kd
+  ~limit: 10
+}
+
+docs {
+  # Nested drill down
+  
+  Provides a second level of breakdown (e.g. K/D with Thompson on Mohdm6)
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

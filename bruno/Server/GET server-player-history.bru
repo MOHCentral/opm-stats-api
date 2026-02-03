@@ -1,0 +1,30 @@
+meta {
+  name: Server Player History
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/player-history
+  body: none
+  auth: none
+}
+
+params:query {
+  ~hours: 24
+}
+
+docs {
+  # Server Player History
+  
+  ## Responses
+  
+  - **200**: History Data
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

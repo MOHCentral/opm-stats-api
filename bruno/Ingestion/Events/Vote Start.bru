@@ -1,0 +1,57 @@
+meta {
+  name: Vote Start
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Server-Token: {{server_token}}
+}
+
+body:json {
+  [{"type":"vote_start","player_guid":"{{guid}}","vote_type":"map_change","vote_target":"dm/mohdm6","match_id":"{{match_id}}","timestamp":1738540800.0}]
+}
+
+tests {
+  test("Response status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  test("Response has status property", function() {
+    expect(res.body).to.have.property('status');
+    expect(res.body.status).to.equal('accepted');
+  });
+  
+  test("At least one event processed", function() {
+    expect(res.body).to.have.property('processed');
+    expect(res.body.processed).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  ## Vote Start Event
+  
+  Event Type: `vote_start`
+  
+  ### Description
+  This event is posted when a vote start occurs in the game.
+  
+  ### Payload Fields
+    - `player_guid`: str
+  - `vote_type`: str
+  - `vote_target`: str
+  - `match_id`: str
+  - `timestamp`: float
+  
+  ### Notes
+  - Modify the payload values as needed for your test scenario
+  - The type field is set to `vote_start`
+  - Uses server_token from environment for authentication
+}

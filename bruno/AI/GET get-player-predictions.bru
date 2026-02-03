@@ -1,0 +1,26 @@
+meta {
+  name: Get Player Predictions
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/predictions
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Player Predictions
+  
+  ## Responses
+  
+  - **200**: OK
+  - **404**: Not Found
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

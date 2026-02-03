@@ -1,0 +1,30 @@
+meta {
+  name: Get Recent Matches
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/matches
+  body: none
+  auth: none
+}
+
+params:query {
+  ~limit: 25
+}
+
+docs {
+  # Get Recent Matches
+  
+  ## Responses
+  
+  - **200**: Matches
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

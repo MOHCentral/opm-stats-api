@@ -1,0 +1,30 @@
+meta {
+  name: Server Top Players
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/top-players
+  body: none
+  auth: none
+}
+
+params:query {
+  ~limit: 25
+}
+
+docs {
+  # Server Top Players
+  
+  ## Responses
+  
+  - **200**: Top Players
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

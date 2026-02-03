@@ -1,0 +1,96 @@
+[1m[96m🔍 EVENT SYSTEM AUDIT[0m
+
+[94m[1/6] Parsing Go RawEvent struct...[0m
+      Found 77 fields in RawEvent struct
+
+[94m[2/6] Parsing EventType enum...[0m
+      Found 105 event types in Go
+
+[94m[3/6] Parsing Bruno .bru files...[0m
+      Found 105 Bruno event files
+
+[94m[4/6] Validating Bruno payloads against Go struct...[0m
+
+      [91m✗ Found 90 payload validation errors[0m
+
+[94m[5/6] Validating GUID field disambiguation...[0m
+
+      [93m⚠ Found GUID field warnings[0m
+
+[94m[6/6] Validating event type counts...[0m
+
+      [92m✓ Event counts match: 105 events[0m
+
+[1m============================================================[0m
+[1mAUDIT SUMMARY[0m
+============================================================
+
+[96mStatistics:[0m
+  Go struct fields: 77
+  Event types (Go): 105
+  Bruno files: 105
+  Event types (Bruno): 105
+
+[96mResults:[0m
+  [92mPassed: 1[0m
+  [91mFailed: 90[0m
+  [93mWarnings: 1[0m
+
+[96mIssues Found:[0m
+  1. ❌ Accuracy Summary.bru: Unknown field 'shots_fired' (not in Go struct)
+  2. ❌ Accuracy Summary.bru: Unknown field 'shots_hit' (not in Go struct)
+  3. ❌ Accuracy Summary.bru: Unknown field 'accuracy' (not in Go struct)
+  4. ❌ Actor Killed.bru: Unknown field 'actor_id' (not in Go struct)
+  5. ❌ Actor Killed.bru: Unknown field 'killer_guid' (not in Go struct)
+  6. ❌ Actor Spawn.bru: Unknown field 'actor_id' (not in Go struct)
+  7. ❌ Actor Spawn.bru: Unknown field 'actor_type' (not in Go struct)
+  8. ❌ Actor Spawn.bru: Unknown field 'location' (not in Go struct)
+  9. ❌ Ammo Pickup.bru: Unknown field 'ammo_type' (not in Go struct)
+  10. ❌ Ammo Pickup.bru: Unknown field 'amount' (not in Go struct)
+  11. ❌ Armor Pickup.bru: Unknown field 'armor_amount' (not in Go struct)
+  12. ❌ Bot Curious.bru: Unknown field 'target_location' (not in Go struct)
+  13. ❌ Bot Killed.bru: Unknown field 'killer_guid' (not in Go struct)
+  14. ❌ Bot Roam.bru: Unknown field 'location' (not in Go struct)
+  15. ❌ Bot Spawn.bru: Unknown field 'team' (not in Go struct)
+  16. ❌ Chat.bru: Unknown field 'team_only' (not in Go struct)
+  17. ❌ Client Userinfo Changed.bru: Unknown field 'name' (not in Go struct)
+  18. ❌ Connect.bru: Unknown field 'ip' (not in Go struct)
+  19. ❌ Connect.bru: Unknown field 'name' (not in Go struct)
+  20. ❌ Damage.bru: Unknown field 'mod' (not in Go struct)
+  21. ❌ Death.bru: Unknown field 'means_of_death' (not in Go struct)
+  22. ❌ Disconnect.bru: Unknown field 'reason' (not in Go struct)
+  23. ❌ Door Close.bru: Unknown field 'door' (not in Go struct)
+  24. ❌ Door Open.bru: Unknown field 'door' (not in Go struct)
+  25. ❌ Door Open.bru: Unknown field 'opener_guid' (not in Go struct)
+  26. ❌ Explosion.bru: Unknown field 'location' (not in Go struct)
+  27. ❌ Explosion.bru: Unknown field 'radius' (not in Go struct)
+  28. ❌ Game End.bru: Unknown field 'reason' (not in Go struct)
+  29. ❌ Game Init.bru: Unknown field 'game_type' (not in Go struct)
+  30. ❌ Game Init.bru: Unknown field 'max_players' (not in Go struct)
+  31. ❌ Health Pickup.bru: Unknown field 'health_restored' (not in Go struct)
+  32. ❌ Heartbeat.bru: Unknown field 'players' (not in Go struct)
+  33. ❌ Heartbeat.bru: Unknown field 'cpu_usage' (not in Go struct)
+  34. ❌ Identity Claim.bru: Unknown field 'claimed_id' (not in Go struct)
+  35. ❌ Item Drop.bru: Unknown field 'location' (not in Go struct)
+  36. ❌ Item Pickup.bru: Unknown field 'location' (not in Go struct)
+  37. ❌ Item Respawn.bru: Unknown field 'location' (not in Go struct)
+  38. ❌ Map Change Start.bru: Unknown field 'from_map' (not in Go struct)
+  39. ❌ Map Change Start.bru: Unknown field 'to_map' (not in Go struct)
+  40. ❌ Map Load End.bru: Unknown field 'load_time' (not in Go struct)
+  41. ❌ Match Outcome.bru: Unknown field 'winner' (not in Go struct)
+  42. ❌ Match Outcome.bru: Unknown field 'allied_score' (not in Go struct)
+  43. ❌ Objective Capture.bru: Unknown field 'objective_id' (not in Go struct)
+  44. ❌ Objective Capture.bru: Unknown field 'capturing_team' (not in Go struct)
+  45. ❌ Objective Update.bru: Unknown field 'objective_id' (not in Go struct)
+  46. ❌ Objective Update.bru: Unknown field 'status' (not in Go struct)
+  47. ❌ Objective Update.bru: Unknown field 'progress' (not in Go struct)
+  48. ❌ Player Auth.bru: Unknown field 'smf_id' (not in Go struct)
+  49. ❌ Player Auth.bru: Unknown field 'auth_token' (not in Go struct)
+  50. ❌ Player Freeze.bru: Unknown field 'reason' (not in Go struct)
+  ... and 41 more issues
+
+============================================================
+[91m[1m❌ AUDIT FAILED[0m
+[91mFound 90 validation errors that must be fixed.[0m
+============================================================
+

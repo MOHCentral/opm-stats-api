@@ -1,0 +1,32 @@
+meta {
+  name: Get drilldown options
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/drilldown/options
+  body: none
+  auth: none
+}
+
+params:query {
+  ~stat: kd
+}
+
+docs {
+  # Get drilldown options
+  
+  Returns available dimensions for drilling down into a stat
+  
+  ## Responses
+  
+  - **200**: OK
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

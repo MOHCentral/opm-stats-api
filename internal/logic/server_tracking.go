@@ -8,8 +8,8 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	"github.com/openmohaa/stats-api/internal/models"
+	"github.com/redis/go-redis/v9"
 )
 
 // ServerTrackingService provides comprehensive server monitoring
@@ -221,7 +221,7 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 		SELECT 
 			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			countIf(event_type IN ('player_kill', 'bot_killed')) as deaths,
-			countIf(event_type = 'headshot') as headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet')) as headshots,
 			uniq(match_id) as matches,
 			uniq(actor_id) as players,
 			sum(duration) / 3600.0 as playtime,
@@ -409,7 +409,7 @@ func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverI
 			any(a.actor_name) as name,
 			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
-			countIf(a.event_type = 'headshot') as headshots,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.hitloc IN ('head', 'helmet')) as headshots,
 			uniq(a.match_id) as sessions,
 			max(a.timestamp) as last_seen
 		FROM raw_events a
@@ -519,11 +519,11 @@ func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, server
 		SELECT 
 			actor_weapon,
 			count() as kills,
-			countIf(event_type = 'headshot') as headshots,
+			countIf(hitloc IN ('head', 'helmet')) as headshots,
 			avg(distance) as avg_dist,
 			count() * 100.0 / (SELECT total_kills FROM totals) as usage_rate
 		FROM raw_events
-		WHERE server_id = ? AND event_type IN ('player_kill', 'headshot') AND actor_weapon != ''
+		WHERE server_id = ? AND event_type IN ('player_kill', 'bot_killed') AND actor_weapon != ''
 		GROUP BY actor_weapon
 		ORDER BY kills DESC
 		LIMIT 20
@@ -946,7 +946,7 @@ func (s *ServerTrackingService) GetServerHistoricalPlayers(ctx context.Context, 
 			uniq(a.match_id) as sessions,
 			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
-			countIf(a.event_type = 'headshot') as headshots,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.hitloc IN ('head', 'helmet')) as headshots,
 			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.timestamp > now() - INTERVAL 7 DAY) as kills_7d,
 			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.timestamp > now() - INTERVAL 30 DAY) as kills_30d,
 			argMax(a.actor_weapon, countIf(a.event_type IN ('player_kill', 'bot_killed'))) as fav_weapon,

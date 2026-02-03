@@ -1,0 +1,29 @@
+meta {
+  name: Get Pending IPs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/auth/pending-ips
+  body: none
+  auth: none
+}
+
+params:query {
+  forum_user_id: 
+}
+
+docs {
+  # Get Pending IPs
+  
+  ## Responses
+  
+  - **200**: Pending IPs
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

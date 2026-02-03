@@ -1,0 +1,27 @@
+meta {
+  name: Verify Game Token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/auth/verify
+  body: none
+  auth: none
+}
+
+docs {
+  # Verify Game Token
+  
+  ## Responses
+  
+  - **200**: Verification Result
+  - **401**: Unauthorized
+  - **403**: Pending Approval
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Resolve Pending IP
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/auth/pending-ips/{{var:id}}
+  body: none
+  auth: none
+}
+
+docs {
+  # Resolve Pending IP
+  
+  ## Responses
+  
+  - **200**: Success
+  - **404**: Not Found
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,29 @@
+meta {
+  name: Get player combo metrics
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/combos
+  body: none
+  auth: none
+}
+
+docs {
+  # Get player combo metrics
+  
+  Returns complex cross-referenced stats like best weapon per map, victim/killer patterns, etc.
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

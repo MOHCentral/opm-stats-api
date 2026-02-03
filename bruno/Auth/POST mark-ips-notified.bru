@@ -1,0 +1,25 @@
+meta {
+  name: Mark IPs Notified
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/auth/pending-ips/mark-notified
+  body: none
+  auth: none
+}
+
+docs {
+  # Mark IPs Notified
+  
+  ## Responses
+  
+  - **200**: Success
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

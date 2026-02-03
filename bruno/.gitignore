@@ -1,0 +1,4 @@
+﻿# Bruno secrets
+secrets.bru
+*.secret.bru
+.env.bruno

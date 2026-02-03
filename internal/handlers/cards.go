@@ -23,10 +23,10 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			a.actor_id,
 			anyLast(a.actor_name) as name,
 			
-			-- A. Lethality & Combat (using correct event types: kill, headshot)
+			-- A. Lethality & Combat (headshots derived from hitloc on kill events)
 			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
-			countIf(a.event_type = 'headshot') as headshots,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.hitloc IN ('head', 'helmet')) as headshots,
 			countIf(a.event_type = 'weapon_fire') as shots_fired,
 			countIf(a.event_type = 'weapon_hit') as shots_hit,
 			sumIf(a.damage, a.event_type = 'damage') as total_damage,

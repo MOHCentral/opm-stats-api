@@ -1,0 +1,26 @@
+meta {
+  name: Get Player Stats by SMF ID
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/member/{{var:memberId}}
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Player Stats by SMF ID
+  
+  ## Responses
+  
+  - **200**: Player Stats
+  - **404**: Not Found
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

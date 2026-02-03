@@ -1,0 +1,28 @@
+meta {
+  name: Get Player Stats by Map
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/maps
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Player Stats by Map
+  
+  Returns player statistics grouped by map
+  
+  ## Responses
+  
+  - **200**: Map Stats
+  - **500**: Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

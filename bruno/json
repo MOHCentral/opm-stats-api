@@ -1,0 +1,80 @@
+[
+  {
+    "iterationIndex": 0,
+    "results": [
+      {
+        "test": {
+          "filename": "Ingestion/Events/Player Kill.bru"
+        },
+        "request": {
+          "method": "POST",
+          "url": "http://localhost:8084/api/v1/ingest/events",
+          "headers": {
+            "Content-Type": "application/json",
+            "X-Server-Token": "4d97ee82-115e-4bd3-9094-e6f9d01ab04a"
+          },
+          "data": "{\n  \"type\": \"player_kill\",\n  \"attacker_guid\": \"\",\n  \"victim_guid\": \"victim_abc123\",\n  \"weapon\": \"Colt 45\",\n  \"damage\": 100,\n  \"hitloc\": \"head\",\n  \"mod\": \"MOD_PISTOL\",\n  \"distance\": 15.5\n}"
+        },
+        "response": {
+          "status": 202,
+          "statusText": "Accepted",
+          "headers": {
+            "vary": "Origin",
+            "date": "Mon, 02 Feb 2026 23:30:07 GMT",
+            "content-length": "36",
+            "content-type": "text/plain; charset=utf-8"
+          },
+          "data": {
+            "processed": 0,
+            "status": "accepted"
+          },
+          "url": "http://localhost/api/v1/ingest/events",
+          "responseTime": 14
+        },
+        "error": null,
+        "status": "pass",
+        "assertionResults": [],
+        "testResults": [
+          {
+            "description": "Status is 200 or 201",
+            "status": "fail",
+            "error": "expected [ 200, 201 ] to include 202",
+            "uid": "-Ah6c2RM7OkAkqBfk5eFb"
+          },
+          {
+            "description": "Response has success property",
+            "status": "fail",
+            "error": "expected { processed: +0, status: 'accepted' } to have property 'success'",
+            "uid": "VeS2usE5OwMhiY5_nb5Ig"
+          }
+        ],
+        "preRequestTestResults": [],
+        "postResponseTestResults": [],
+        "shouldStopRunnerExecution": false,
+        "runDuration": 0.122490761,
+        "name": "Player Kill",
+        "path": "Ingestion/Events/Player Kill",
+        "iterationIndex": 0
+      }
+    ],
+    "summary": {
+      "totalRequests": 1,
+      "passedRequests": 0,
+      "failedRequests": 1,
+      "errorRequests": 0,
+      "skippedRequests": 0,
+      "totalAssertions": 0,
+      "passedAssertions": 0,
+      "failedAssertions": 0,
+      "totalTests": 2,
+      "passedTests": 0,
+      "failedTests": 2,
+      "totalPreRequestTests": 0,
+      "passedPreRequestTests": 0,
+      "failedPreRequestTests": 0,
+      "totalPostResponseTests": 0,
+      "passedPostResponseTests": 0,
+      "failedPostResponseTests": 0
+    }
+  }
+]

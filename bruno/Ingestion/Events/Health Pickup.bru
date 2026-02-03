@@ -1,0 +1,56 @@
+meta {
+  name: Health Pickup
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Server-Token: {{server_token}}
+}
+
+body:json {
+  [{"type":"health_pickup","player_guid":"{{guid}}","health_restored":25,"match_id":"{{match_id}}","timestamp":1738540800.0}]
+}
+
+tests {
+  test("Response status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  test("Response has status property", function() {
+    expect(res.body).to.have.property('status');
+    expect(res.body.status).to.equal('accepted');
+  });
+  
+  test("At least one event processed", function() {
+    expect(res.body).to.have.property('processed');
+    expect(res.body.processed).to.be.greaterThan(0);
+  });
+}
+
+docs {
+  ## Health Pickup Event
+  
+  Event Type: `health_pickup`
+  
+  ### Description
+  This event is posted when a health pickup occurs in the game.
+  
+  ### Payload Fields
+    - `player_guid`: str
+  - `health_restored`: int
+  - `match_id`: str
+  - `timestamp`: float
+  
+  ### Notes
+  - Modify the payload values as needed for your test scenario
+  - The type field is set to `health_pickup`
+  - Uses server_token from environment for authentication
+}

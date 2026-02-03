@@ -1,0 +1,29 @@
+meta {
+  name: Get player peak performance
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/peak-performance
+  body: none
+  auth: none
+}
+
+docs {
+  # Get player peak performance
+  
+  Returns stats showing when and where a player performs best (best hour, day, map, weapon)
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

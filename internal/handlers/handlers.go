@@ -140,7 +140,7 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 
 // IngestEvents handles POST /api/v1/ingest/events
 // @Summary Ingest Game Events
-// @Description Accepts newline-separated JSON events from game servers
+// @Description Accepts JSON array of events from game servers
 // @Tags Ingestion
 // @Accept json
 // @Produce json
@@ -161,37 +161,50 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
 
-	lines := strings.Split(string(body), "\n")
-	h.logger.Infow("Split body into lines", "lineCount", len(lines))
+	var events []models.RawEvent
 	processed := 0
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			h.logger.Debugw("Skipping empty line", "lineNum", i)
-			continue
-		}
 
-		h.logger.Infow("Processing line", "lineNum", i, "preview", line[:min(len(line), 100)])
-		var event models.RawEvent
-		// Support both JSON (if line starts with {) and URL-encoded
-		if strings.HasPrefix(line, "{") {
-			h.logger.Infow("Parsing as JSON", "lineNum", i)
-			if err := json.Unmarshal([]byte(line), &event); err != nil {
-				h.logger.Warnw("Failed to unmarshal JSON event in batch", "error", err, "line", line)
+	// Try parsing as JSON array first (modern format)
+	if len(body) > 0 && body[0] == '[' {
+		if err := json.Unmarshal(body, &events); err != nil {
+			h.logger.Warnw("Failed to unmarshal JSON array", "error", err)
+			h.errorResponse(w, http.StatusBadRequest, "Invalid JSON array")
+			return
+		}
+		h.logger.Infow("Parsed as JSON array", "eventCount", len(events))
+	} else {
+		// Fallback: newline-delimited format (legacy game scripts)
+		h.logger.Infow("Parsing as newline-delimited (legacy format)")
+		lines := strings.Split(string(body), "\n")
+
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
 				continue
 			}
-			h.logger.Infow("JSON parsed successfully", "eventType", event.Type)
-		} else {
-			h.logger.Infow("Parsing as URL-encoded", "lineNum", i)
-			values, err := url.ParseQuery(line)
-			if err != nil {
-				h.logger.Warnw("Failed to parse URL-encoded event in batch", "error", err, "line", line)
-				continue
-			}
-			event = h.parseFormToEvent(values)
-			h.logger.Infow("URL-encoded parsed", "eventType", event.Type)
-		}
 
+			var event models.RawEvent
+			// Support both JSON objects and URL-encoded
+			if strings.HasPrefix(line, "{") {
+				if err := json.Unmarshal([]byte(line), &event); err != nil {
+					h.logger.Warnw("Failed to unmarshal JSON line", "error", err, "line", line)
+					continue
+				}
+			} else {
+				values, err := url.ParseQuery(line)
+				if err != nil {
+					h.logger.Warnw("Failed to parse URL-encoded line", "error", err, "line", line)
+					continue
+				}
+				event = h.parseFormToEvent(values)
+			}
+			events = append(events, event)
+		}
+		h.logger.Infow("Parsed legacy format", "lineCount", len(lines), "parsedEvents", len(events))
+	}
+
+	// Process all events
+	for i, event := range events {
 		// Inject ServerID from context if authenticated
 		if sid, ok := r.Context().Value("server_id").(string); ok && sid != "" {
 			if event.ServerID == "" {
@@ -200,11 +213,11 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if event.Type == "" {
-			h.logger.Warnw("Event has empty type, skipping", "lineNum", i, "line", line[:min(len(line), 100)])
+			h.logger.Warnw("Event has empty type, skipping", "index", i)
 			continue
 		}
 
-		h.logger.Infow("Enqueueing event", "type", event.Type, "match_id", event.MatchID)
+		h.logger.Infow("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
 		if !h.pool.Enqueue(&event) {
 			h.logger.Warn("Worker pool queue full, dropping remaining events in batch")
 			break
@@ -480,7 +493,7 @@ func (h *Handler) GetGlobalWeaponStats(w http.ResponseWriter, r *http.Request) {
 		SELECT 
 			actor_weapon as weapon,
 			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
-			countIf(event_type = 'headshot') as headshots
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet')) as headshots
 		FROM mohaa_stats.raw_events
 		WHERE actor_weapon != '' 
 		GROUP BY actor_weapon
@@ -1637,7 +1650,7 @@ func (h *Handler) GetMatchDetails(w http.ResponseWriter, r *http.Request) {
 				actor_id as player_id,
 				any(actor_name) as player_name,
 				countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
-				countIf(event_type = 'headshot') as headshots
+				countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet')) as headshots
 			FROM mohaa_stats.raw_events
 			WHERE match_id = ? AND actor_id != '' AND actor_id != 'world'
 			GROUP BY actor_id
@@ -2584,7 +2597,7 @@ func (h *Handler) GetWeaponDetail(w http.ResponseWriter, r *http.Request) {
 	row := h.ch.QueryRow(ctx, `
 		SELECT 
 			countIf(event_type IN ('player_kill', 'bot_killed')) as total_kills,
-			countIf(event_type = 'headshot') as total_headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet')) as total_headshots,
 			countIf(event_type = 'weapon_fire') as shots_fired,
 			countIf(event_type = 'weapon_hit') as shots_hit,
 			uniq(actor_id) as unique_users,
@@ -2633,8 +2646,8 @@ func (h *Handler) GetWeaponDetail(w http.ResponseWriter, r *http.Request) {
 			actor_id,
 			any(actor_name) as name,
 			count() as kills,
-			countIf(event_type = 'headshot') as headshots,
-			if(count() > 0, toFloat64(countIf(event_type='headshot'))/count()*100, 0) as hs_ratio
+			countIf(hitloc IN ('head', 'helmet')) as headshots,
+			if(count() > 0, toFloat64(countIf(hitloc IN ('head', 'helmet')))/count()*100, 0) as hs_ratio
 		FROM mohaa_stats.raw_events
 		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_weapon = ? AND actor_id != ''
 		GROUP BY actor_id

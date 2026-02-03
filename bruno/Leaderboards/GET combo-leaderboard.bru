@@ -1,0 +1,34 @@
+meta {
+  name: Combo leaderboard
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/leaderboard/combos
+  body: none
+  auth: none
+}
+
+params:query {
+  metric: 
+  ~limit: 25
+}
+
+docs {
+  # Combo leaderboard
+  
+  Get leaderboard for derived combo metrics (run_gun, clutch, consistency)
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Global Server Activity
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/server/activity
+  body: none
+  auth: none
+}
+
+docs {
+  # Global Server Activity
+  
+  ## Responses
+  
+  - **200**: Activity Data
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

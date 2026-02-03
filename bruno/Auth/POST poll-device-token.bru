@@ -1,0 +1,26 @@
+meta {
+  name: Poll Device Token
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/auth/device/poll
+  body: none
+  auth: none
+}
+
+docs {
+  # Poll Device Token
+  
+  ## Responses
+  
+  - **200**: Access Token
+  - **400**: Pending/Expired
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

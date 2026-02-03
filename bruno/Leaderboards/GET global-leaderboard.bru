@@ -1,0 +1,36 @@
+meta {
+  name: Global Leaderboard
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/leaderboard/{{var:stat}}
+  body: none
+  auth: none
+}
+
+params:query {
+  ~limit: 25
+  ~page: 1
+  ~period: all
+  ~limit: 25
+  ~page: 1
+}
+
+docs {
+  # Global Leaderboard
+  
+  Get ranked list of players by any of the 38 supported metrics
+  
+  ## Responses
+  
+  - **200**: Leaderboard Data
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

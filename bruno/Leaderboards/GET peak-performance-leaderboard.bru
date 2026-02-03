@@ -1,0 +1,34 @@
+meta {
+  name: Peak performance leaderboard
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/leaderboard/peak
+  body: none
+  auth: none
+}
+
+params:query {
+  ~dimension: evening
+  ~limit: 25
+}
+
+docs {
+  # Peak performance leaderboard
+  
+  Get players who excel in specific time windows (morning, night, weekend)
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Get User Favorites
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/favorites
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{var:bearer_token}}
+}
+
+docs {
+  # Get User Favorites
+  
+  ## Responses
+  
+  - **200**: Favorites
+  - **401**: Unauthorized
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Server Details
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}
+  body: none
+  auth: none
+}
+
+docs {
+  # Server Details
+  
+  Detailed server info including lifetime stats
+  
+  ## Responses
+  
+  - **200**: Server Detail
+  - **400**: Missing ID
+  - **404**: Not Found
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

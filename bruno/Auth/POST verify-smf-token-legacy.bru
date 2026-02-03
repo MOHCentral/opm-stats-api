@@ -1,0 +1,26 @@
+meta {
+  name: Verify SMF Token (Legacy)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/auth/smf-verify
+  body: none
+  auth: none
+}
+
+docs {
+  # Verify SMF Token (Legacy)
+  
+  ## Responses
+  
+  - **200**: Result
+  - **401**: Unauthorized
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

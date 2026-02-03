@@ -1,0 +1,36 @@
+meta {
+  name: Contextual leaderboard
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/leaderboard/contextual
+  body: none
+  auth: none
+}
+
+params:query {
+  ~stat: kd
+  dimension: 
+  value: 
+  ~limit: 25
+}
+
+docs {
+  # Contextual leaderboard
+  
+  Get best players for a specific context (e.g. Best Snipers on Mohdm6)
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

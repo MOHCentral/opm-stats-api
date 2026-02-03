@@ -75,7 +75,7 @@ func (h *Handler) getPlayerStats(ctx context.Context, guid string) (*PlayerStats
 		SELECT
 			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?) as kills,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ?) as deaths,
-			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?) as headshots,
 			countIf(event_type = 'weapon_fire' AND actor_id = ?) as shots,
 			countIf(event_type = 'weapon_hit' AND actor_id = ?) as hits,
 			uniqIf(match_id, actor_id = ?) as matches
@@ -110,9 +110,9 @@ func (h *Handler) getPlayerTopWeapons(ctx context.Context, guid string, limit in
 		SELECT 
 			extract(extra, 'weapon_([a-zA-Z0-9_]+)') as weapon,
 			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
-			countIf(event_type = 'headshot') as headshots
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet')) as headshots
 		FROM mohaa_stats.raw_events 
-		WHERE actor_id = ? AND event_type IN ('player_kill', 'headshot')
+		WHERE actor_id = ? AND event_type IN ('player_kill', 'bot_killed')
 		GROUP BY weapon
 		ORDER BY kills DESC
 		LIMIT ?
@@ -278,7 +278,7 @@ func (h *Handler) getTopPlayers(ctx context.Context, limit int) ([]interface{}, 
 			any(a.actor_name) as name,
 			countIf(a.event_type IN ('player_kill', 'bot_killed')) as kills,
 			ifNull(max(d.death_count), 0) as deaths,
-			countIf(a.event_type = 'headshot') as headshots,
+			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.hitloc IN ('head', 'helmet')) as headshots,
 			uniq(a.match_id) as matches
 		FROM mohaa_stats.raw_events a
 		LEFT JOIN deaths_cte d ON a.actor_id = d.target_id

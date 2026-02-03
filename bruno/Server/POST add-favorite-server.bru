@@ -1,0 +1,35 @@
+meta {
+  name: Add Favorite Server
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/servers/{{var:id}}/favorite
+  body: none
+  auth: none
+}
+
+params:query {
+  ~nickname: 
+}
+
+headers {
+  Authorization: Bearer {{var:bearer_token}}
+}
+
+docs {
+  # Add Favorite Server
+  
+  ## Responses
+  
+  - **200**: Success
+  - **401**: Unauthorized
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

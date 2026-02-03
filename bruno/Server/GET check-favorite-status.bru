@@ -1,0 +1,29 @@
+meta {
+  name: Check Favorite Status
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/favorite
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{var:bearer_token}}
+}
+
+docs {
+  # Check Favorite Status
+  
+  ## Responses
+  
+  - **200**: Status
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

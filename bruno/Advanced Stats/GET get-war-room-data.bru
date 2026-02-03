@@ -1,0 +1,29 @@
+meta {
+  name: Get war room data
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/war-room
+  body: none
+  auth: none
+}
+
+docs {
+  # Get war room data
+  
+  Returns comprehensive stats for the war room dashboard
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

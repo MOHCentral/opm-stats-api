@@ -1,0 +1,35 @@
+meta {
+  name: Drill down into player stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}/drilldown
+  body: none
+  auth: none
+}
+
+params:query {
+  ~stat: kd
+  ~dimension: weapon
+  ~limit: 10
+}
+
+docs {
+  # Drill down into player stats
+  
+  Allows drilling down into a specific stat by a dimension (e.g. K/D by Weapon)
+  
+  ## Responses
+  
+  - **200**: OK
+  - **400**: Bad Request
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

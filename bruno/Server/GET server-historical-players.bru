@@ -1,0 +1,31 @@
+meta {
+  name: Server Historical Players
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/players
+  body: none
+  auth: none
+}
+
+params:query {
+  ~limit: 50
+  ~offset: 
+}
+
+docs {
+  # Server Historical Players
+  
+  ## Responses
+  
+  - **200**: Players List
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

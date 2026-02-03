@@ -1,0 +1,26 @@
+meta {
+  name: List Tournaments
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/tournaments
+  body: none
+  auth: none
+}
+
+docs {
+  # List Tournaments
+  
+  ## Responses
+  
+  - **200**: OK
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

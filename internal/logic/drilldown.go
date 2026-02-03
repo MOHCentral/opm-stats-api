@@ -160,7 +160,7 @@ func (s *DrilldownService) getBaseStat(ctx context.Context, guid string, stat st
 				count() as value,
 				count() as sample
 			FROM raw_events
-			WHERE event_type = 'headshot' AND actor_id = ?
+			WHERE event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?
 		`
 	case "winrate":
 		query = `
@@ -319,7 +319,7 @@ func (s *DrilldownService) getStatExpression(stat, guid string) string {
 	case "kills":
 		return fmt.Sprintf("countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = '%s')", guid)
 	case "headshots":
-		return fmt.Sprintf("countIf(event_type = 'headshot' AND actor_id = '%s')", guid)
+		return fmt.Sprintf("countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = '%s')", guid)
 	case "winrate":
 		return fmt.Sprintf(`if(
 			uniq(match_id) > 0,

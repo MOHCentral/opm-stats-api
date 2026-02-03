@@ -92,7 +92,7 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 			countIf(event_type = 'player_kill' AND actor_id = ?) as player_kills,
 			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ?) as deaths,
-			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?) as headshots,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('torso','torso_lower','torso_upper')) as torso,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('left_arm','right_arm','left_leg','right_leg','left_arm_lower','left_arm_upper','right_arm_lower','right_arm_upper','left_leg_lower','left_leg_upper','right_leg_lower','right_leg_upper')) as limbs,
 			countIf((event_type = 'bash' OR event_type = 'player_bash') AND actor_id = ?) as melee,
@@ -146,7 +146,7 @@ func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 			countIf(event_type IN ('player_kill', 'bot_killed')) as kills,
 			countIf(event_type = 'player_kill') as player_kills,
 			countIf(event_type = 'bot_killed') as bot_kills,
-			countIf(event_type = 'headshot') as headshots,
+			countIf(hitloc IN ('head', 'helmet')) as headshots,
 			countIf(event_type = 'weapon_fire') as shots,
 			countIf(event_type = 'weapon_hit') as hits,
 			sumIf(damage, event_type = 'damage' AND actor_id = ?) as damage
@@ -209,7 +209,7 @@ func (s *playerStatsService) fillAccuracyStats(ctx context.Context, guid string,
 		SELECT 
 			countIf(event_type = 'weapon_fire') as shots,
 			countIf(event_type = 'weapon_hit') as hits,
-			countIf(event_type = 'headshot') as headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet')) as headshots,
 			sumIf(distance, event_type IN ('player_kill', 'bot_killed')) / NULLIF(countIf(event_type IN ('player_kill', 'bot_killed')), 0) as avg_dist
 		FROM mohaa_stats.raw_events
 		WHERE actor_id = ?
@@ -421,7 +421,7 @@ func (s *playerStatsService) GetPlayerStatsByGametype(ctx context.Context, guid 
 			countIf(event_type = 'player_kill' AND actor_id = ?) as player_kills,
 			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
 			countIf(event_type IN ('death', 'player_kill') AND target_id = ?) as deaths,
-			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?) as headshots,
 			uniq(match_id) as matches_played
 		FROM mohaa_stats.raw_events
 		WHERE (actor_id = ? OR target_id = ?)
@@ -463,7 +463,7 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 			countIf(event_type = 'player_kill' AND actor_id = ?) as player_kills,
 			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
 			countIf(event_type IN ('death', 'player_kill') AND target_id = ?) as deaths,
-			countIf(event_type = 'headshot' AND actor_id = ?) as headshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?) as headshots,
 			uniq(match_id) as matches_played
 		FROM mohaa_stats.raw_events
 		WHERE (actor_id = ? OR target_id = ?)

@@ -1,0 +1,29 @@
+meta {
+  name: Get Trusted IPs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/auth/trusted-ips
+  body: none
+  auth: none
+}
+
+params:query {
+  forum_user_id: 
+}
+
+docs {
+  # Get Trusted IPs
+  
+  ## Responses
+  
+  - **200**: Trusted IPs
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

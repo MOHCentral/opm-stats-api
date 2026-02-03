@@ -1,0 +1,30 @@
+meta {
+  name: Server Activity Timeline
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/activity-timeline
+  body: none
+  auth: none
+}
+
+params:query {
+  ~days: 7
+}
+
+docs {
+  # Server Activity Timeline
+  
+  ## Responses
+  
+  - **200**: Timeline
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

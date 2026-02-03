@@ -655,7 +655,7 @@ const docTemplate = `{
                         "ServerToken": []
                     }
                 ],
-                "description": "Accepts newline-separated JSON events from game servers",
+                "description": "Accepts JSON array of events from game servers",
                 "consumes": [
                     "application/json"
                 ],
@@ -3495,7 +3495,6 @@ const docTemplate = `{
                 "death",
                 "damage",
                 "player_pain",
-                "headshot",
                 "player_suicide",
                 "player_crushed",
                 "player_telefragged",
@@ -3603,7 +3602,6 @@ const docTemplate = `{
                 "EventDeath",
                 "EventDamage",
                 "EventPlayerPain",
-                "EventHeadshot",
                 "EventPlayerSuicide",
                 "EventPlayerCrushed",
                 "EventPlayerTelefragged",
@@ -4462,6 +4460,16 @@ const docTemplate = `{
         "models.RawEvent": {
             "type": "object",
             "properties": {
+                "accuracy": {
+                    "type": "number"
+                },
+                "actor_id": {
+                    "description": "Actor/Bot Events",
+                    "type": "string"
+                },
+                "actor_type": {
+                    "type": "string"
+                },
                 "aim_pitch": {
                     "description": "Aim angles",
                     "type": "number"
@@ -4469,10 +4477,28 @@ const docTemplate = `{
                 "aim_yaw": {
                     "type": "number"
                 },
+                "allied_score": {
+                    "description": "Alias (singular)",
+                    "type": "integer"
+                },
                 "allies_score": {
                     "type": "integer"
                 },
+                "ammo_count": {
+                    "description": "Weapon Events",
+                    "type": "integer"
+                },
                 "ammo_remaining": {
+                    "type": "integer"
+                },
+                "ammo_type": {
+                    "type": "string"
+                },
+                "amount": {
+                    "description": "Generic amount field (ammo, health, etc.)",
+                    "type": "integer"
+                },
+                "armor_amount": {
                     "type": "integer"
                 },
                 "attacker_guid": {
@@ -4507,36 +4533,68 @@ const docTemplate = `{
                 "attacker_z": {
                     "type": "number"
                 },
+                "auth_token": {
+                    "type": "string"
+                },
                 "axis_score": {
                     "type": "integer"
                 },
                 "bot_id": {
+                    "description": "Vehicle/Turret",
+                    "type": "string"
+                },
+                "capturing_team": {
+                    "type": "string"
+                },
+                "claimed_id": {
                     "type": "string"
                 },
                 "client_num": {
                     "type": "integer"
                 },
                 "code": {
-                    "description": "Identity claim",
+                    "description": "Identity claim \u0026 Auth",
+                    "type": "string"
+                },
+                "command": {
+                    "description": "Server Commands",
                     "type": "string"
                 },
                 "count": {
                     "type": "integer"
                 },
+                "cpu_usage": {
+                    "description": "Server Metrics",
+                    "type": "number"
+                },
                 "damage": {
                     "type": "integer"
+                },
+                "destroyer_guid": {
+                    "type": "string"
                 },
                 "distance": {
                     "type": "number"
                 },
+                "door": {
+                    "description": "Door Events",
+                    "type": "string"
+                },
                 "driven": {
                     "type": "number"
+                },
+                "driver_guid": {
+                    "type": "string"
                 },
                 "duration": {
                     "type": "number"
                 },
                 "entity": {
                     "description": "Entity",
+                    "type": "string"
+                },
+                "executor": {
+                    "description": "Who executed the command",
                     "type": "string"
                 },
                 "fall_height": {
@@ -4546,18 +4604,55 @@ const docTemplate = `{
                 "fraglimit": {
                     "type": "string"
                 },
+                "from_map": {
+                    "description": "Map Events",
+                    "type": "string"
+                },
+                "from_team": {
+                    "description": "Team Events",
+                    "type": "string"
+                },
+                "from_vehicle": {
+                    "type": "string"
+                },
+                "game_type": {
+                    "description": "Alias for gametype",
+                    "type": "string"
+                },
                 "gametype": {
                     "description": "Match lifecycle",
                     "type": "string"
                 },
+                "health_restored": {
+                    "type": "integer"
+                },
                 "hitloc": {
                     "type": "string"
+                },
+                "idle_time": {
+                    "description": "Inactivity time in seconds",
+                    "type": "integer"
                 },
                 "inflictor": {
                     "type": "string"
                 },
+                "ip": {
+                    "description": "Connection Events",
+                    "type": "string"
+                },
                 "item": {
-                    "description": "Items",
+                    "description": "Items \u0026 Pickups",
+                    "type": "string"
+                },
+                "killer_guid": {
+                    "description": "Kill Events",
+                    "type": "string"
+                },
+                "load_time": {
+                    "type": "number"
+                },
+                "location": {
+                    "description": "Generic location description",
                     "type": "string"
                 },
                 "map_name": {
@@ -4570,12 +4665,36 @@ const docTemplate = `{
                     "description": "Match Outcome (1 = Win, 0 = Loss)",
                     "type": "integer"
                 },
+                "max_players": {
+                    "description": "Alias for maxclients",
+                    "type": "string"
+                },
                 "maxclients": {
+                    "type": "string"
+                },
+                "means_of_death": {
+                    "description": "Alias for mod",
                     "type": "string"
                 },
                 "message": {
                     "description": "Chat",
                     "type": "string"
+                },
+                "method": {
+                    "description": "Suicide method, etc.",
+                    "type": "string"
+                },
+                "mod": {
+                    "description": "Means of death (MOD_PISTOL, MOD_RIFLE, etc.)",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Generic name field",
+                    "type": "string"
+                },
+                "new_score": {
+                    "description": "New score after change",
+                    "type": "integer"
                 },
                 "new_team": {
                     "type": "string"
@@ -4583,8 +4702,18 @@ const docTemplate = `{
                 "new_weapon": {
                     "type": "string"
                 },
+                "no_votes": {
+                    "type": "integer"
+                },
+                "object": {
+                    "description": "Object Interaction",
+                    "type": "string"
+                },
                 "objective": {
-                    "description": "New Tracker Fields",
+                    "description": "Objectives",
+                    "type": "string"
+                },
+                "objective_id": {
                     "type": "string"
                 },
                 "objective_status": {
@@ -4595,6 +4724,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "old_weapon": {
+                    "type": "string"
+                },
+                "opener_guid": {
                     "type": "string"
                 },
                 "player_count": {
@@ -4617,6 +4749,10 @@ const docTemplate = `{
                 "player_team": {
                     "type": "string"
                 },
+                "players": {
+                    "description": "Alias for player_count (heartbeat)",
+                    "type": "integer"
+                },
                 "pos_x": {
                     "type": "number"
                 },
@@ -4626,10 +4762,38 @@ const docTemplate = `{
                 "pos_z": {
                     "type": "number"
                 },
+                "position": {
+                    "description": "Seat position",
+                    "type": "string"
+                },
+                "progress": {
+                    "description": "Objective progress percentage",
+                    "type": "integer"
+                },
                 "projectile": {
                     "type": "string"
                 },
+                "protocol": {
+                    "description": "Network protocol version",
+                    "type": "string"
+                },
+                "radius": {
+                    "description": "Explosion",
+                    "type": "number"
+                },
+                "reason": {
+                    "description": "Disconnect/kick/freeze reason",
+                    "type": "string"
+                },
                 "round_number": {
+                    "type": "integer"
+                },
+                "score": {
+                    "description": "Generic score field",
+                    "type": "integer"
+                },
+                "score_delta": {
+                    "description": "Score Events",
                     "type": "integer"
                 },
                 "seat": {
@@ -4644,13 +4808,35 @@ const docTemplate = `{
                 "session_id": {
                     "type": "string"
                 },
+                "shots_fired": {
+                    "description": "Accuracy Stats",
+                    "type": "integer"
+                },
+                "shots_hit": {
+                    "type": "integer"
+                },
+                "smf_id": {
+                    "description": "Generic SMF ID field",
+                    "type": "integer"
+                },
+                "speed": {
+                    "type": "number"
+                },
                 "sprinted": {
                     "type": "number"
+                },
+                "status": {
+                    "description": "Generic status field",
+                    "type": "string"
                 },
                 "swam": {
                     "type": "number"
                 },
                 "target_guid": {
+                    "type": "string"
+                },
+                "target_location": {
+                    "description": "For AI/bot target tracking",
                     "type": "string"
                 },
                 "target_name": {
@@ -4664,17 +4850,50 @@ const docTemplate = `{
                 "target_stance": {
                     "type": "string"
                 },
+                "team": {
+                    "description": "Generic team field",
+                    "type": "string"
+                },
+                "team_only": {
+                    "description": "True if team-only chat",
+                    "type": "boolean"
+                },
+                "teamkill_count": {
+                    "type": "integer"
+                },
                 "timelimit": {
                     "type": "string"
                 },
                 "timestamp": {
                     "type": "number"
                 },
+                "to_map": {
+                    "type": "string"
+                },
+                "to_team": {
+                    "description": "Alias for new_team",
+                    "type": "string"
+                },
+                "to_vehicle": {
+                    "type": "string"
+                },
                 "total_rounds": {
                     "type": "integer"
                 },
+                "turret": {
+                    "description": "Turret Events",
+                    "type": "string"
+                },
                 "type": {
                     "$ref": "#/definitions/models.EventType"
+                },
+                "vehicle": {
+                    "description": "Vehicle Events",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Server Info",
+                    "type": "string"
                 },
                 "victim_guid": {
                     "type": "string"
@@ -4702,6 +4921,14 @@ const docTemplate = `{
                 "victim_z": {
                     "type": "number"
                 },
+                "vote_target": {
+                    "description": "Target of vote (player, map, etc.)",
+                    "type": "string"
+                },
+                "vote_type": {
+                    "description": "Vote Events",
+                    "type": "string"
+                },
                 "walked": {
                     "type": "number"
                 },
@@ -4709,8 +4936,15 @@ const docTemplate = `{
                     "description": "Weapon/damage info",
                     "type": "string"
                 },
+                "winner": {
+                    "description": "Alias for winning_team",
+                    "type": "string"
+                },
                 "winning_team": {
                     "type": "string"
+                },
+                "yes_votes": {
+                    "type": "integer"
                 }
             }
         },

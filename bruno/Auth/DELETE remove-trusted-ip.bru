@@ -1,0 +1,30 @@
+meta {
+  name: Remove Trusted IP
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{base_url}}/auth/trusted-ips/{{var:id}}
+  body: none
+  auth: none
+}
+
+params:query {
+  forum_user_id: 
+}
+
+docs {
+  # Remove Trusted IP
+  
+  ## Responses
+  
+  - **200**: Success
+  - **404**: Not Found
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

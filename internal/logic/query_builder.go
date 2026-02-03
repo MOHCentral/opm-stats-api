@@ -49,7 +49,7 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 		// For player-specific deaths, would need target_id filter (not supported in this builder)
 		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed'))"
 	case "headshots":
-		selectClause = "countIf(event_type = 'headshot')"
+		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet'))"
 	case "accuracy": // Simplified accuracy (hits/shots) - careful with zero division
 		selectClause = "sumIf(1, event_type='weapon_hit') / max(1, sumIf(1, event_type='weapon_fire')) * 100"
 	case "kdr":

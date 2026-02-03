@@ -1,0 +1,28 @@
+meta {
+  name: Server Pulse (Main)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/server/pulse
+  body: none
+  auth: none
+}
+
+docs {
+  # Server Pulse (Main)
+  
+  Real-time heartbeat of server activity and chaos
+  
+  ## Responses
+  
+  - **200**: Pulse Data
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,30 @@
+meta {
+  name: TEST Player Kill Minimal
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-Server-Token: {{server_token}}
+}
+
+body:json {
+  {
+    "type": "player_kill",
+    "match_id": "{{match_id}}",
+    "timestamp": 1738540800.0,
+    "attacker_guid": "{{guid}}",
+    "victim_guid": "victim_abc123",
+    "weapon": "Colt 45",
+    "damage": 100,
+    "hitloc": "head",
+    "mod": "MOD_PISTOL"
+  }
+}

@@ -1,0 +1,87 @@
+meta {
+  name: Ingest All Event Types (Mega Payload)
+  type: http
+  seq: 99
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: json
+  auth: none
+}
+
+headers {
+  X-Server-Token: {{var:server_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {"type":"game_init","timestamp":"2026-02-02T17:30:00Z","server_id":"bruno_test","match_id":"bruno_mega_test","gametype":"tdm"}
+  {"type":"game_start","timestamp":"2026-02-02T17:30:01Z","server_id":"bruno_test","match_id":"bruno_mega_test"}
+  {"type":"player_spawn","timestamp":"2026-02-02T17:30:02Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1","smf_id":101,"team":"allies"}}
+  {"type":"player_spawn","timestamp":"2026-02-02T17:30:03Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2","smf_id":102,"team":"axis"}}
+  {"type":"weapon_fire","timestamp":"2026-02-02T17:30:04Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"weapon":"M1 Garand","ammo_remaining":7}
+  {"type":"weapon_hit","timestamp":"2026-02-02T17:30:04Z","server_id":"bruno_test","match_id":"bruno_mega_test","attacker":{"guid":"test_p1","name":"Player1"},"target":{"guid":"test_p2","name":"Player2"},"location":"head"}
+  {"type":"player_kill","timestamp":"2026-02-02T17:30:04Z","server_id":"bruno_test","match_id":"bruno_mega_test","attacker":{"guid":"test_p1","name":"Player1"},"victim":{"guid":"test_p2","name":"Player2"},"weapon":"M1 Garand","hitloc":"head","mod":"MOD_RIFLE"}
+  {"type":"death","timestamp":"2026-02-02T17:30:05Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"},"inflictor":"M1 Garand"}
+  {"type":"player_respawn","timestamp":"2026-02-02T17:30:10Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"}}
+  {"type":"jump","timestamp":"2026-02-02T17:30:15Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"}}
+  {"type":"land","timestamp":"2026-02-02T17:30:16Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"velocity":180}
+  {"type":"crouch","timestamp":"2026-02-02T17:30:20Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"}}
+  {"type":"weapon_reload","timestamp":"2026-02-02T17:30:22Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"weapon":"M1 Garand"}
+  {"type":"grenade_throw","timestamp":"2026-02-02T17:30:30Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"},"grenade_type":"Frag Grenade"}
+  {"type":"grenade_explode","timestamp":"2026-02-02T17:30:33Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"},"grenade_type":"Frag Grenade"}
+  {"type":"damage","timestamp":"2026-02-02T17:30:33Z","server_id":"bruno_test","match_id":"bruno_mega_test","victim":{"guid":"test_p1","name":"Player1"},"attacker":{"guid":"test_p2","name":"Player2"},"damage":75,"mod":"MOD_GRENADE"}
+  {"type":"bot_spawn","timestamp":"2026-02-02T17:30:40Z","server_id":"bruno_test","match_id":"bruno_mega_test","bot":{"guid":"bot_1","name":"TestBot","team":"axis"}}
+  {"type":"bot_roam","timestamp":"2026-02-02T17:30:45Z","server_id":"bruno_test","match_id":"bruno_mega_test","bot":{"guid":"bot_1","name":"TestBot"}}
+  {"type":"bot_attack","timestamp":"2026-02-02T17:30:50Z","server_id":"bruno_test","match_id":"bruno_mega_test","bot":{"guid":"bot_1","name":"TestBot"},"target":{"guid":"test_p1","name":"Player1"}}
+  {"type":"bot_killed","timestamp":"2026-02-02T17:30:55Z","server_id":"bruno_test","match_id":"bruno_mega_test","bot":{"guid":"bot_1","name":"TestBot"},"attacker":{"guid":"test_p1","name":"Player1"}}
+  {"type":"item_pickup","timestamp":"2026-02-02T17:31:00Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"item":"MedKit","amount":1}
+  {"type":"health_pickup","timestamp":"2026-02-02T17:31:01Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"amount":25}
+  {"type":"ammo_pickup","timestamp":"2026-02-02T17:31:05Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"},"ammo_type":"ThompsonAmmo","amount":30}
+  {"type":"vehicle_enter","timestamp":"2026-02-02T17:31:10Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"vehicle":"Jeep"}
+  {"type":"vehicle_exit","timestamp":"2026-02-02T17:31:20Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"vehicle":"Jeep"}
+  {"type":"turret_enter","timestamp":"2026-02-02T17:31:25Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"},"turret":"MG42_Nest"}
+  {"type":"turret_exit","timestamp":"2026-02-02T17:31:40Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p2","name":"Player2"},"turret":"MG42_Nest"}
+  {"type":"chat","timestamp":"2026-02-02T17:31:45Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"message":"gg"}
+  {"type":"score_change","timestamp":"2026-02-02T17:31:50Z","server_id":"bruno_test","match_id":"bruno_mega_test","player":{"guid":"test_p1","name":"Player1"},"score_type":"kills","delta":2,"new_total":2}
+  {"type":"round_end","timestamp":"2026-02-02T17:32:00Z","server_id":"bruno_test","match_id":"bruno_mega_test","round":1,"winner":"allies"}
+  {"type":"match_end","timestamp":"2026-02-02T17:32:05Z","server_id":"bruno_test","match_id":"bruno_mega_test","winning_team":"allies"}
+  {"type":"game_end","timestamp":"2026-02-02T17:32:10Z","server_id":"bruno_test","match_id":"bruno_mega_test","duration":130}
+}
+
+docs {
+  # Ingest All Event Types (Mega Payload)
+  
+  Sends a comprehensive multi-event payload covering all major categories:
+  - Game flow (init, start, end)
+  - Combat (kills, weapons with hitloc for headshot detection)
+  - Movement (spawn, jump, land, crouch)
+  - Bots (spawn, roam, attack, killed)
+  - Items (pickups: health, ammo, items)
+  - Vehicles (enter, exit, turret usage)
+  - Scoring and chat
+  
+  Uses newline-separated JSON format as required by the API.
+  
+  **Note:** For comprehensive testing of ALL 105 event types, use:
+  ```bash
+  ./tools/ingest_all_events.sh Local
+  ```
+  
+  ## Responses
+  
+  - **202**: Accepted - Events queued for processing
+  - **400**: Bad Request - Invalid JSON or missing fields
+  - **401**: Unauthorized - Invalid server token
+}
+
+tests {
+  test("Status code is 202 Accepted", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  test("Response confirms acceptance", function() {
+    expect(res.body).to.have.property('status');
+  });
+}

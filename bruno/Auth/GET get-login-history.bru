@@ -1,0 +1,30 @@
+meta {
+  name: Get Login History
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/auth/history
+  body: none
+  auth: none
+}
+
+params:query {
+  forum_user_id: 
+}
+
+docs {
+  # Get Login History
+  
+  ## Responses
+  
+  - **200**: History
+  - **400**: Bad Request
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

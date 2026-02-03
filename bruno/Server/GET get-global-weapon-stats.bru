@@ -1,0 +1,26 @@
+meta {
+  name: Get Global Weapon Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/weapons
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Global Weapon Stats
+  
+  ## Responses
+  
+  - **200**: Weapon Stats
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

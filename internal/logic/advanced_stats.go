@@ -163,7 +163,7 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 			toInt64(count()) as kills,
 			toInt64(countIf(event_type = 'player_kill')) as player_kills,
 			toInt64(countIf(event_type = 'bot_killed')) as bot_kills,
-			toInt64(countIf(event_type = 'headshot')) as headshots
+			toInt64(countIf(hitloc IN ('head', 'helmet'))) as headshots
 		FROM raw_events
 		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon != ''
 		GROUP BY actor_weapon

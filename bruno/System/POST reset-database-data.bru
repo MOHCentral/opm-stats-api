@@ -1,0 +1,33 @@
+meta {
+  name: Reset Database Data
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/system/reset
+  body: none
+  auth: none
+}
+
+headers {
+  X-Server-Token: {{var:server_token}}
+}
+
+docs {
+  # Reset Database Data
+  
+  Drops ClickHouse database and recreates schema, truncates achievement progress
+  
+  ## Responses
+  
+  - **200**: OK
+  - **401**: Unauthorized
+  - **500**: Internal Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Get Server Rankings
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/rankings
+  body: none
+  auth: none
+}
+
+params:query {
+  ~limit: 50
+}
+
+docs {
+  # Get Server Rankings
+  
+  ## Responses
+  
+  - **200**: Rankings
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

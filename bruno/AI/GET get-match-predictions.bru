@@ -1,0 +1,25 @@
+meta {
+  name: Get Match Predictions
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/match/{{var:matchId}}/predictions
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Match Predictions
+  
+  ## Responses
+  
+  - **200**: OK
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

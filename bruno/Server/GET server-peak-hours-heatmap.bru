@@ -1,0 +1,30 @@
+meta {
+  name: Server Peak Hours Heatmap
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/peak-hours
+  body: none
+  auth: none
+}
+
+params:query {
+  ~days: 30
+}
+
+docs {
+  # Server Peak Hours Heatmap
+  
+  ## Responses
+  
+  - **200**: Heatmap Data
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

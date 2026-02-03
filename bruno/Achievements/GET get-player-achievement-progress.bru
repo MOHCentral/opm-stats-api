@@ -1,0 +1,29 @@
+meta {
+  name: Get Player Achievement Progress
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/achievements/player/{{var:smf_id}}/progress
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Player Achievement Progress
+  
+  Returns all unlocked achievements for a player by SMF ID
+  
+  ## Responses
+  
+  - **200**: Achievement Progress
+  - **400**: Invalid ID
+  - **500**: Database Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

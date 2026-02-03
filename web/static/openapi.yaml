@@ -87,7 +87,6 @@ components:
         - death
         - damage
         - player_pain
-        - headshot
         # Combat Events (Special Kills)
         - player_suicide
         - player_crushed

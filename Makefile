@@ -1,10 +1,10 @@
-.PHONY: build docs run test clean generate-types
+.PHONY: build docs run test clean generate-types bruno bruno-events bruno-watch
 
 GO_BIN ?= api
 GOPATH ?= $(shell go env GOPATH)
 SWAG_BIN := $(GOPATH)/bin/swag
 
-all: build docs
+all: build docs bruno
 
 build:
 	@echo "Building API..."
@@ -39,10 +39,40 @@ charts:
 	@go run tools/chartgen/main.go
 	@echo "Charts generated in web/static/img/"
 
+bruno-test:
+	@./tools/test_bruno.sh Local
+
+bruno-ingest-all:
+	@./tools/ingest_all_events.sh Local
+
 test:
 	go test ./...
+	@echo ""
+	@echo "Running Bruno API tests..."
+	@./tools/test_bruno.sh Local || echo "⚠️  Bruno tests failed"
+
+bruno:
+	@echo "Generating Bruno API collection from swagger.yaml..."
+	@python3 tools/generate_bruno.py
+	@echo "✓ Bruno collection ready at bruno/"
+
+bruno-events:
+	@echo "🎯 Generating individual event .bru files..."
+	@python3 tools/generate_bruno_events.py
+	@echo "✅ Individual event files generated at bruno/Ingestion/Events/"
+
+bruno-watch:
+	@echo "Watching swagger.yaml for changes..."
+	@echo "Press Ctrl+C to stop"
+	@while true; do \
+		inotifywait -e modify web/static/swagger.yaml 2>/dev/null && \
+		echo "\n🔄 Detected swagger.yaml change, regenerating Bruno collection..." && \
+		python3 tools/generate_bruno.py; \
+	done || echo "Note: Install inotify-tools for watch mode"
 
 clean:
 	rm -f $(GO_BIN)
 	rm -rf web/static/img
 	rm -f web/static/swagger.json web/static/swagger.yaml web/static/docs.go
+	rm -rf bruno/*/
+	@echo "Note: bruno/environments/ and bruno/*.json preserved"

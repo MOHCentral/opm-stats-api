@@ -1,0 +1,29 @@
+meta {
+  name: Register Server
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/servers/register
+  body: none
+  auth: none
+}
+
+docs {
+  # Register Server
+  
+  Registers a new game server
+  
+  ## Responses
+  
+  - **200**: Server Credentials
+  - **400**: Bad Request
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -16,6 +16,11 @@ vendor/
 *.pem
 *.key
 
+# Bruno API Testing Secrets
+bruno/secrets.bru
+bruno/*.secret.bru
+bruno/.env.bruno
+
 # IDEs
 .vscode/
 .idea/

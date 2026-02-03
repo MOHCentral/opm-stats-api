@@ -1,0 +1,33 @@
+meta {
+  name: Get Tournament Achievements
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/achievements/tournament/{{var:tournament_id}}
+  body: none
+  auth: none
+}
+
+params:query {
+  player_id: 
+}
+
+docs {
+  # Get Tournament Achievements
+  
+  Returns achievements earned during a specific tournament
+  
+  ## Responses
+  
+  - **200**: Achievements
+  - **400**: Invalid Params
+  - **500**: Server Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

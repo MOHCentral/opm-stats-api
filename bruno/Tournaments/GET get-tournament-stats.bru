@@ -1,0 +1,26 @@
+meta {
+  name: Get Tournament Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/tournaments/{{var:id}}/stats
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Tournament Stats
+  
+  ## Responses
+  
+  - **200**: Stats
+  - **404**: Not Found
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

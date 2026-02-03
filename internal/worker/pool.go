@@ -400,12 +400,12 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 				key := "player:" + event.AttackerGUID + ":kills"
 				cmd := pipe.Incr(ctx, key)
 				killChecks = append(killChecks, killCheck{guid: event.AttackerGUID, cmd: cmd})
-			}
-		case models.EventHeadshot:
-			if event.PlayerGUID != "" {
-				key := "player:" + event.PlayerGUID + ":headshots"
-				cmd := pipe.Incr(ctx, key)
-				headshotChecks = append(headshotChecks, headshotCheck{guid: event.PlayerGUID, cmd: cmd})
+				// Also count headshots (derived from hitloc)
+				if event.Hitloc == "head" || event.Hitloc == "helmet" {
+					hsKey := "player:" + event.AttackerGUID + ":headshots"
+					hsCmd := pipe.Incr(ctx, hsKey)
+					headshotChecks = append(headshotChecks, headshotCheck{guid: event.AttackerGUID, cmd: hsCmd})
+				}
 			}
 		case models.EventConnect:
 			if event.PlayerGUID != "" {
@@ -577,7 +577,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 
 	// Set actor/target based on event type
 	switch event.Type {
-	case models.EventPlayerKill, models.EventHeadshot, models.EventPlayerBash, "bash", models.EventPlayerRoadkill, models.EventPlayerTeamkill, models.EventPlayerSuicide, models.EventPlayerCrushed, models.EventPlayerTelefragged, models.EventBotKilled:
+	case models.EventPlayerKill, models.EventPlayerBash, "bash", models.EventPlayerRoadkill, models.EventPlayerTeamkill, models.EventPlayerSuicide, models.EventPlayerCrushed, models.EventPlayerTelefragged, models.EventBotKilled:
 		ch.ActorID = event.AttackerGUID
 		ch.ActorName = sanitizeName(event.AttackerName)
 		ch.ActorTeam = event.AttackerTeam
@@ -693,8 +693,6 @@ func (p *Pool) processEventSideEffects(ctx context.Context, event *models.RawEve
 		p.handleKill(ctx, event)
 	case models.EventBotKilled:
 		p.handleKill(ctx, event) // Bot kills count as kills
-	case models.EventHeadshot:
-		p.handleHeadshot(ctx, event)
 	case models.EventConnect:
 		p.handleConnect(ctx, event)
 	case models.EventDisconnect:
@@ -875,18 +873,28 @@ func (p *Pool) handleKill(ctx context.Context, event *models.RawEvent) {
 
 	// Check achievement thresholds
 	p.checkKillAchievements(ctx, event.AttackerGUID, newCount)
+
+	// If this was a headshot (hitloc is head or helmet), also count as headshot
+	if event.Hitloc == "head" || event.Hitloc == "helmet" {
+		p.handleHeadshot(ctx, event)
+	}
 }
 
 // handleHeadshot increments headshot counters
 func (p *Pool) handleHeadshot(ctx context.Context, event *models.RawEvent) {
-	if event.PlayerGUID == "" {
+	// Use attacker GUID since headshots are derived from player_kill events
+	guid := event.AttackerGUID
+	if guid == "" {
+		guid = event.PlayerGUID // fallback
+	}
+	if guid == "" {
 		return
 	}
 
-	key := "player:" + event.PlayerGUID + ":headshots"
+	key := "player:" + guid + ":headshots"
 	newCount, _ := p.config.Redis.Incr(ctx, key).Result()
 
-	p.checkHeadshotAchievements(ctx, event.PlayerGUID, newCount)
+	p.checkHeadshotAchievements(ctx, guid, newCount)
 }
 
 // handleConnect updates player alias tracking

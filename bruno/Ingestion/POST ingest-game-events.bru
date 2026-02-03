@@ -1,0 +1,32 @@
+meta {
+  name: Ingest Game Events
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/ingest/events
+  body: none
+  auth: none
+}
+
+headers {
+  X-Server-Token: {{var:server_token}}
+}
+
+docs {
+  # Ingest Game Events
+  
+  Accepts newline-separated JSON events from game servers
+  
+  ## Responses
+  
+  - **202**: Accepted
+  - **400**: Bad Request
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

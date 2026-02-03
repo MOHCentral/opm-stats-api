@@ -1,0 +1,27 @@
+meta {
+  name: Get Server Live Status
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/live
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Server Live Status
+  
+  ## Responses
+  
+  - **200**: Live Status
+  - **400**: Missing ID
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

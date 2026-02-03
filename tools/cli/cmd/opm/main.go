@@ -51,7 +51,7 @@ const (
 	EventDeath             = "death"
 	EventDamage            = "damage"
 	EventPlayerPain        = "player_pain"
-	EventHeadshot          = "headshot"
+	// EventHeadshot removed - headshots derived from hitloc="head" on kill events
 	EventPlayerSuicide     = "player_suicide"
 	EventPlayerCrushed     = "player_crushed"
 	EventPlayerTelefragged = "player_telefragged"
@@ -1432,14 +1432,8 @@ func (m *MatchSimulator) simulateCombat(attacker *Player) {
 				weaponName = "Grenade"
 			}
 
-			if hitloc == "head" {
-				m.sendEvent(map[string]interface{}{
-					"type": EventHeadshot, "match_id": m.matchID, "timestamp": m.baseTS + 0.15,
-					"attacker_name": attacker.Name, "attacker_guid": attacker.GUID,
-					"victim_name": victim.Name, "victim_guid": victim.GUID,
-					"weapon": weapon,
-				})
-			}
+			// NOTE: Headshots are now derived from hitloc="head" on player_kill events
+			// No separate headshot event is sent anymore
 
 			m.sendEvent(map[string]interface{}{
 				"type":          killType,

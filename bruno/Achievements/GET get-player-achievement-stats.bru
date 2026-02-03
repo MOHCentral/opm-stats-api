@@ -1,0 +1,28 @@
+meta {
+  name: Get Player Achievement Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/achievements/player/{{var:smf_id}}/stats
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Player Achievement Stats
+  
+  Returns achievement totals and points for a player
+  
+  ## Responses
+  
+  - **200**: Achievement Stats
+  - **400**: Invalid ID
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

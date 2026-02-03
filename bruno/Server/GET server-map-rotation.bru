@@ -1,0 +1,30 @@
+meta {
+  name: Server Map Rotation
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/servers/{{var:id}}/map-rotation
+  body: none
+  auth: none
+}
+
+params:query {
+  ~days: 30
+}
+
+docs {
+  # Server Map Rotation
+  
+  ## Responses
+  
+  - **200**: Rotation Data
+  - **500**: Internal Error
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Get Player Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/stats/player/{{var:guid}}
+  body: none
+  auth: none
+}
+
+docs {
+  # Get Player Stats
+  
+  Fetch detailed statistics for a player using their GUID
+  
+  ## Responses
+  
+  - **200**: Player Stats
+  - **404**: Not Found
+}
+
+tests {
+  test("Status code is 2xx", function() {
+    expect(res.status).to.be.within(200, 299);
+  });
+}
