@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -152,44 +153,36 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	// Limit request body to 1MB to prevent DoS
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodySize)
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.errorResponse(w, http.StatusRequestEntityTooLarge, "Request body too large")
-		return
-	}
 	defer r.Body.Close()
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	scanner := bufio.NewScanner(r.Body)
+	h.logger.Infow("IngestEvents called (streaming)")
 
-	lines := strings.Split(string(body), "\n")
-	h.logger.Infow("Split body into lines", "lineCount", len(lines))
 	processed := 0
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
+	lineNum := 0
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
-			h.logger.Debugw("Skipping empty line", "lineNum", i)
 			continue
 		}
 
-		h.logger.Infow("Processing line", "lineNum", i, "preview", line[:min(len(line), 100)])
+		h.logger.Infow("Processing line", "lineNum", lineNum, "preview", line[:min(len(line), 100)])
 		var event models.RawEvent
 		// Support both JSON (if line starts with {) and URL-encoded
 		if strings.HasPrefix(line, "{") {
-			h.logger.Infow("Parsing as JSON", "lineNum", i)
 			if err := json.Unmarshal([]byte(line), &event); err != nil {
 				h.logger.Warnw("Failed to unmarshal JSON event in batch", "error", err, "line", line)
+				lineNum++
 				continue
 			}
-			h.logger.Infow("JSON parsed successfully", "eventType", event.Type)
 		} else {
-			h.logger.Infow("Parsing as URL-encoded", "lineNum", i)
 			values, err := url.ParseQuery(line)
 			if err != nil {
 				h.logger.Warnw("Failed to parse URL-encoded event in batch", "error", err, "line", line)
+				lineNum++
 				continue
 			}
 			event = h.parseFormToEvent(values)
-			h.logger.Infow("URL-encoded parsed", "eventType", event.Type)
 		}
 
 		// Inject ServerID from context if authenticated
@@ -200,7 +193,8 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if event.Type == "" {
-			h.logger.Warnw("Event has empty type, skipping", "lineNum", i, "line", line[:min(len(line), 100)])
+			h.logger.Warnw("Event has empty type, skipping", "lineNum", lineNum)
+			lineNum++
 			continue
 		}
 
@@ -210,6 +204,13 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		processed++
+		lineNum++
+	}
+
+	if err := scanner.Err(); err != nil {
+		h.logger.Errorw("Error reading request body", "error", err)
+		h.errorResponse(w, http.StatusBadRequest, "Error reading request body")
+		return
 	}
 
 	w.WriteHeader(http.StatusAccepted)
@@ -566,6 +567,28 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	// Map stat name to ClickHouse column/expression
 	orderExpr := "kills"
 	havingExpr := "kills > 0"
+
+	// Strict validation of stat parameter
+	allowedStats := map[string]bool{
+		"kills": true, "deaths": true, "kd_ratio": true, "kd": true,
+		"headshots": true, "accuracy": true, "shots_fired": true,
+		"damage": true, "bash_kills": true, "grenade_kills": true,
+		"roadkills": true, "telefrags": true, "crushed": true,
+		"teamkills": true, "suicides": true, "reloads": true,
+		"weapon_swaps": true, "no_ammo": true, "looter": true,
+		"distance": true, "sprinted": true, "swam": true,
+		"driven": true, "jumps": true, "crouch_time": true,
+		"prone_time": true, "ladders": true, "health_picked": true,
+		"ammo_picked": true, "armor_picked": true, "items_picked": true,
+		"wins": true, "team_wins": true, "ffa_wins": true,
+		"losses": true, "objectives": true, "rounds": true,
+		"playtime": true, "games": true,
+	}
+
+	if !allowedStats[stat] {
+		// Default to kills if invalid
+		stat = "kills"
+	}
 
 	switch stat {
 	case "kills":

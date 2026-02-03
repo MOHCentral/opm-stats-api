@@ -67,6 +67,16 @@ func TestBuildStatsQuery(t *testing.T) {
 			wantArgsCount: 2,
 			wantErr:       false,
 		},
+		{
+			name: "Malicious Weapon Filter",
+			req: DynamicQueryRequest{
+				Metric:       "kills",
+				FilterWeapon: "' OR '1'='1",
+			},
+			wantQueryPart: "",
+			wantArgsCount: 0,
+			wantErr:       true,
+		},
 	}
 
 	for _, tt := range tests {

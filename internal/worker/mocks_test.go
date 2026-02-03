@@ -60,6 +60,23 @@ func (m *MockStatStore) Set(ctx context.Context, key string, value interface{}, 
 	return nil
 }
 
+func (m *MockStatStore) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) (bool, error) {
+	if _, exists := m.Stats[key]; exists {
+		return false, nil
+	}
+	switch v := value.(type) {
+	case int:
+		m.Stats[key] = float64(v)
+	case int64:
+		m.Stats[key] = float64(v)
+	case float64:
+		m.Stats[key] = v
+	default:
+		// handle other types if needed
+	}
+	return true, nil
+}
+
 func (m *MockStatStore) Publish(ctx context.Context, channel string, message interface{}) error {
 	m.PublishedMessages = append(m.PublishedMessages, PublishedMessage{
 		Channel: channel,

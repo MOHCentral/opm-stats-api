@@ -353,15 +353,8 @@ func (p *Pool) processBatch(batch []Job) error {
 	for _, job := range batch {
 		event := job.Event
 		if p.achievementWorker != nil {
-			p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
-			go func(evt *models.RawEvent) {
-				defer func() {
-					if r := recover(); r != nil {
-						p.logger.Errorw("Achievement worker panic", "error", r, "event_type", evt.Type)
-					}
-				}()
-				p.achievementWorker.ProcessEvent(evt)
-			}(event)
+			// p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
+			p.achievementWorker.Enqueue(event)
 		}
 	}
 

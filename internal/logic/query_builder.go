@@ -2,8 +2,11 @@ package logic
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 )
+
+var validWeaponFilter = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 // DynamicQueryRequest holds parameters for constructing a stats query
 type DynamicQueryRequest struct {
@@ -86,6 +89,10 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 		args = append(args, req.FilterServer)
 	}
 	if req.FilterWeapon != "" {
+		// Strict validation to prevent injection or invalid LIKE patterns
+		if !validWeaponFilter.MatchString(req.FilterWeapon) {
+			return "", nil, fmt.Errorf("invalid weapon filter: %s", req.FilterWeapon)
+		}
 		// This is tricky. Weapon is usually in 'extra' JSON or string.
 		// Assuming extra contains "weapon": "kar98"
 		query += " AND extra LIKE ?"
