@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/openmohaa/stats-api/internal/models"
 	"go.uber.org/zap"
 )
@@ -39,13 +40,19 @@ func TestIngestEvents(t *testing.T) {
 		},
 		{
 			name:        "Valid Payload",
-			body:        "type=kill",
+			body:        "type=kill&match_id=123&server_id=srv1&timestamp=1620000000",
 			mockEnqueue: func(e *models.RawEvent) bool { return true },
 			wantStatus:  http.StatusAccepted,
 		},
 		{
+			name:        "Invalid Payload",
+			body:        "type=kill", // Missing required fields
+			mockEnqueue: func(e *models.RawEvent) bool { panic("should not be called") },
+			wantStatus:  http.StatusAccepted,
+		},
+		{
 			name:        "Queue Full",
-			body:        "type=kill",
+			body:        "type=kill&match_id=123&server_id=srv1&timestamp=1620000000",
 			mockEnqueue: func(e *models.RawEvent) bool { return false },
 			wantStatus:  http.StatusAccepted,
 		},
@@ -56,8 +63,9 @@ func TestIngestEvents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Handler{
-				logger: logger.Sugar(),
-				pool:   &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
+				logger:   logger.Sugar(),
+				validate: validator.New(),
+				pool:     &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
 			}
 
 			req := httptest.NewRequest("POST", "/api/v1/ingest/events", strings.NewReader(tt.body))
