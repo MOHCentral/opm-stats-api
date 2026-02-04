@@ -713,8 +713,9 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			sum(items_picked) AS items_picked,
 			sum(matches_won) AS wins,
 			uniqExactMerge(matches_played) AS rounds,
+			sum(objectives) AS objectives,
 			sum(games_finished) AS games,
-			toUInt64(0) AS playtime,
+			sum(playtime_seconds) AS playtime,
 			max(last_active) AS max_last_active
 		FROM mohaa_stats.player_stats_daily
 		WHERE player_id != '' AND %s
@@ -746,7 +747,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			&entry.Swam, &entry.Driven, &entry.Jumps, &entry.Crouches,
 			&entry.Prone, &entry.Ladders, &entry.HealthPicked, &entry.AmmoPicked,
 			&entry.ArmorPicked, &entry.ItemsPicked, &entry.Wins, &entry.Rounds,
-			&entry.GamesFinished, &entry.Playtime, &lastActive,
+			&entry.Objectives, &entry.GamesFinished, &entry.Playtime, &lastActive,
 		); err != nil {
 			h.logger.Warnw("Failed to scan leaderboard row", "error", err)
 			continue
@@ -778,6 +779,10 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			entry.Value = entry.Wins
 		case "rounds":
 			entry.Value = entry.Rounds
+		case "objectives":
+			entry.Value = entry.Objectives
+		case "playtime":
+			entry.Value = entry.Playtime
 		case "looter":
 			entry.Value = entry.ItemsPicked
 		case "distance", "distance_km":

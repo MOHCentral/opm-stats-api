@@ -279,6 +279,7 @@ type ClickHouseEvent struct {
 	Damage      uint32
 	Hitloc      string
 	Distance    float32
+	Duration    float32
 	RoundNumber uint16
 
 	// Raw JSON for debugging
