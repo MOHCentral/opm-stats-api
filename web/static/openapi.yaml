@@ -69,6 +69,7 @@ components:
       description: |
         Canonical event type enumeration. This is the single source of truth
         for all event types across the system (Go API, PHP SMF, game scripts).
+        Generated from actual .scr file init_event calls.
       enum:
         # Game Flow & Match Lifecycle
         - game_init
@@ -76,14 +77,13 @@ components:
         - game_end
         - match_start
         - match_end
-        - match_outcome
         - round_start
         - round_end
         - warmup_start
         - warmup_end
         - intermission_start
         # Combat Events (Core)
-        - player_kill             # Game script canonical type (was "kill")
+        - player_kill
         - death
         - damage
         - player_pain
@@ -98,7 +98,7 @@ components:
         - weapon_fire
         - weapon_hit
         - weapon_change
-        - reload                  # Game script canonical type (was "weapon_reload")
+        - reload
         - weapon_reload_done
         - weapon_ready
         - weapon_no_ammo
@@ -121,12 +121,12 @@ components:
         - ladder_mount
         - ladder_dismount
         # Interaction Events
-        - use                     # Game script canonical type (was "player_use")
+        - use
         - player_use_object_start
         - player_use_object_finish
         - player_spectate
         - player_freeze
-        - chat                    # Game script canonical type (was "player_say")
+        - chat
         # Item Events
         - item_pickup
         - item_drop
@@ -137,16 +137,11 @@ components:
         # Vehicle & Turret Events
         - vehicle_enter
         - vehicle_exit
-        - vehicle_death
-        - vehicle_crash           # Game script canonical type (was "vehicle_collision")
+        - vehicle_crash
         - vehicle_change
         - turret_enter
         - turret_exit
-        # Server Lifecycle Events
-        - server_init
-        - server_start
-        - server_shutdown
-        - server_spawned
+        # Server Events
         - server_console_command
         - heartbeat
         # Map Lifecycle Events
@@ -160,14 +155,13 @@ components:
         - map_restart
         # Team & Vote Events
         - team_join
-        - team_change
         - team_win
         - vote_start
         - vote_passed
         - vote_failed
         # Client/Session Events
-        - connect                 # Game script canonical type (was "client_connect")
-        - disconnect              # Game script canonical type (was "client_disconnect")
+        - connect
+        - disconnect
         - client_begin
         - client_userinfo_changed
         - player_inactivity_drop
@@ -189,10 +183,11 @@ components:
         # Score & Admin Events
         - score_change
         - teamkill_kick
-        # Custom/Extension Events
+        # Auth/Stats Events
         - player_auth
         - accuracy_summary
-        - identity_claim
+        # Internal API Events (not from game scripts)
+        - match_outcome           # Synthesized per-player from match_end for win/loss tracking
 
     # ==========================
     # Server Tracking

@@ -419,7 +419,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 			if event.PlayerGUID != "" {
 				pipe.SRem(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
 			}
-		case models.EventTeamChange:
+		case models.EventTeamJoin:
 			if event.PlayerGUID != "" && event.NewTeam != "" {
 				pipe.HSet(ctx, "match:"+event.MatchID+":teams", event.PlayerGUID, event.NewTeam)
 			}
@@ -658,7 +658,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 		// Actually raw_json has it, but lets put it in ActorWeapon for now
 		ch.ActorWeapon = event.Objective
 
-	case models.EventVehicleEnter, models.EventVehicleExit, models.EventVehicleDeath:
+	case models.EventVehicleEnter, models.EventVehicleExit, models.EventVehicleCrash:
 		ch.ActorID = event.PlayerGUID
 		ch.ActorName = sanitizeName(event.PlayerName)
 		ch.ActorSMFID = event.PlayerSMFID
@@ -699,7 +699,7 @@ func (p *Pool) processEventSideEffects(ctx context.Context, event *models.RawEve
 		p.handleDisconnect(ctx, event)
 	case models.EventChat:
 		p.handleChat(ctx, event)
-	case models.EventTeamChange:
+	case models.EventTeamJoin:
 		p.handleTeamChange(ctx, event)
 	case models.EventPlayerSpawn:
 		p.handleSpawn(ctx, event)

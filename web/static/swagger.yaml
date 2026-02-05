@@ -331,7 +331,6 @@ definitions:
     - game_end
     - match_start
     - match_end
-    - match_outcome
     - round_start
     - round_end
     - warmup_start
@@ -384,15 +383,10 @@ definitions:
     - armor_pickup
     - vehicle_enter
     - vehicle_exit
-    - vehicle_death
     - vehicle_crash
     - vehicle_change
     - turret_enter
     - turret_exit
-    - server_init
-    - server_start
-    - server_shutdown
-    - server_spawned
     - server_console_command
     - heartbeat
     - map_init
@@ -404,7 +398,6 @@ definitions:
     - map_change_start
     - map_restart
     - team_join
-    - team_change
     - team_win
     - vote_start
     - vote_passed
@@ -430,7 +423,7 @@ definitions:
     - teamkill_kick
     - player_auth
     - accuracy_summary
-    - identity_claim
+    - match_outcome
     type: string
     x-enum-varnames:
     - EventGameInit
@@ -438,7 +431,6 @@ definitions:
     - EventGameEnd
     - EventMatchStart
     - EventMatchEnd
-    - EventMatchOutcome
     - EventRoundStart
     - EventRoundEnd
     - EventWarmupStart
@@ -491,15 +483,10 @@ definitions:
     - EventArmorPickup
     - EventVehicleEnter
     - EventVehicleExit
-    - EventVehicleDeath
     - EventVehicleCrash
     - EventVehicleChange
     - EventTurretEnter
     - EventTurretExit
-    - EventServerInit
-    - EventServerStart
-    - EventServerShutdown
-    - EventServerSpawned
     - EventServerConsoleCommand
     - EventHeartbeat
     - EventMapInit
@@ -511,7 +498,6 @@ definitions:
     - EventMapChangeStart
     - EventMapRestart
     - EventTeamJoin
-    - EventTeamChange
     - EventTeamWin
     - EventVoteStart
     - EventVotePassed
@@ -537,7 +523,7 @@ definitions:
     - EventTeamkillKick
     - EventPlayerAuth
     - EventAccuracySummary
-    - EventIdentityClaim
+    - EventMatchOutcome
   models.FactionStats:
     properties:
       allies:

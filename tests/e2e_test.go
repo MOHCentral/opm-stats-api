@@ -375,7 +375,7 @@ func TestEvent_TeamJoin(t *testing.T) {
 		"old_team":    "spectator",
 		"new_team":    "allies",
 	}
-	sendEvent(t, "team_change", params)
+	sendEvent(t, "team_join", params)
 	t.Log("✓ team_join event sent")
 }
 
@@ -510,22 +510,22 @@ func TestSMF_LeaderboardPage(t *testing.T) {
 	if !strings.Contains(content, "mohaastats") {
 		t.Log("⚠ SMF leaderboard page may not be configured (missing 'mohaastats' in content)")
 	}
-	
+
 	// Check for a known element from the leaderboard template
 	if !strings.Contains(content, "Leaderboard") {
 		t.Error("SMF Leaderboard page missing 'Leaderboard' title")
 	}
-	
+
 	t.Log("✓ SMF Leaderboard page accessible and renders template")
 }
 
 func TestSMF_PlayerPage(t *testing.T) {
-	// Attempt to view a player profile. 
-	// Note: We need a valid ID or GUID. Using testPlayerGUID which might not be linked in SMF during this specific test run 
+	// Attempt to view a player profile.
+	// Note: We need a valid ID or GUID. Using testPlayerGUID which might not be linked in SMF during this specific test run
 	// unless we ran the full simulation first.
 	// For integration check, we just want to see if the Profile Page loads without 500 and contains the Stats tab link.
-	
-	resp, err := http.Get(smfBaseURL + "/index.php?action=profile;u=1") 
+
+	resp, err := http.Get(smfBaseURL + "/index.php?action=profile;u=1")
 	if err != nil {
 		t.Fatalf("Failed to get SMF player profile: %v", err)
 	}
@@ -535,7 +535,7 @@ func TestSMF_PlayerPage(t *testing.T) {
 		t.Logf("⚠ SMF player profile returned status %d (User 1 might not exist)", resp.StatusCode)
 		return
 	}
-	
+
 	body, _ := io.ReadAll(resp.Body)
 	content := string(body)
 
