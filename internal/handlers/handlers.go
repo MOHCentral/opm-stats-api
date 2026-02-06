@@ -714,7 +714,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			sum(matches_won) AS wins,
 			uniqExactMerge(matches_played) AS rounds,
 			sum(games_finished) AS games,
-			toUInt64(0) AS playtime,
+			sum(playtime_seconds) AS playtime,
 			max(last_active) AS max_last_active
 		FROM mohaa_stats.player_stats_daily
 		WHERE player_id != '' AND %s

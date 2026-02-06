@@ -20,7 +20,7 @@ func TestBuildStatsQuery(t *testing.T) {
 				Metric: "kills",
 				Limit:  10,
 			},
-			wantQueryPart: "countIf(event_type = 'kill')",
+			wantQueryPart: "countIf(event_type IN ('player_kill', 'bot_killed'))",
 			wantArgsCount: 0,
 			wantErr:       false,
 		},
