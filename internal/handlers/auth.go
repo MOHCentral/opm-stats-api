@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -183,6 +184,22 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Normalize: populate canonical fields from game-script aliases
+	if req.ServerName == "" && req.ServerID != "" {
+		req.ServerName = req.ServerID
+	}
+	if req.ServerAddress == "" && req.ServerIP != "" {
+		req.ServerAddress = fmt.Sprintf("%s:%s", req.ServerIP, req.ServerPort)
+	}
+	// If no player_ip provided, use the request origin (game server IP)
+	if req.PlayerIP == "" {
+		req.PlayerIP = r.RemoteAddr
+		// Strip port from RemoteAddr
+		if host, _, err := net.SplitHostPort(req.PlayerIP); err == nil {
+			req.PlayerIP = host
+		}
+	}
+
 	if req.Token == "" {
 		h.errorResponse(w, http.StatusBadRequest, "token is required")
 		return
@@ -270,7 +287,7 @@ func (h *Handler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 				"member_name":   memberName,
 				"message":       "Reconnected from trusted IP",
 				"trusted_ip":    true,
-				"player_guid":   req.PlayerGUID,				
+				"player_guid":   req.PlayerGUID,
 			})
 			return
 		}
@@ -655,7 +672,6 @@ func (h *Handler) GetTrustedIPs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-
 
 	type TrustedIP struct {
 		ID         string    `json:"id"`

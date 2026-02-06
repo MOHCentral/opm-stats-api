@@ -4970,7 +4970,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "port": {
-                    "type": "integer"
+                    "type": "string"
                 }
             }
         },
@@ -5521,10 +5521,22 @@ const docTemplate = `{
                 "player_ip": {
                     "type": "string"
                 },
+                "player_name": {
+                    "type": "string"
+                },
                 "server_address": {
                     "type": "string"
                 },
+                "server_id": {
+                    "type": "string"
+                },
+                "server_ip": {
+                    "type": "string"
+                },
                 "server_name": {
+                    "type": "string"
+                },
+                "server_port": {
                     "type": "string"
                 },
                 "token": {

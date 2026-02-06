@@ -1,9 +1,38 @@
 package models
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// FlexString unmarshals from both JSON string and number values into a Go string.
+// Game scripts may send player_guid as int (0) or string ("0").
+type FlexString string
+
+func (f *FlexString) UnmarshalJSON(data []byte) error {
+	// Try string first
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*f = FlexString(s)
+		return nil
+	}
+	// Try number (int or float)
+	var n json.Number
+	if err := json.Unmarshal(data, &n); err == nil {
+		*f = FlexString(n.String())
+		return nil
+	}
+	return fmt.Errorf("FlexString: cannot unmarshal %s", string(data))
+}
+
+func (f FlexString) String() string {
+	return string(f)
+}
+
 type RegisterServerRequest struct {
-	Name      string `json:"name"`
-	IPAddress string `json:"ip_address"`
-	Port      int    `json:"port"`
+	Name      string     `json:"name"`
+	IPAddress string     `json:"ip_address"`
+	Port      FlexString `json:"port"`
 }
 
 type RegisterServerResponse struct {
@@ -29,11 +58,15 @@ type DevicePollRequest struct {
 }
 
 type VerifyTokenRequest struct {
-	Token         string `json:"token"`
-	PlayerGUID    string `json:"player_guid"`
-	ServerName    string `json:"server_name"`
-	ServerAddress string `json:"server_address"`
-	PlayerIP      string `json:"player_ip"`
+	Token         string     `json:"token"`
+	PlayerGUID    FlexString `json:"player_guid"`
+	ServerName    string     `json:"server_name"`
+	ServerAddress string     `json:"server_address"`
+	PlayerIP      string     `json:"player_ip"`
+	ServerID      string     `json:"server_id"`
+	PlayerName    string     `json:"player_name"`
+	ServerIP      string     `json:"server_ip"`
+	ServerPort    FlexString `json:"server_port"`
 }
 
 type ResolveIPRequest struct {

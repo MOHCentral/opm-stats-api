@@ -8,8 +8,6 @@ import (
 	"github.com/openmohaa/stats-api/internal/models"
 )
 
-
-
 // RegisterServer handles new server registration
 // @Summary Register Server
 // @Description Registers a new game server
@@ -49,7 +47,7 @@ func (h *Handler) RegisterServer(w http.ResponseWriter, r *http.Request) {
 			is_active = true,
 			last_seen = NOW()
 		RETURNING id
-	`, serverID, req.Name, req.IPAddress, req.Port, tokenHash)
+	`, serverID, req.Name, req.IPAddress, string(req.Port), tokenHash)
 
 	if err != nil {
 		h.logger.Errorw("Failed to register server", "error", err)

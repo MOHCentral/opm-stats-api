@@ -292,8 +292,8 @@ func (p *Pool) processBatch(batch []Job) error {
 	for _, job := range batch {
 		event := job.Event
 
-		// Convert to ClickHouse event
-		chEvent := p.convertToClickHouseEvent(event, job.RawJSON)
+		// Convert to ClickHouse event, using job receipt time as fallback for game-relative timestamps
+		chEvent := p.convertToClickHouseEvent(event, job.RawJSON, job.Timestamp)
 
 		err := chBatch.Append(
 			chEvent.Timestamp,
@@ -549,8 +549,15 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 	}
 }
 
-// convertToClickHouseEvent normalizes a raw event for ClickHouse
-func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) *models.ClickHouseEvent {
+// minValidUnixTimestamp is 2020-01-01 00:00:00 UTC in seconds.
+// Any event.Timestamp below this is treated as game-relative time (e.g. level.time),
+// not a real Unix epoch, and we substitute the ingestion wall-clock time instead.
+const minValidUnixTimestamp = 1577836800
+
+// convertToClickHouseEvent normalizes a raw event for ClickHouse.
+// receivedAt is the wall-clock time when the event was enqueued, used as fallback
+// when event.Timestamp is game-relative (level.time) rather than Unix epoch.
+func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, receivedAt time.Time) *models.ClickHouseEvent {
 	// Parse match_id as UUID or generate a consistent one from the string
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
@@ -559,10 +566,20 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string) 
 		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
 	}
 
-	sec := int64(event.Timestamp)
-	nsec := int64((event.Timestamp - float64(sec)) * 1e9)
+	// Determine real wall-clock timestamp.
+	// Game scripts send level.time (seconds since map load, e.g. 73.6),
+	// which is NOT a Unix epoch. Detect this and use ingestion time instead.
+	var ts time.Time
+	if event.Timestamp >= minValidUnixTimestamp {
+		sec := int64(event.Timestamp)
+		nsec := int64((event.Timestamp - float64(sec)) * 1e9)
+		ts = time.Unix(sec, nsec)
+	} else {
+		ts = receivedAt
+	}
+
 	ch := &models.ClickHouseEvent{
-		Timestamp:    time.Unix(sec, nsec),
+		Timestamp:    ts,
 		MatchID:      matchID,
 		ServerID:     event.ServerID,
 		MapName:      event.MapName,
