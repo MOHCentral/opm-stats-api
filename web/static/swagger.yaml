@@ -1341,6 +1341,8 @@ definitions:
       victim_name:
         description: Victim info
         type: string
+      victim_pitch:
+        type: number
       victim_smf_id:
         description: SMF member ID (if authenticated)
         type: integer
@@ -1351,6 +1353,8 @@ definitions:
       victim_x:
         type: number
       victim_y:
+        type: number
+      victim_yaw:
         type: number
       victim_z:
         type: number

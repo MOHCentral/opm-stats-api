@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -159,6 +160,10 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
+	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	body = bytes.TrimSpace(body)
+
 	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
 
 	var events []models.RawEvent
@@ -167,8 +172,8 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	// Try parsing as JSON array first (modern format)
 	if len(body) > 0 && body[0] == '[' {
 		if err := json.Unmarshal(body, &events); err != nil {
-			h.logger.Warnw("Failed to unmarshal JSON array", "error", err)
-			h.errorResponse(w, http.StatusBadRequest, "Invalid JSON array")
+			h.logger.Warnw("Failed to unmarshal JSON array", "error", err, "bodyHex", fmt.Sprintf("%x", body[:min(len(body), 100)]))
+			h.errorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON array: %v", err))
 			return
 		}
 		h.logger.Infow("Parsed as JSON array", "eventCount", len(events))

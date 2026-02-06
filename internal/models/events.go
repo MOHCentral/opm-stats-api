@@ -70,6 +70,8 @@ type RawEvent struct {
 	VictimX      float32 `json:"victim_x,omitempty"`
 	VictimY      float32 `json:"victim_y,omitempty"`
 	VictimZ      float32 `json:"victim_z,omitempty"`
+	VictimPitch  float32 `json:"victim_pitch,omitempty"`
+	VictimYaw    float32 `json:"victim_yaw,omitempty"`
 	VictimStance string  `json:"victim_stance,omitempty"`
 
 	// Weapon/damage info

@@ -4888,6 +4888,9 @@ const docTemplate = `{
                     "description": "Victim info",
                     "type": "string"
                 },
+                "victim_pitch": {
+                    "type": "number"
+                },
                 "victim_smf_id": {
                     "description": "SMF member ID (if authenticated)",
                     "type": "integer"
@@ -4902,6 +4905,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "victim_y": {
+                    "type": "number"
+                },
+                "victim_yaw": {
                     "type": "number"
                 },
                 "victim_z": {
