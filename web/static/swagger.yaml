@@ -1103,7 +1103,7 @@ definitions:
         description: Server Metrics
         type: number
       damage:
-        type: integer
+        type: number
       destroyer_guid:
         type: string
       distance:

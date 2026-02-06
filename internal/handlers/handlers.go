@@ -286,7 +286,7 @@ func (h *Handler) parseFormToEvent(form url.Values) models.RawEvent {
 
 	// Parse numeric fields
 	event.Timestamp, _ = strconv.ParseFloat(form.Get("timestamp"), 64)
-	event.Damage, _ = strconv.Atoi(form.Get("damage"))
+	event.Damage, _ = strconv.ParseFloat(form.Get("damage"), 64)
 	event.AmmoRemaining, _ = strconv.Atoi(form.Get("ammo_remaining"))
 	event.AlliesScore, _ = strconv.Atoi(form.Get("allies_score"))
 	event.AxisScore, _ = strconv.Atoi(form.Get("axis_score"))

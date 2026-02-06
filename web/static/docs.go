@@ -4554,7 +4554,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "damage": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "destroyer_guid": {
                     "type": "string"

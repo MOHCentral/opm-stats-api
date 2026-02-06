@@ -73,17 +73,17 @@ type RawEvent struct {
 	VictimStance string  `json:"victim_stance,omitempty"`
 
 	// Weapon/damage info
-	Weapon        string `json:"weapon,omitempty"`
-	OldWeapon     string `json:"old_weapon,omitempty"`
-	NewWeapon     string `json:"new_weapon,omitempty"`
-	Hitloc        string `json:"hitloc,omitempty"`
-	Mod           string `json:"mod,omitempty"`           // Means of death (MOD_PISTOL, MOD_RIFLE, etc.)
-	MeansOfDeath  string `json:"means_of_death,omitempty"` // Alias for mod
-	Inflictor     string `json:"inflictor,omitempty"`
-	Damage        int    `json:"damage,omitempty"`
-	AmmoRemaining int    `json:"ammo_remaining,omitempty"`
-	AmmoType      string `json:"ammo_type,omitempty"`
-	Amount        int    `json:"amount,omitempty"` // Generic amount field (ammo, health, etc.)
+	Weapon        string  `json:"weapon,omitempty"`
+	OldWeapon     string  `json:"old_weapon,omitempty"`
+	NewWeapon     string  `json:"new_weapon,omitempty"`
+	Hitloc        string  `json:"hitloc,omitempty"`
+	Mod           string  `json:"mod,omitempty"`            // Means of death (MOD_PISTOL, MOD_RIFLE, etc.)
+	MeansOfDeath  string  `json:"means_of_death,omitempty"` // Alias for mod
+	Inflictor     string  `json:"inflictor,omitempty"`
+	Damage        float64 `json:"damage,omitempty"`
+	AmmoRemaining int     `json:"ammo_remaining,omitempty"`
+	AmmoType      string  `json:"ammo_type,omitempty"`
+	Amount        int     `json:"amount,omitempty"` // Generic amount field (ammo, health, etc.)
 
 	// Movement
 	FallHeight float32 `json:"fall_height,omitempty"`
@@ -98,11 +98,11 @@ type RawEvent struct {
 	AimYaw   float32 `json:"aim_yaw,omitempty"`
 
 	// Items & Pickups
-	Item           string  `json:"item,omitempty"`
-	Count          int     `json:"count,omitempty"`
-	HealthRestored int     `json:"health_restored,omitempty"`
-	ArmorAmount    int     `json:"armor_amount,omitempty"`
-	Location       string  `json:"location,omitempty"` // Generic location description
+	Item           string `json:"item,omitempty"`
+	Count          int    `json:"count,omitempty"`
+	HealthRestored int    `json:"health_restored,omitempty"`
+	ArmorAmount    int    `json:"armor_amount,omitempty"`
+	Location       string `json:"location,omitempty"` // Generic location description
 
 	// Target info (for hits)
 	TargetName     string `json:"target_name,omitempty"`
@@ -140,10 +140,10 @@ type RawEvent struct {
 	ClientNum   int     `json:"client_num,omitempty"`
 
 	// Identity claim & Auth
-	Code       string `json:"code,omitempty"`
-	ClaimedID  string `json:"claimed_id,omitempty"`
-	SMFID      int64  `json:"smf_id,omitempty"` // Generic SMF ID field
-	AuthToken  string `json:"auth_token,omitempty"`
+	Code      string `json:"code,omitempty"`
+	ClaimedID string `json:"claimed_id,omitempty"`
+	SMFID     int64  `json:"smf_id,omitempty"` // Generic SMF ID field
+	AuthToken string `json:"auth_token,omitempty"`
 
 	// Entity
 	Entity     string `json:"entity,omitempty"`
@@ -160,7 +160,7 @@ type RawEvent struct {
 	Objective       string `json:"objective,omitempty"`
 	ObjectiveID     string `json:"objective_id,omitempty"`
 	ObjectiveStatus string `json:"objective_status,omitempty"`
-	Status          string `json:"status,omitempty"`  // Generic status field
+	Status          string `json:"status,omitempty"`   // Generic status field
 	Progress        int    `json:"progress,omitempty"` // Objective progress percentage
 	CapturingTeam   string `json:"capturing_team,omitempty"`
 
@@ -182,8 +182,8 @@ type RawEvent struct {
 
 	// Connection Events
 	IP       string `json:"ip,omitempty"`
-	Name     string `json:"name,omitempty"`   // Generic name field
-	Reason   string `json:"reason,omitempty"` // Disconnect/kick/freeze reason
+	Name     string `json:"name,omitempty"`      // Generic name field
+	Reason   string `json:"reason,omitempty"`    // Disconnect/kick/freeze reason
 	IdleTime int    `json:"idle_time,omitempty"` // Inactivity time in seconds
 
 	// Server Info
