@@ -249,15 +249,15 @@ func (s *DrilldownService) getDimensionBreakdown(ctx context.Context, guid, stat
 func (s *DrilldownService) getDimensionExpression(dim string) string {
 	switch dim {
 	case "weapon":
-		return "extract(extra, 'weapon')"
+		return "actor_weapon"
 	case "weapon_class":
 		return `multiIf(
-			extract(extra, 'weapon') IN ('M1 Garand', 'Kar98k', 'Springfield', 'Mosin'), 'Rifles',
-			extract(extra, 'weapon') IN ('Thompson', 'MP40', 'STG44'), 'SMGs',
-			extract(extra, 'weapon') IN ('Colt', 'P38', 'Webley'), 'Pistols',
-			extract(extra, 'weapon') IN ('Shotgun', 'Trench Gun'), 'Shotguns',
-			extract(extra, 'weapon') LIKE '%Grenade%', 'Grenades',
-			extract(extra, 'weapon') IN ('BAR', 'MG42', 'Bren'), 'MGs',
+			actor_weapon IN ('M1 Garand', 'Kar98k', 'Springfield', 'Mosin'), 'Rifles',
+			actor_weapon IN ('Thompson', 'MP40', 'STG44'), 'SMGs',
+			actor_weapon IN ('Colt', 'P38', 'Webley'), 'Pistols',
+			actor_weapon IN ('Shotgun', 'Trench Gun'), 'Shotguns',
+			actor_weapon LIKE '%Grenade%', 'Grenades',
+			actor_weapon IN ('BAR', 'MG42', 'Bren'), 'MGs',
 			'Other'
 		)`
 	case "map":
@@ -281,19 +281,26 @@ func (s *DrilldownService) getDimensionExpression(dim string) string {
 		)`
 	case "range":
 		return `multiIf(
-			toFloat64OrZero(extract(extra, 'distance')) < 10, 'Close (<10m)',
-			toFloat64OrZero(extract(extra, 'distance')) < 30, 'Medium (10-30m)',
-			toFloat64OrZero(extract(extra, 'distance')) < 60, 'Long (30-60m)',
+			distance < 10, 'Close (<10m)',
+			distance < 30, 'Medium (10-30m)',
+			distance < 60, 'Long (30-60m)',
 			'Extreme (>60m)'
 		)`
 	case "stance":
-		return "extract(extra, 'stance')"
+		return "actor_stance"
 	case "hitloc":
-		return "extract(extra, 'hitloc')"
+		return "hitloc"
 	case "server":
 		return "server_id"
 	case "game_mode":
-		return "extract(extra, 'gametype')"
+		return `multiIf(
+				startsWith(map_name, 'dm_'), 'dm',
+				startsWith(map_name, 'obj_'), 'obj',
+				startsWith(map_name, 'lib_'), 'lib',
+				startsWith(map_name, 'tdm_'), 'tdm',
+				startsWith(map_name, 'ctf_'), 'ctf',
+				'other'
+			)`
 	default:
 		return "'unknown'"
 	}

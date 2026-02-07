@@ -94,6 +94,7 @@ type RawEvent struct {
 	Swam       float32 `json:"swam,omitempty"`
 	Driven     float32 `json:"driven,omitempty"`
 	Distance   float32 `json:"distance,omitempty"`
+	Velocity   float32 `json:"velocity,omitempty"`
 
 	// Aim angles
 	AimPitch float32 `json:"aim_pitch,omitempty"`

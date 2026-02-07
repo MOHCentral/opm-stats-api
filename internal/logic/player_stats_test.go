@@ -73,12 +73,12 @@ func TestGetPlayerStatsByGametype(t *testing.T) {
 			name: "Success",
 			guid: "player1",
 			mockRows: [][]interface{}{
-				{"dm", uint64(10), uint64(5), uint64(2), uint64(3)},
-				{"obj", uint64(20), uint64(10), uint64(5), uint64(5)},
+				{"dm", uint64(10), uint64(8), uint64(2), uint64(5), uint64(2), uint64(3)},
+				{"obj", uint64(20), uint64(15), uint64(5), uint64(10), uint64(5), uint64(5)},
 			},
 			wantStats: []models.GametypeStats{
-				{Gametype: "dm", Kills: 10, Deaths: 5, Headshots: 2, MatchesPlayed: 3, KDRatio: 2.0},
-				{Gametype: "obj", Kills: 20, Deaths: 10, Headshots: 5, MatchesPlayed: 5, KDRatio: 2.0},
+				{Gametype: "dm", Kills: 10, PlayerKills: 8, BotKills: 2, Deaths: 5, Headshots: 2, MatchesPlayed: 3, KDRatio: 2.0},
+				{Gametype: "obj", Kills: 20, PlayerKills: 15, BotKills: 5, Deaths: 10, Headshots: 5, MatchesPlayed: 5, KDRatio: 2.0},
 			},
 			wantErr: false,
 		},
@@ -116,17 +116,17 @@ func TestGetPlayerStatsByMap(t *testing.T) {
 		name      string
 		guid      string
 		mockRows  [][]interface{}
-		wantStats []models.MapStats
+		wantStats []models.PlayerMapStats
 		wantErr   bool
 	}{
 		{
 			name: "Success",
 			guid: "player1",
 			mockRows: [][]interface{}{
-				{"map1", uint64(10), uint64(5), uint64(2), uint64(3)},
+				{"map1", uint64(10), uint64(8), uint64(2), uint64(5), uint64(2), uint64(3), uint64(1)},
 			},
-			wantStats: []models.MapStats{
-				{MapName: "map1", Kills: 10, Deaths: 5, Headshots: 2, MatchesPlayed: 3, KDRatio: 2.0},
+			wantStats: []models.PlayerMapStats{
+				{MapName: "map1", Kills: 10, PlayerKills: 8, BotKills: 2, Deaths: 5, Headshots: 2, MatchesPlayed: 3, MatchesWon: 1, KDRatio: 2.0},
 			},
 			wantErr: false,
 		},
