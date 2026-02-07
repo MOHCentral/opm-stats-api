@@ -282,7 +282,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			actor_pos_x, actor_pos_y, actor_pos_z, actor_pitch, actor_yaw, actor_stance,
 			target_id, target_name, target_team,
 			target_pos_x, target_pos_y, target_pos_z, target_stance,
-			damage, hitloc, distance, raw_json, actor_smf_id, target_smf_id, match_outcome, round_number
+			damage, hitloc, distance, duration, raw_json, actor_smf_id, target_smf_id, match_outcome, round_number
 		)
 	`)
 	if err != nil {
@@ -321,6 +321,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			chEvent.Damage,
 			chEvent.Hitloc,
 			chEvent.Distance,
+			chEvent.Duration,
 			chEvent.RawJSON,
 			chEvent.ActorSMFID,
 			chEvent.TargetSMFID,
@@ -587,6 +588,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		Damage:       uint32(event.Damage),
 		Hitloc:       event.Hitloc,
 		Distance:     event.Distance,
+		Duration:     float32(event.Duration),
 		RoundNumber:  uint16(event.RoundNumber),
 		RawJSON:      rawJSON,
 		MatchOutcome: event.MatchOutcome,
@@ -595,8 +597,36 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	// Set actor/target based on event type
 	switch event.Type {
 	case models.EventPlayerKill, models.EventPlayerBash, "bash", models.EventPlayerRoadkill, models.EventPlayerTeamkill, models.EventPlayerSuicide, models.EventPlayerCrushed, models.EventPlayerTelefragged, models.EventBotKilled:
-		ch.ActorID = event.AttackerGUID
-		ch.ActorName = sanitizeName(event.AttackerName)
+		// Fix for player_suicide and player_crushed where AttackerGUID/VictimGUID logic varies
+		if event.Type == models.EventPlayerSuicide {
+			// Suicides: Actor is the player (victim of self)
+			ch.ActorID = event.PlayerGUID
+			ch.ActorName = sanitizeName(event.PlayerName)
+			ch.TargetID = event.PlayerGUID // Self-target
+		} else if event.Type == models.EventPlayerCrushed {
+			// Crushed: Victim is the player, Attacker might be world/empty
+			ch.TargetID = event.VictimGUID
+			ch.TargetName = sanitizeName(event.VictimName)
+			if event.AttackerGUID != "" && event.AttackerGUID != "world" {
+				ch.ActorID = event.AttackerGUID
+				ch.ActorName = sanitizeName(event.AttackerName)
+			} else {
+				// Attacker is world/unknown, keep ActorID empty or set to world if needed
+				ch.ActorID = "world"
+			}
+		} else {
+			// Standard kills
+			ch.ActorID = event.AttackerGUID
+			ch.ActorName = sanitizeName(event.AttackerName)
+			ch.TargetID = event.VictimGUID
+			ch.TargetName = sanitizeName(event.VictimName)
+		}
+
+		// Fill remaining fields if not set by special logic above
+		if ch.ActorID == "" && event.AttackerGUID != "" {
+			ch.ActorID = event.AttackerGUID
+			ch.ActorName = sanitizeName(event.AttackerName)
+		}
 		ch.ActorTeam = event.AttackerTeam
 		ch.ActorSMFID = event.AttackerSMFID
 		ch.ActorWeapon = event.Weapon
