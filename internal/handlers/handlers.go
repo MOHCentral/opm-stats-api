@@ -16,6 +16,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -64,6 +65,7 @@ type Handler struct {
 	ch            driver.Conn
 	redis         *redis.Client
 	logger        *zap.SugaredLogger
+	validate      *validator.Validate
 	playerStats   logic.PlayerStatsService
 	serverStats   logic.ServerStatsService
 	gamification  logic.GamificationService
@@ -82,6 +84,7 @@ func New(cfg Config) *Handler {
 		ch:            cfg.ClickHouse,
 		redis:         cfg.Redis,
 		logger:        cfg.Logger.Sugar(),
+		validate:      validator.New(),
 		playerStats:   cfg.PlayerStats,
 		serverStats:   cfg.ServerStats,
 		gamification:  cfg.Gamification,
@@ -217,8 +220,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if event.Type == "" {
-			h.logger.Warnw("Event has empty type, skipping", "index", i)
+		// Validate event structure
+		if err := h.validate.Struct(event); err != nil {
+			h.logger.Warnw("Skipping invalid event", "index", i, "error", err)
 			continue
 		}
 
@@ -484,6 +488,56 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 	h.jsonResponse(w, http.StatusOK, matches)
 }
 
+// statConfig defines the allow-list for stat sorting columns to prevent SQL injection
+// Keys are the allowed 'stat' parameter values
+// Values are the ClickHouse column/expression to sort by
+var statConfig = map[string]struct {
+	Order  string
+	Having string
+}{
+	"kills":         {Order: "kills"},
+	"bot_kills":     {Order: "bot_kills", Having: "bot_kills > 0"},
+	"total_kills":   {Order: "kills + bot_kills"},
+	"deaths":        {Order: "deaths", Having: "deaths > 0"},
+	"kd_ratio":      {Order: "kills / nullIf(deaths, 0)"},
+	"kd":            {Order: "kills / nullIf(deaths, 0)"},
+	"headshots":     {Order: "headshots"},
+	"accuracy":      {Order: "shots_hit / nullIf(shots_fired, 0)"},
+	"shots_fired":   {Order: "shots_fired"},
+	"damage":        {Order: "total_damage"},
+	"bash_kills":    {Order: "bash_kills"},
+	"grenade_kills": {Order: "grenade_kills"},
+	"roadkills":     {Order: "roadkills"},
+	"telefrags":     {Order: "telefrags"},
+	"crushed":       {Order: "crushed"},
+	"teamkills":     {Order: "teamkills"},
+	"suicides":      {Order: "suicides"},
+	"reloads":       {Order: "reloads"},
+	"weapon_swaps":  {Order: "weapon_swaps"},
+	"no_ammo":       {Order: "no_ammo"},
+	"looter":        {Order: "items_picked"},
+	"distance":      {Order: "distance_units"},
+	"sprinted":      {Order: "sprinted"},
+	"swam":          {Order: "swam"},
+	"driven":        {Order: "driven"},
+	"jumps":         {Order: "jumps"},
+	"crouch_time":   {Order: "crouch_events"},
+	"prone_time":    {Order: "prone_events"},
+	"ladders":       {Order: "ladders"},
+	"health_picked": {Order: "health_picked"},
+	"ammo_picked":   {Order: "ammo_picked"},
+	"armor_picked":  {Order: "armor_picked"},
+	"items_picked":  {Order: "items_picked"},
+	"wins":          {Order: "matches_won"},
+	"team_wins":     {Order: "matches_won"}, // Simplify for now
+	"ffa_wins":      {Order: "matches_won"},
+	"losses":        {Order: "matches_played - matches_won"},
+	"objectives":    {Order: "objectives"},
+	"rounds":        {Order: "matches_played"},
+	"playtime":      {Order: "playtime_seconds"},
+	"games":         {Order: "games_finished"},
+}
+
 // GetGlobalWeaponStats returns weapon usage statistics
 // @Summary Get Global Weapon Stats
 // @Tags Server
@@ -581,95 +635,14 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 	offset := (page - 1) * limit
 
-	// Map stat name to ClickHouse column/expression
 	orderExpr := "kills"
 	havingExpr := "kills > 0"
 
-	switch stat {
-	case "kills":
-		orderExpr = "kills"
-	case "bot_kills":
-		orderExpr = "bot_kills"
-		havingExpr = "bot_kills > 0"
-	case "total_kills":
-		orderExpr = "kills + bot_kills"
-	case "deaths":
-		orderExpr = "deaths"
-		havingExpr = "deaths > 0"
-	case "kd_ratio", "kd":
-		orderExpr = "kills / nullIf(deaths, 0)"
-	case "headshots":
-		orderExpr = "headshots"
-	case "accuracy":
-		orderExpr = "shots_hit / nullIf(shots_fired, 0)"
-	case "shots_fired":
-		orderExpr = "shots_fired"
-	case "damage":
-		orderExpr = "total_damage"
-	case "bash_kills":
-		orderExpr = "bash_kills"
-	case "grenade_kills":
-		orderExpr = "grenade_kills"
-	case "roadkills":
-		orderExpr = "roadkills"
-	case "telefrags":
-		orderExpr = "telefrags"
-	case "crushed":
-		orderExpr = "crushed"
-	case "teamkills":
-		orderExpr = "teamkills"
-	case "suicides":
-		orderExpr = "suicides"
-	case "reloads":
-		orderExpr = "reloads"
-	case "weapon_swaps":
-		orderExpr = "weapon_swaps"
-	case "no_ammo":
-		orderExpr = "no_ammo"
-	case "looter":
-		orderExpr = "items_picked"
-	case "distance":
-		orderExpr = "distance_units"
-	case "sprinted":
-		orderExpr = "sprinted"
-	case "swam":
-		orderExpr = "swam"
-	case "driven":
-		orderExpr = "driven"
-	case "jumps":
-		orderExpr = "jumps"
-	case "crouch_time":
-		orderExpr = "crouch_events"
-	case "prone_time":
-		orderExpr = "prone_events"
-	case "ladders":
-		orderExpr = "ladders"
-	case "health_picked":
-		orderExpr = "health_picked"
-	case "ammo_picked":
-		orderExpr = "ammo_picked"
-	case "armor_picked":
-		orderExpr = "armor_picked"
-	case "items_picked":
-		orderExpr = "items_picked"
-	case "wins":
-		orderExpr = "matches_won"
-	case "team_wins":
-		orderExpr = "matches_won" // Simplify for now
-	case "ffa_wins":
-		orderExpr = "matches_won"
-	case "losses":
-		orderExpr = "matches_played - matches_won"
-	case "objectives":
-		orderExpr = "objectives"
-	case "rounds":
-		orderExpr = "matches_played"
-	case "playtime":
-		orderExpr = "playtime_seconds"
-	case "games":
-		orderExpr = "games_finished"
-	default:
-		orderExpr = "kills"
+	if cfg, ok := statConfig[stat]; ok {
+		orderExpr = cfg.Order
+		if cfg.Having != "" {
+			havingExpr = cfg.Having
+		}
 	}
 
 	whereExpr := "player_id != ''"
