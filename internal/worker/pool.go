@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -803,8 +804,21 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 				playerName, _ = cmd.Result()
 			}
 
+			// Calculate Total Playtime for this match
+			playtime, _ := p.config.Redis.HGet(ctx, "match:"+event.MatchID+":playtimes", guid).Float64()
+
+			// Add current session if still joined
+			joinTimeStr, err := p.config.Redis.HGet(ctx, "match:"+event.MatchID+":join_times", guid).Result()
+			if err == nil {
+				joinTime, _ := strconv.ParseFloat(joinTimeStr, 64)
+				currentDuration := event.Timestamp - joinTime
+				if currentDuration > 0 {
+					playtime += currentDuration
+				}
+			}
+
 			// Create Outcome Event
-			go func(playerGUID, playerTeam, name string, won int, gType string, pid int64) {
+			go func(playerGUID, playerTeam, name string, won int, gType string, pid int64, duration float64) {
 				outcomeEvent := &models.RawEvent{
 					Type:         models.EventMatchOutcome,
 					MatchID:      event.MatchID,
@@ -817,9 +831,10 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 					Gametype:     gType,
 					MatchOutcome: uint8(won), // 1 = win, 0 = loss
 					PlayerSMFID:  pid,
+					Duration:     duration,
 				}
 				p.Enqueue(outcomeEvent)
-			}(guid, team, playerName, outcome, gametype, smfid)
+			}(guid, team, playerName, outcome, gametype, smfid, playtime)
 		}
 	}
 
@@ -828,6 +843,8 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 	// Cleanup team data
 	p.config.Redis.Del(ctx, "match:"+event.MatchID+":teams")
 	p.config.Redis.Del(ctx, "match:"+event.MatchID+":players")
+	p.config.Redis.Del(ctx, "match:"+event.MatchID+":join_times")
+	p.config.Redis.Del(ctx, "match:"+event.MatchID+":playtimes")
 
 	// Tournament bracket advancement is handled by SMF plugin
 	// See: smf-plugins/mohaa_tournaments/ for bracket management
@@ -926,6 +943,11 @@ func (p *Pool) handleConnect(ctx context.Context, event *models.RawEvent) {
 	// Track player online status
 	p.config.Redis.SAdd(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
 
+	// Track join time for session duration calculation
+	if event.MatchID != "" {
+		p.config.Redis.HSet(ctx, "match:"+event.MatchID+":join_times", event.PlayerGUID, event.Timestamp)
+	}
+
 	// Track player SMF ID if available
 	if event.PlayerSMFID > 0 {
 		p.config.Redis.HSet(ctx, "player_smfids", event.PlayerGUID, event.PlayerSMFID)
@@ -939,6 +961,19 @@ func (p *Pool) handleDisconnect(ctx context.Context, event *models.RawEvent) {
 	}
 
 	p.config.Redis.SRem(ctx, "match:"+event.MatchID+":players", event.PlayerGUID)
+
+	// Calculate and store session duration
+	if event.MatchID != "" {
+		joinTimeStr, err := p.config.Redis.HGet(ctx, "match:"+event.MatchID+":join_times", event.PlayerGUID).Result()
+		if err == nil {
+			joinTime, _ := strconv.ParseFloat(joinTimeStr, 64)
+			duration := event.Timestamp - joinTime
+			if duration > 0 {
+				p.config.Redis.HIncrByFloat(ctx, "match:"+event.MatchID+":playtimes", event.PlayerGUID, duration)
+			}
+			p.config.Redis.HDel(ctx, "match:"+event.MatchID+":join_times", event.PlayerGUID)
+		}
+	}
 }
 
 // handleChat checks for claim codes
