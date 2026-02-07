@@ -1214,9 +1214,13 @@ func (h *Handler) GetAchievement(w http.ResponseWriter, r *http.Request) {
 
 // GetRecentAchievements returns a global feed of recent unlocks from database
 func (h *Handler) GetRecentAchievements(w http.ResponseWriter, r *http.Request) {
-	// Recent achievement unlocks are stored in SMF database
-	// Return empty array - frontend should query SMF directly or use PHP endpoint
-	h.jsonResponse(w, http.StatusOK, []interface{}{})
+	achievements, err := h.achievements.GetRecentAchievements(r.Context(), 10)
+	if err != nil {
+		h.logger.Errorw("Failed to get recent achievements", "error", err)
+		h.errorResponse(w, http.StatusInternalServerError, "Failed to get achievements")
+		return
+	}
+	h.jsonResponse(w, http.StatusOK, achievements)
 }
 
 // GetAchievementLeaderboard returns players ranked by achievement points
