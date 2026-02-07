@@ -102,8 +102,8 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND JSONExtractString(raw_json, 'mod') = 'bash') as bash_kills,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND JSONExtractString(raw_json, 'mod') IN ('grenade', 'explosion')) as grenade_kills,
 			countIf(event_type = 'grenade_throw' AND actor_id = ?) as grenades_thrown,
-			sumIf(damage, event_type = 'damage' AND target_id = ?) as damage_dealt,
-			sumIf(damage, event_type = 'damage' AND actor_id = ?) as damage_taken
+			sumIf(damage, event_type = 'damage' AND actor_id = ?) as damage_dealt,
+			sumIf(damage, event_type = 'damage' AND target_id = ?) as damage_taken
 		FROM mohaa_stats.raw_events
 		WHERE (actor_id = ? OR target_id = ?)
 	`
@@ -614,14 +614,15 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
 			countIf(event_type IN ('death', 'player_kill') AND target_id = ?) as deaths,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?) as headshots,
-			uniq(match_id) as matches_played
+			uniq(match_id) as matches_played,
+			countIf(event_type = 'match_outcome' AND match_outcome = 1 AND actor_id = ?) as matches_won
 		FROM mohaa_stats.raw_events
 		WHERE (actor_id = ? OR target_id = ?)
 		  AND map_name != ''
 		GROUP BY map_name
 		HAVING kills > 0 OR deaths > 0
 		ORDER BY kills DESC
-	`, guid, guid, guid, guid, guid, guid, guid)
+	`, guid, guid, guid, guid, guid, guid, guid, guid)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query map breakdown: %w", err)
@@ -631,7 +632,7 @@ func (s *playerStatsService) GetPlayerStatsByMap(ctx context.Context, guid strin
 	stats := []models.PlayerMapStats{}
 	for rows.Next() {
 		var s models.PlayerMapStats
-		if err := rows.Scan(&s.MapName, &s.Kills, &s.PlayerKills, &s.BotKills, &s.Deaths, &s.Headshots, &s.MatchesPlayed); err != nil {
+		if err := rows.Scan(&s.MapName, &s.Kills, &s.PlayerKills, &s.BotKills, &s.Deaths, &s.Headshots, &s.MatchesPlayed, &s.MatchesWon); err != nil {
 			continue
 		}
 		if s.Deaths > 0 {

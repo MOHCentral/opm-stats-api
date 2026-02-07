@@ -586,7 +586,7 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 
 	// 4. Run & Gun Index (Velocity while killing)
 	s.ch.QueryRow(ctx, `
-		SELECT avg(toFloat64OrZero(extract(extra, 'velocity'))) 
+		SELECT avg(JSONExtractFloat(raw_json, 'velocity'))
 		FROM raw_events WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ?
 	`, guid).Scan(&combo.MovementCombat.RunGunIndex)
 
