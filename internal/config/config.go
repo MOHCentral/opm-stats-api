@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -10,6 +12,9 @@ type Config struct {
 	// Server
 	Port int
 	Env  string
+
+	// CORS
+	AllowedOrigins []string
 
 	// Database URLs
 	PostgresURL   string
@@ -31,14 +36,12 @@ type Config struct {
 	RateLimitBurst     int
 }
 
-func Load() *Config {
-	return &Config{
+// Load loads configuration from environment variables.
+// It returns an error if critical configuration is missing.
+func Load() (*Config, error) {
+	cfg := &Config{
 		Port: getEnvInt("PORT", 8080),
 		Env:  getEnv("ENV", "development"),
-
-		PostgresURL:   getEnv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/mohaa_stats?sslmode=disable"),
-		ClickHouseURL: getEnv("CLICKHOUSE_URL", "clickhouse://localhost:9000/mohaa_stats"),
-		RedisURL:      getEnv("REDIS_URL", "redis://localhost:6379/0"),
 
 		WorkerCount:   getEnvInt("WORKER_COUNT", 8),
 		QueueSize:     getEnvInt("QUEUE_SIZE", 10000),
@@ -51,6 +54,29 @@ func Load() *Config {
 		RateLimitPerSecond: getEnvInt("RATE_LIMIT_PER_SECOND", 100),
 		RateLimitBurst:     getEnvInt("RATE_LIMIT_BURST", 200),
 	}
+
+	// CORS
+	origins := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
+	rawOrigins := strings.Split(origins, ",")
+	for _, o := range rawOrigins {
+		if trimmed := strings.TrimSpace(o); trimmed != "" {
+			cfg.AllowedOrigins = append(cfg.AllowedOrigins, trimmed)
+		}
+	}
+
+	// Critical configuration - fail if missing
+	var err error
+	if cfg.PostgresURL, err = getEnvRequired("POSTGRES_URL"); err != nil {
+		return nil, err
+	}
+	if cfg.ClickHouseURL, err = getEnvRequired("CLICKHOUSE_URL"); err != nil {
+		return nil, err
+	}
+	if cfg.RedisURL, err = getEnvRequired("REDIS_URL"); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func getEnv(key, fallback string) string {
@@ -58,6 +84,13 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getEnvRequired(key string) (string, error) {
+	if value := os.Getenv(key); value != "" {
+		return value, nil
+	}
+	return "", fmt.Errorf("missing required environment variable: %s", key)
 }
 
 func getEnvInt(key string, fallback int) int {

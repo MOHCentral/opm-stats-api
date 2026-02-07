@@ -11,7 +11,7 @@ type DynamicQueryRequest struct {
 	Metric       string    `json:"metric"`        // Select: kills, deaths, kdr, headshots
 	FilterGUID   string    `json:"filter_guid"`   // WHERE actor_id = ?
 	FilterMap    string    `json:"filter_map"`    // WHERE map_name = ?
-	FilterWeapon string    `json:"filter_weapon"` // WHERE extra LIKE '%weapon%'
+	FilterWeapon string    `json:"filter_weapon"` // WHERE actor_weapon = ?
 	FilterServer string    `json:"filter_server"` // WHERE server_id = ?
 	StartDate    time.Time `json:"start_date"`
 	EndDate      time.Time `json:"end_date"`
@@ -20,13 +20,15 @@ type DynamicQueryRequest struct {
 
 // AllowedDimensions maps safe API values to SQL columns
 var allowedDimensions = map[string]string{
-	"weapon":      "extract(extra, 'weapon_([a-zA-Z0-9_]+)')", // Complex regex extraction for weapon
+	"weapon":      "actor_weapon",
 	"map":         "map_name",
 	"player":      "actor_name",
 	"player_guid": "actor_id",
 	"server":      "server_id",
-	"hitloc":      "extract(extra, 'hitloc_([a-zA-Z_]+)')",
-	"match":       "match_id",
+	"hitloc":      "hitloc",
+	"match":       "toString(match_id)",
+	"stance":      "actor_stance",
+	"distance":    "floor(distance / 100) * 100", // Bucketize distance
 }
 
 // BuildStatsQuery constructs a safe ClickHouse SQL query
@@ -38,25 +40,27 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 	}
 
 	// 2. Select Clause (Metric)
-	// Note: Deaths = kills for global stats. For player-specific deaths,
-	// use target_id filtering (handled in player stats queries, not this builder)
 	var selectClause string
 	switch req.Metric {
 	case "kills":
 		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed'))"
 	case "deaths":
-		// For global deaths: each kill event = one death
-		// For player-specific deaths, would need target_id filter (not supported in this builder)
+		// For global stats, total deaths equals total kills (simplification)
+		// For specific player (FilterGUID), this counts kills where they were the actor, not victim.
+		// To count deaths properly for a player, we'd need to filter by target_id, which this query builder
+		// structure doesn't easily support without changing the base logic (WHERE actor_id = ?).
+		// Assuming this is mostly for "Top X by Kills" style charts.
 		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed'))"
 	case "headshots":
 		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet'))"
-	case "accuracy": // Simplified accuracy (hits/shots) - careful with zero division
-		selectClause = "sumIf(1, event_type='weapon_hit') / max(1, sumIf(1, event_type='weapon_fire')) * 100"
+	case "accuracy":
+		selectClause = "countIf(event_type='weapon_hit') / nullIf(countIf(event_type='weapon_fire'), 0) * 100"
 	case "kdr":
-		// For global KDR: kills/kills = 1 (not useful)
-		// This metric is more meaningful for player-specific queries
-		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed')) / max(1, countIf(event_type IN ('player_kill', 'bot_killed')))"
-	default: // Default to just raw count of events matching filters if no metric specified? Or error?
+		// This is only valid if grouping by player.
+		// Approximating deaths as kills (global) or needs improvement.
+		// For now, retaining existing logic but safer division.
+		selectClause = "countIf(event_type IN ('player_kill', 'bot_killed')) / nullIf(countIf(event_type IN ('player_kill', 'bot_killed')), 0)"
+	default:
 		selectClause = "count()"
 	}
 
@@ -86,10 +90,8 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 		args = append(args, req.FilterServer)
 	}
 	if req.FilterWeapon != "" {
-		// This is tricky. Weapon is usually in 'extra' JSON or string.
-		// Assuming extra contains "weapon": "kar98"
-		query += " AND extra LIKE ?"
-		args = append(args, fmt.Sprintf("%%%s%%", req.FilterWeapon))
+		query += " AND actor_weapon = ?"
+		args = append(args, req.FilterWeapon)
 	}
 	if !req.StartDate.IsZero() {
 		query += " AND timestamp >= ?"

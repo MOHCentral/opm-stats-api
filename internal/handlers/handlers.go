@@ -16,10 +16,9 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"github.com/openmohaa/stats-api/internal/db"
 	"github.com/openmohaa/stats-api/internal/logic"
 	"github.com/openmohaa/stats-api/internal/models"
 )
@@ -42,9 +41,9 @@ func hashToken(token string) string {
 
 type Config struct {
 	WorkerPool IngestQueue
-	Postgres   *pgxpool.Pool
+	Postgres   db.DBQuerier
 	ClickHouse driver.Conn
-	Redis      *redis.Client
+	Redis      db.RedisClient
 	Logger     *zap.Logger
 	// Services
 	PlayerStats   logic.PlayerStatsService
@@ -60,9 +59,9 @@ type Config struct {
 
 type Handler struct {
 	pool          IngestQueue
-	pg            *pgxpool.Pool
+	pg            db.DBQuerier
 	ch            driver.Conn
-	redis         *redis.Client
+	redis         db.RedisClient
 	logger        *zap.SugaredLogger
 	playerStats   logic.PlayerStatsService
 	serverStats   logic.ServerStatsService
@@ -92,6 +91,19 @@ func New(cfg Config) *Handler {
 		achievements:  cfg.Achievements,
 		prediction:    cfg.Prediction,
 	}
+}
+
+// validateEvent performs basic validation on incoming events
+func (h *Handler) validateEvent(e *models.RawEvent) error {
+	if e.Type == "" {
+		return fmt.Errorf("event type is required")
+	}
+	// Add more validation rules as needed
+	// e.g., max string lengths, required fields per event type
+	if len(e.MatchID) > 64 {
+		return fmt.Errorf("match_id too long")
+	}
+	return nil
 }
 
 // ============================================================================
@@ -217,8 +229,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if event.Type == "" {
-			h.logger.Warnw("Event has empty type, skipping", "index", i)
+		// Validate event
+		if err := h.validateEvent(&event); err != nil {
+			h.logger.Warnw("Invalid event, skipping", "index", i, "error", err)
 			continue
 		}
 
@@ -2710,9 +2723,15 @@ func (h *Handler) GetPlayerStatsByName(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) jsonResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		h.logger.Errorw("Failed to encode JSON response", "error", err)
+	}
 }
 
 func (h *Handler) errorResponse(w http.ResponseWriter, status int, message string) {
-	h.jsonResponse(w, status, map[string]string{"error": message})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		h.logger.Errorw("Failed to encode error response", "error", err)
+	}
 }
