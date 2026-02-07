@@ -194,6 +194,94 @@ func (s *advancedStatsService) GetPeakPerformance(ctx context.Context, guid stri
 	// Simple heuristic for optimal session length (mock for now or derived from playtime)
 	peak.BestConditions.OptimalSessionMins = 45
 
+	// ====================================================================
+	// STREAK STATS (from raw events using window functions)
+	// ====================================================================
+	streakQuery := `
+		WITH kill_death_events AS (
+			SELECT
+				timestamp,
+				match_id,
+				CASE
+					WHEN event_type IN ('player_kill', 'bot_killed') AND actor_id = ? THEN 'kill'
+					WHEN (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+					  OR (event_type = 'player_suicide' AND actor_id = ?) THEN 'death'
+				END AS ev
+			FROM raw_events
+			WHERE (
+				(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?)
+				OR (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+				OR (event_type = 'player_suicide' AND actor_id = ?)
+			)
+			ORDER BY match_id, timestamp
+		),
+		with_death_group AS (
+			SELECT
+				ev,
+				timestamp,
+				match_id,
+				sumIf(1, ev = 'death') OVER (PARTITION BY match_id ORDER BY timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS death_group
+			FROM kill_death_events
+		),
+		streaks AS (
+			SELECT
+				match_id,
+				death_group,
+				countIf(ev = 'kill') AS streak_len
+			FROM with_death_group
+			GROUP BY match_id, death_group
+			HAVING streak_len > 0
+		)
+		SELECT
+			max(streak_len) AS best_streak
+		FROM streaks
+	`
+	s.ch.QueryRow(ctx, streakQuery, guid, guid, guid, guid, guid, guid).Scan(&peak.Streaks.BestKillStreak)
+
+	// Current streak (most recent life in most recent match)
+	currentStreakQuery := `
+		WITH recent_events AS (
+			SELECT
+				timestamp,
+				CASE
+					WHEN event_type IN ('player_kill', 'bot_killed') AND actor_id = ? THEN 'kill'
+					WHEN (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+					  OR (event_type = 'player_suicide' AND actor_id = ?) THEN 'death'
+				END AS ev
+			FROM raw_events
+			WHERE (
+				(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?)
+				OR (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+				OR (event_type = 'player_suicide' AND actor_id = ?)
+			)
+			ORDER BY timestamp DESC
+		)
+		SELECT count() FROM (
+			SELECT ev FROM recent_events
+			WHERE ev = 'kill'
+			ORDER BY timestamp DESC
+		)
+		WHERE rowNumberInAllBlocks() < (
+			SELECT min(rowNumberInAllBlocks()) 
+			FROM recent_events 
+			WHERE ev = 'death'
+		) OR (SELECT count() FROM recent_events WHERE ev = 'death') = 0
+	`
+	// Simplified: count kills after last death
+	s.ch.QueryRow(ctx, `
+		SELECT countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND timestamp > t)
+		FROM (
+			SELECT coalesce(
+				max(timestamp),
+				toDateTime64('1970-01-01', 3)
+			) AS t
+			FROM raw_events
+			WHERE (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+			   OR (event_type = 'player_suicide' AND actor_id = ?)
+		), raw_events
+	`, guid, guid, guid).Scan(&peak.Streaks.CurrentStreak)
+	_ = currentStreakQuery // keep reference for documentation
+
 	return peak, nil
 }
 
@@ -434,9 +522,9 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	hitlocRows, err := s.ch.Query(ctx, `
 		SELECT 
 			actor_weapon,
-			countIf(hitloc = 'head') * 100.0 / count() as head_pct,
-			countIf(hitloc = 'torso') * 100.0 / count() as torso_pct,
-			countIf(hitloc IN ('left_arm', 'right_arm', 'left_leg', 'right_leg')) * 100.0 / count() as limb_pct
+			countIf(hitloc IN ('head', 'helmet')) * 100.0 / count() as head_pct,
+			countIf(hitloc IN ('neck', 'torso_upper', 'torso_mid', 'torso_lower', 'pelvis')) * 100.0 / count() as torso_pct,
+			countIf(hitloc IN ('r_arm_upper', 'l_arm_upper', 'r_arm_lower', 'l_arm_lower', 'r_hand', 'l_hand', 'r_leg_upper', 'l_leg_upper', 'r_leg_lower', 'l_leg_lower', 'r_foot', 'l_foot')) * 100.0 / count() as limb_pct
 		FROM raw_events
 		WHERE event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon != '' AND hitloc != ''
 		GROUP BY actor_weapon

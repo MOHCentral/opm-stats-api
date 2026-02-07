@@ -19,11 +19,11 @@ const (
 // Data pools for random generation
 var (
 	Weapons = []string{
-		"Thompson", "MP40", "BAR", "StG44", "M1 Garand", "Kar98k", 
+		"Thompson", "MP40", "BAR", "StG44", "M1 Garand", "Kar98k",
 		"Springfield", "Bazooka", "Colt 45", "Grenade",
 	}
 	Maps = []string{
-		"obj/obj_team1", "obj/obj_team2", "dm/mohdm1", "dm/mohdm2", 
+		"obj/obj_team1", "obj/obj_team2", "dm/mohdm1", "dm/mohdm2",
 		"obj/obj_team3", "dm/mohdm6", "dm/mohdm7",
 	}
 	Players = []struct {
@@ -42,7 +42,10 @@ var (
 		{10, "Noob_Saibot"},
 	}
 	HitLocations = []string{
-		"HEAD", "TORSO", "LEFT_ARM", "RIGHT_ARM", "LEFT_LEG", "RIGHT_LEG",
+		"head", "helmet", "neck", "torso_upper", "torso_mid", "torso_lower", "pelvis",
+		"r_arm_upper", "l_arm_upper", "r_arm_lower", "l_arm_lower",
+		"r_leg_upper", "l_leg_upper", "r_leg_lower", "l_leg_lower",
+		"r_hand", "l_hand", "r_foot", "l_foot",
 	}
 	Mods = []string{
 		"MOD_PISTOL", "MOD_RIFLE", "MOD_SMG", "MOD_SNIPER", "MOD_EXPLOSIVE",
@@ -57,13 +60,13 @@ type EventPayload struct {
 
 func main() {
 	fmt.Printf("Starting data seeder. Target: %s, Events: %d\n", API_URL, TOTAL_EVENTS)
-	
+
 	rand.Seed(time.Now().UnixNano())
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	for i := 0; i < TOTAL_EVENTS; i++ {
 		event := generateRandomEvent()
-		
+
 		// Send event individually (or implement batching if API supports it, currently singular)
 		if err := sendEvent(client, event); err != nil {
 			fmt.Printf("Error sending event %d: %v\n", i, err)
@@ -72,7 +75,7 @@ func main() {
 		if i%100 == 0 {
 			fmt.Printf("Progress: %d/%d received\n", i, TOTAL_EVENTS)
 		}
-		
+
 		// Tiny sleep to prevent overflowing local port limits if running extremely fast
 		time.Sleep(1 * time.Millisecond)
 	}
@@ -83,10 +86,10 @@ func main() {
 func generateRandomEvent() EventPayload {
 	// 80% chance of KILL event, 20% other (join, chat, etc - simplified to just KILL/DEATH for stats)
 	// Actually, for stats dashboard, we primarily care about Kills/Deaths/Damage.
-	
+
 	attacker := Players[rand.Intn(len(Players))]
 	victim := Players[rand.Intn(len(Players))]
-	
+
 	// Ensure attacker != victim (suicides possible but rare, let's just avoid for noise)
 	for attacker.ID == victim.ID {
 		victim = Players[rand.Intn(len(Players))]
@@ -100,10 +103,10 @@ func generateRandomEvent() EventPayload {
 
 	// Create a "Kill" event structure derived from OpenMOHAA event reference
 	// Event: "player_kill" or similar.
-	// Based on STATS_MASTER.md, we ingest atomic events. 
-	// The API likely expects a specific format. 
-	// Looking at previous context, we have an "ingest" endpoint. 
-	
+	// Based on STATS_MASTER.md, we ingest atomic events.
+	// The API likely expects a specific format.
+	// Looking at previous context, we have an "ingest" endpoint.
+
 	data := map[string]interface{}{
 		"attacker_id":   attacker.ID,
 		"attacker_name": attacker.Name,
@@ -117,7 +120,7 @@ func generateRandomEvent() EventPayload {
 	}
 
 	return EventPayload{
-		Type:      "EVT_KILL", // Using a consistent event type
+		Type:      "EVT_KILL",                                                         // Using a consistent event type
 		Timestamp: time.Now().Add(-time.Duration(rand.Intn(7*24)) * time.Hour).Unix(), // Random time in last 7 days
 		Data:      data,
 	}

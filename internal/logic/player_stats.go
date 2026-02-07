@@ -93,14 +93,14 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 			countIf(event_type = 'bot_killed' AND actor_id = ?) as bot_kills,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ?) as deaths,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND hitloc IN ('head', 'helmet') AND actor_id = ?) as headshots,
-			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('torso','torso_lower','torso_upper')) as torso,
-			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('left_arm','right_arm','left_leg','right_leg','left_arm_lower','left_arm_upper','right_arm_lower','right_arm_upper','left_leg_lower','left_leg_upper','right_leg_lower','right_leg_upper')) as limbs,
-			countIf((event_type = 'bash' OR event_type = 'player_bash') AND actor_id = ?) as melee,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('neck','torso_upper','torso_mid','torso_lower','pelvis')) as torso,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc IN ('r_arm_upper','l_arm_upper','r_arm_lower','l_arm_lower','r_hand','l_hand','r_leg_upper','l_leg_upper','r_leg_lower','l_leg_lower','r_foot','l_foot','right_arm','left_arm','right_leg','left_leg')) as limbs,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND JSONExtractString(raw_json, 'mod') = 'bash') as melee,
 			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_id = target_id) as suicides,
-			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_team != '' AND actor_team = target_team AND actor_id != target_id) as team_kills,
-			countIf(event_type = 'player_roadkill' AND actor_id = ?) as roadkills,
-			countIf((event_type = 'bash' OR event_type = 'player_bash') AND actor_id = ?) as bash_kills,
-			countIf(event_type = 'grenade_explode' AND actor_id = ?) as grenade_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_team != '' AND actor_team NOT IN ('freeforall', 'none', '') AND actor_team = target_team AND actor_id != target_id) as team_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND hitloc = 'pelvis') as nutshots,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND JSONExtractString(raw_json, 'mod') = 'bash') as bash_kills,
+			countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND JSONExtractString(raw_json, 'mod') IN ('grenade', 'explosion')) as grenade_kills,
 			countIf(event_type = 'grenade_throw' AND actor_id = ?) as grenades_thrown,
 			sumIf(damage, event_type = 'damage' AND target_id = ?) as damage_dealt,
 			sumIf(damage, event_type = 'damage' AND actor_id = ?) as damage_taken
@@ -110,21 +110,21 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 	if err := s.ch.QueryRow(ctx, query,
 		guid, guid, guid, // kills, player_kills, bot_kills
 		guid, guid, guid, guid, guid, guid, guid, // deaths through team_kills
-		guid, guid, guid, guid, // roadkills through grenades_thrown
+		guid, guid, guid, guid, // nutshots through grenades_thrown
 		guid, guid, // Damage Dealt, Damage Taken
 		guid, guid, // WHERE clause
 	).Scan(
 		&out.Kills, &out.PlayerKills, &out.BotKills, &out.Deaths, &out.Headshots,
 		&out.TorsoKills, &out.LimbKills, &out.MeleeKills, &out.Suicides,
-		&out.TeamKills, &out.Roadkills, &out.BashKills,
+		&out.TeamKills, &out.Nutshots, &out.BashKills,
 		&out.GrenadeKills, &out.GrenadesThrown,
 		&out.DamageDealt, &out.DamageTaken,
 	); err != nil {
 		return err
 	}
 
-	// Nutshots, Backstabs, FirstBloods, Longshots require specific hitloc values from game server
-	// These fields stay at 0 until game server sends events with proper hitloc (e.g., 'groin', 'back')
+	// Nutshots are now detected via pelvis hitloc
+	// FirstBloods and Longshots require additional match-context tracking
 
 	if out.Deaths > 0 {
 		out.KDRatio = float64(out.Kills) / float64(out.Deaths)
@@ -134,6 +134,156 @@ func (s *playerStatsService) fillCombatStats(ctx context.Context, guid string, o
 
 	if out.Kills > 0 {
 		out.HeadshotPercent = (float64(out.Headshots) / float64(out.Kills)) * 100
+	}
+
+	// Compute kill streaks and multi-kills from raw events
+	if err := s.fillStreakAndMultikillStats(ctx, guid, out); err != nil {
+		// Non-critical, log but don't fail
+		out.BestKillstreak = out.HighestStreak // fallback
+	}
+
+	return nil
+}
+
+// fillStreakAndMultikillStats computes kill streaks and multi-kills from raw_events.
+// Kill Streak = consecutive kills without dying (ordered by timestamp per match).
+// Multi-Kill = multiple kills within a 4-second window.
+func (s *playerStatsService) fillStreakAndMultikillStats(ctx context.Context, guid string, out *models.CombatStats) error {
+	// ====================================================================
+	// KILL STREAKS: Get ordered kill/death events, compute max consecutive
+	// kills without a death. Also count how many times each threshold was
+	// crossed.
+	//
+	// The query uses ClickHouse window functions to assign a "death group"
+	// to each event, then counts consecutive kills within each group.
+	// ====================================================================
+	streakQuery := `
+		WITH kill_death_events AS (
+			SELECT
+				timestamp,
+				match_id,
+				CASE
+					WHEN event_type IN ('player_kill', 'bot_killed') AND actor_id = ? THEN 'kill'
+					WHEN (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+					  OR (event_type = 'player_suicide' AND actor_id = ?) THEN 'death'
+				END AS ev
+			FROM mohaa_stats.raw_events
+			WHERE (
+				(event_type IN ('player_kill', 'bot_killed') AND actor_id = ?)
+				OR (event_type IN ('player_kill', 'bot_killed', 'death') AND target_id = ?)
+				OR (event_type = 'player_suicide' AND actor_id = ?)
+			)
+			ORDER BY match_id, timestamp
+		),
+		with_death_group AS (
+			SELECT
+				ev,
+				timestamp,
+				match_id,
+				sumIf(1, ev = 'death') OVER (PARTITION BY match_id ORDER BY timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS death_group
+			FROM kill_death_events
+		),
+		streaks AS (
+			SELECT
+				match_id,
+				death_group,
+				countIf(ev = 'kill') AS streak_len
+			FROM with_death_group
+			GROUP BY match_id, death_group
+			HAVING streak_len > 0
+		)
+		SELECT
+			max(streak_len) AS best_streak,
+			countIf(streak_len >= 5) AS streaks_5,
+			countIf(streak_len >= 10) AS streaks_10,
+			countIf(streak_len >= 15) AS streaks_15,
+			countIf(streak_len >= 20) AS streaks_20,
+			countIf(streak_len >= 25) AS streaks_25
+		FROM streaks
+	`
+
+	if err := s.ch.QueryRow(ctx, streakQuery,
+		guid, guid, guid, // CASE
+		guid, guid, guid, // WHERE
+	).Scan(
+		&out.BestKillstreak,
+		&out.Streaks5,
+		&out.Streaks10,
+		&out.Streaks15,
+		&out.Streaks20,
+		&out.Streaks25,
+	); err != nil {
+		return fmt.Errorf("streak query: %w", err)
+	}
+
+	// Also set HighestStreak for backward compatibility
+	out.HighestStreak = out.BestKillstreak
+
+	// ====================================================================
+	// MULTI-KILLS: Detect rapid kills within a 4-second sliding window.
+	// We get kill timestamps ordered, then compute time gaps between
+	// consecutive kills to identify multi-kill chains.
+	// ====================================================================
+	multikillQuery := `
+		WITH ordered_kills AS (
+			SELECT
+				timestamp,
+				lagInFrame(timestamp) OVER (ORDER BY timestamp) AS prev_ts
+			FROM mohaa_stats.raw_events
+			WHERE event_type IN ('player_kill', 'bot_killed')
+			  AND actor_id = ?
+			ORDER BY timestamp
+		),
+		with_gap AS (
+			SELECT
+				timestamp,
+				prev_ts,
+				CASE
+					WHEN prev_ts IS NULL THEN 1
+					WHEN date_diff('millisecond', prev_ts, timestamp) <= 4000 THEN 0
+					ELSE 1
+				END AS new_chain
+			FROM ordered_kills
+		),
+		with_chain_id AS (
+			SELECT
+				timestamp,
+				sum(new_chain) OVER (ORDER BY timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS chain_id
+			FROM with_gap
+		),
+		chains AS (
+			SELECT
+				chain_id,
+				count() AS chain_len
+			FROM with_chain_id
+			GROUP BY chain_id
+			HAVING chain_len >= 2
+		)
+		SELECT
+			countIf(chain_len = 2) AS double_kills,
+			countIf(chain_len = 3) AS multi_kills,
+			countIf(chain_len = 4) AS ultra_kills,
+			countIf(chain_len = 5) AS monster_kills,
+			countIf(chain_len >= 6) AS ludicrous_kills,
+			sumIf(chain_len, chain_len >= 2) AS total_multikill_kills
+		FROM chains
+	`
+
+	var totalMultikillKills uint64
+	if err := s.ch.QueryRow(ctx, multikillQuery, guid).Scan(
+		&out.DoubleKills,
+		&out.MultiKills,
+		&out.UltraKills,
+		&out.MonsterKills,
+		&out.LudicrousKills,
+		&totalMultikillKills,
+	); err != nil {
+		return fmt.Errorf("multikill query: %w", err)
+	}
+
+	// Multi-kill rate: % of total kills that occurred during multi-kill chains
+	if out.Kills > 0 {
+		out.MultiKillRate = (float64(totalMultikillKills) / float64(out.Kills)) * 100
 	}
 
 	return nil

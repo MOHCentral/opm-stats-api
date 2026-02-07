@@ -51,16 +51,30 @@ type CombatStats struct {
 	TradingKills    uint64  `json:"trading_kills"` // Killed within 3s of tm death
 	RevengeKills    uint64  `json:"revenge_kills"`
 	HighestStreak   uint64  `json:"highest_streak"`
-	Nutshots        uint64  `json:"nutshots"`
-	Backstabs       uint64  `json:"backstabs"`
+	Nutshots        uint64  `json:"nutshots"` // pelvis hitloc kills
 	FirstBloods     uint64  `json:"first_bloods"`
 	Longshots       uint64  `json:"longshots"`
-	Roadkills       uint64  `json:"roadkills"`
-	BashKills       uint64  `json:"bash_kills"`
+	BashKills       uint64  `json:"bash_kills"` // mod=bash kills
 	GrenadeKills    uint64  `json:"grenade_kills"`
 	GrenadesThrown  uint64  `json:"grenades_thrown"`
 	DamageDealt     uint64  `json:"damage_dealt"`
 	DamageTaken     uint64  `json:"damage_taken"`
+
+	// Kill Streak Stats (consecutive kills without dying)
+	BestKillstreak uint64 `json:"best_killstreak"`
+	Streaks5       uint64 `json:"streaks_5"`  // Times achieved 5+ kill streak
+	Streaks10      uint64 `json:"streaks_10"` // Times achieved 10+ kill streak
+	Streaks15      uint64 `json:"streaks_15"` // Times achieved 15+ kill streak
+	Streaks20      uint64 `json:"streaks_20"` // Times achieved 20+ kill streak
+	Streaks25      uint64 `json:"streaks_25"` // Times achieved 25+ kill streak
+
+	// Multi-Kill Stats (rapid kills within time window)
+	DoubleKills    uint64  `json:"double_kills"`    // 2 kills in ~4s
+	MultiKills     uint64  `json:"multi_kills"`     // 3 kills in ~4s
+	UltraKills     uint64  `json:"ultra_kills"`     // 4 kills in ~4s
+	MonsterKills   uint64  `json:"monster_kills"`   // 5 kills in ~4s
+	LudicrousKills uint64  `json:"ludicrous_kills"` // 6+ kills in ~4s
+	MultiKillRate  float64 `json:"multi_kill_rate"` // % of kills that are part of multi-kills
 }
 
 type PlayerWeaponStats struct {

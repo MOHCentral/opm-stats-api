@@ -192,7 +192,8 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 	case models.EventPlayerKill:
 		w.logger.Infow("Checking combat achievements", "smfID", actorSMFID)
 		w.checkCombatAchievements(actorSMFID, event)
-		w.checkStreak(actorSMFID, event) // Check streak increment
+		w.checkStreak(actorSMFID, event)                    // Check streak increment
+		w.checkMultikillAchievement(int(actorSMFID), event) // Check multi-kill window
 		// Also check headshot achievements if hitloc indicates headshot
 		if event.Hitloc == "head" || event.Hitloc == "helmet" {
 			w.checkHeadshotAchievements(actorSMFID, event)
@@ -308,11 +309,14 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 
 		streak := int(val)
 
-		// Check thresholds
+		// Check thresholds (Unreal Tournament style)
 		milestones := map[string]int{
 			"killing_spree": 5,
-			"unstoppable":   10,
-			"legendary":     20,
+			"rampage":       10,
+			"dominating":    15,
+			"unstoppable":   20,
+			"godlike":       25,
+			"wicked_sick":   30,
 		}
 
 		for slug, threshold := range milestones {
@@ -488,8 +492,53 @@ func (w *AchievementWorker) checkWeaponMasteryAchievement(smfID int, weapon stri
 }
 
 func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.RawEvent) {
-	// Would check recent kills within time window
-	// For now, simplified
+	if event.Type != models.EventPlayerKill {
+		return
+	}
+
+	guid := event.AttackerGUID
+	if guid == "" {
+		return
+	}
+
+	serverID := 0
+	ts := time.Unix(int64(event.Timestamp), 0)
+
+	// Use a Redis key with TTL for multi-kill window tracking.
+	// Key stores the count of kills within the current 4-second window.
+	// Each kill increments the counter; the key auto-expires after 4s of inactivity.
+	multikillKey := fmt.Sprintf("multikill:%s", guid)
+
+	// Increment the kill count in the current window
+	val, err := w.statStore.Incr(w.ctx, multikillKey)
+	if err != nil {
+		w.logger.Errorw("Failed to increment multi-kill counter", "key", multikillKey, "error", err)
+		return
+	}
+
+	// Set/reset TTL to 4 seconds (multi-kill window)
+	w.statStore.Set(w.ctx, multikillKey, val, 4*time.Second)
+
+	killCount := int(val)
+
+	// Check multi-kill achievement thresholds
+	multikillMilestones := map[string]int{
+		"double_kill":  2,
+		"triple_kill":  3,
+		"ultra_kill":   4,
+		"monster_kill": 5,
+	}
+
+	for slug, threshold := range multikillMilestones {
+		if killCount == threshold && smfID > 0 {
+			w.unlockAchievement(smfID, slug, serverID, ts)
+			w.logger.Infow("Multi-kill achievement unlocked!",
+				"slug", slug,
+				"killCount", killCount,
+				"smfID", smfID,
+			)
+		}
+	}
 }
 
 // incrementPlayerStat increments a stat in Redis and backfills from ClickHouse if needed

@@ -3101,10 +3101,12 @@ const docTemplate = `{
         "models.CombatStats": {
             "type": "object",
             "properties": {
-                "backstabs": {
+                "bash_kills": {
+                    "description": "mod=bash kills",
                     "type": "integer"
                 },
-                "bash_kills": {
+                "best_killstreak": {
+                    "description": "Kill Streak Stats (consecutive kills without dying)",
                     "type": "integer"
                 },
                 "bot_kills": {
@@ -3117,6 +3119,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "deaths": {
+                    "type": "integer"
+                },
+                "double_kills": {
+                    "description": "Multi-Kill Stats (rapid kills within time window)",
                     "type": "integer"
                 },
                 "first_bloods": {
@@ -3152,10 +3158,27 @@ const docTemplate = `{
                 "longshots": {
                     "type": "integer"
                 },
+                "ludicrous_kills": {
+                    "description": "6+ kills in ~4s",
+                    "type": "integer"
+                },
                 "melee_kills": {
                     "type": "integer"
                 },
+                "monster_kills": {
+                    "description": "5 kills in ~4s",
+                    "type": "integer"
+                },
+                "multi_kill_rate": {
+                    "description": "% of kills that are part of multi-kills",
+                    "type": "number"
+                },
+                "multi_kills": {
+                    "description": "3 kills in ~4s",
+                    "type": "integer"
+                },
                 "nutshots": {
+                    "description": "pelvis hitloc kills",
                     "type": "integer"
                 },
                 "player_kills": {
@@ -3164,7 +3187,24 @@ const docTemplate = `{
                 "revenge_kills": {
                     "type": "integer"
                 },
-                "roadkills": {
+                "streaks_10": {
+                    "description": "Times achieved 10+ kill streak",
+                    "type": "integer"
+                },
+                "streaks_15": {
+                    "description": "Times achieved 15+ kill streak",
+                    "type": "integer"
+                },
+                "streaks_20": {
+                    "description": "Times achieved 20+ kill streak",
+                    "type": "integer"
+                },
+                "streaks_25": {
+                    "description": "Times achieved 25+ kill streak",
+                    "type": "integer"
+                },
+                "streaks_5": {
+                    "description": "Times achieved 5+ kill streak",
                     "type": "integer"
                 },
                 "suicides": {
@@ -3178,6 +3218,10 @@ const docTemplate = `{
                 },
                 "trading_kills": {
                     "description": "Killed within 3s of tm death",
+                    "type": "integer"
+                },
+                "ultra_kills": {
+                    "description": "4 kills in ~4s",
                     "type": "integer"
                 }
             }
