@@ -35,13 +35,13 @@ func TestPool_RaceCondition(t *testing.T) {
 	p := &Pool{
 		config:   cfg,
 		jobQueue: make(chan Job, cfg.QueueSize),
-		logger:   cfg.Logger.Sugar(),
+		logger:   cfg.Logger,
 	}
 
 	// Manually init achievement worker with mocks to avoid panic if called
 	// We don't care if it works, just that it doesn't crash immediately
 	statStore := NewMockStatStore()
-	p.achievementWorker = NewAchievementWorker(&MockDBStore{}, &MockClickHouseConn{}, statStore, logger.Sugar())
+	p.achievementWorker = NewAchievementWorker(&MockDBStore{}, &MockClickHouseConn{}, statStore, logger)
 
 	// Start pool
 	ctx, cancel := context.WithCancel(context.Background())

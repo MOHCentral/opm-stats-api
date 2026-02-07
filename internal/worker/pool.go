@@ -102,7 +102,7 @@ type Pool struct {
 	wg                sync.WaitGroup
 	ctx               context.Context
 	cancel            context.CancelFunc
-	logger            *zap.SugaredLogger
+	logger            *zap.Logger
 	achievementWorker *AchievementWorker
 }
 
@@ -124,12 +124,12 @@ func NewPool(cfg PoolConfig) *Pool {
 	pool := &Pool{
 		config:   cfg,
 		jobQueue: make(chan Job, cfg.QueueSize),
-		logger:   cfg.Logger.Sugar(),
+		logger:   cfg.Logger,
 	}
 
 	// Initialize Achievement Worker with both Postgres and ClickHouse
 	statStore := &RedisStatStore{client: cfg.Redis}
-	pool.achievementWorker = NewAchievementWorker(cfg.Postgres, cfg.ClickHouse, statStore, cfg.Logger.Sugar())
+	pool.achievementWorker = NewAchievementWorker(cfg.Postgres, cfg.ClickHouse, statStore, cfg.Logger)
 	pool.achievementWorker.Start()
 
 	return pool
@@ -147,10 +147,10 @@ func (p *Pool) Start(ctx context.Context) {
 	// Start queue depth reporter
 	go p.reportQueueDepth()
 
-	p.logger.Infow("Worker pool started",
-		"workers", p.config.WorkerCount,
-		"queueSize", p.config.QueueSize,
-		"batchSize", p.config.BatchSize,
+	p.logger.Info("Worker pool started",
+		zap.Int("workers", p.config.WorkerCount),
+		zap.Int("queueSize", p.config.QueueSize),
+		zap.Int("batchSize", p.config.BatchSize),
 	)
 }
 
@@ -182,7 +182,7 @@ func (p *Pool) Enqueue(event *models.RawEvent) bool {
 	// Protect against sending on closed channel
 	defer func() {
 		if r := recover(); r != nil {
-			p.logger.Warnw("Failed to enqueue event (pool stopped)", "error", r)
+			p.logger.Warn("Failed to enqueue event (pool stopped)", zap.Any("error", r))
 		}
 	}()
 
@@ -206,7 +206,7 @@ func (p *Pool) QueueDepth() int {
 func (p *Pool) worker(id int) {
 	defer p.wg.Done()
 
-	p.logger.Infow("Worker started", "worker", id)
+	p.logger.Info("Worker started", zap.Int("worker", id))
 
 	batch := make([]Job, 0, p.config.BatchSize)
 	ticker := time.NewTicker(p.config.FlushInterval)
@@ -214,22 +214,22 @@ func (p *Pool) worker(id int) {
 
 	flush := func() {
 		if len(batch) == 0 {
-			p.logger.Infow("Flush called with empty batch", "worker", id)
+			p.logger.Info("Flush called with empty batch", zap.Int("worker", id))
 			return
 		}
 
-		p.logger.Infow("Flushing batch", "worker", id, "batchSize", len(batch))
+		p.logger.Info("Flushing batch", zap.Int("worker", id), zap.Int("batchSize", len(batch)))
 
 		start := time.Now()
 		if err := p.processBatch(batch); err != nil {
-			p.logger.Errorw("Batch processing failed",
-				"worker", id,
-				"batchSize", len(batch),
-				"error", err,
+			p.logger.Error("Batch processing failed",
+				zap.Int("worker", id),
+				zap.Int("batchSize", len(batch)),
+				zap.Error(err),
 			)
 			eventsFailed.Add(float64(len(batch)))
 		} else {
-			p.logger.Infow("Batch processed successfully", "worker", id, "batchSize", len(batch), "duration", time.Since(start))
+			p.logger.Info("Batch processed successfully", zap.Int("worker", id), zap.Int("batchSize", len(batch)), zap.Duration("duration", time.Since(start)))
 			eventsProcessed.Add(float64(len(batch)))
 		}
 		batchInsertDuration.Observe(time.Since(start).Seconds())
@@ -242,24 +242,24 @@ func (p *Pool) worker(id int) {
 		case job, ok := <-p.jobQueue:
 			if !ok {
 				// Channel closed, flush remaining
-				p.logger.Infow("Job queue closed, flushing remaining batch", "worker", id)
+				p.logger.Info("Job queue closed, flushing remaining batch", zap.Int("worker", id))
 				flush()
 				return
 			}
 
-			p.logger.Infow("Received job", "worker", id, "eventType", job.Event.Type)
+			p.logger.Info("Received job", zap.Int("worker", id), zap.String("eventType", string(job.Event.Type)))
 			batch = append(batch, job)
 			if len(batch) >= p.config.BatchSize {
-				p.logger.Infow("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
+				p.logger.Info("Batch size reached, flushing", zap.Int("worker", id), zap.Int("batchSize", len(batch)))
 				flush()
 			}
 
 		case <-ticker.C:
-			p.logger.Infow("Ticker fired", "worker", id, "batchSize", len(batch))
+			p.logger.Info("Ticker fired", zap.Int("worker", id), zap.Int("batchSize", len(batch)))
 			flush()
 
 		case <-p.ctx.Done():
-			p.logger.Infow("Context done, flushing final batch", "worker", id)
+			p.logger.Info("Context done, flushing final batch", zap.Int("worker", id))
 			flush()
 			return
 		}
@@ -328,7 +328,7 @@ func (p *Pool) processBatch(batch []Job) error {
 			chEvent.RoundNumber,
 		)
 		if err != nil {
-			p.logger.Warnw("Failed to append event to batch", "error", err, "event_type", event.Type)
+			p.logger.Warn("Failed to append event to batch", zap.Error(err), zap.String("event_type", string(event.Type)))
 			continue
 		}
 
@@ -345,7 +345,7 @@ func (p *Pool) processBatch(batch []Job) error {
 	// Send batch to ClickHouse FIRST
 	err = chBatch.Send()
 	if err != nil {
-		p.logger.Errorw("Failed to send batch to ClickHouse", "error", err, "batchSize", len(batch))
+		p.logger.Error("Failed to send batch to ClickHouse", zap.Error(err), zap.Int("batchSize", len(batch)))
 		return err
 	}
 
@@ -353,11 +353,11 @@ func (p *Pool) processBatch(batch []Job) error {
 	for _, job := range batch {
 		event := job.Event
 		if p.achievementWorker != nil {
-			p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
+			p.logger.Info("Calling achievement worker", zap.String("event_type", string(event.Type)), zap.Int64("attacker_smf_id", event.AttackerSMFID))
 			go func(evt *models.RawEvent) {
 				defer func() {
 					if r := recover(); r != nil {
-						p.logger.Errorw("Achievement worker panic", "error", r, "event_type", evt.Type)
+						p.logger.Error("Achievement worker panic", zap.Any("error", r), zap.String("event_type", string(evt.Type)))
 					}
 				}()
 				p.achievementWorker.ProcessEvent(evt)
@@ -437,7 +437,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 	// Execute pipeline
 	_, err := pipe.Exec(ctx)
 	if err != nil && err != redis.Nil {
-		p.logger.Errorw("Redis pipeline failed", "error", err)
+		p.logger.Error("Redis pipeline failed", zap.Error(err))
 	}
 
 	// Phase 2: Achievement Verification
@@ -483,7 +483,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 	if len(potentialUnlocks) > 0 {
 		_, err := verifyPipe.Exec(ctx)
 		if err != nil && err != redis.Nil {
-			p.logger.Errorw("Redis verification pipeline failed", "error", err)
+			p.logger.Error("Redis verification pipeline failed", zap.Error(err))
 		}
 	}
 
@@ -524,10 +524,10 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 
 		_, err := p.config.Postgres.Exec(ctx, sb.String(), vals...)
 		if err != nil {
-			p.logger.Errorw("Failed to bulk insert achievements", "error", err, "count", len(newUnlocks))
+			p.logger.Error("Failed to bulk insert achievements", zap.Error(err), zap.Int("count", len(newUnlocks)))
 		} else {
 			for _, unlock := range newUnlocks {
-				p.logger.Infow("Achievement unlocked", "player", unlock.guid, "achievement", unlock.achievementID)
+				p.logger.Info("Achievement unlocked", zap.String("player", unlock.guid), zap.String("achievement", unlock.achievementID))
 			}
 		}
 
@@ -539,7 +539,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		}
 		_, err = persistPipe.Exec(ctx)
 		if err != nil && err != redis.Nil {
-			p.logger.Errorw("Redis persistence pipeline failed", "error", err)
+			p.logger.Error("Redis persistence pipeline failed", zap.Error(err))
 		}
 	}
 
@@ -956,7 +956,7 @@ func (p *Pool) handleChat(ctx context.Context, event *models.RawEvent) {
 				"player_guid", event.PlayerGUID,
 				"verified_at", time.Unix(int64(event.Timestamp), 0).Format(time.RFC3339),
 			)
-			p.config.Logger.Sugar().Infow("Claim code verified", "code", code, "guid", event.PlayerGUID)
+			p.config.Logger.Info("Claim code verified", zap.String("code", code), zap.String("guid", event.PlayerGUID))
 		}
 	}
 }
@@ -994,9 +994,9 @@ func (p *Pool) grantAchievement(ctx context.Context, playerGUID, achievementID s
 	`, playerGUID, achievementID, time.Now())
 
 	if err != nil {
-		p.logger.Warnw("Failed to grant achievement", "player", playerGUID, "achievement", achievementID, "error", err)
+		p.logger.Warn("Failed to grant achievement", zap.String("player", playerGUID), zap.String("achievement", achievementID), zap.Error(err))
 	} else {
-		p.logger.Infow("Achievement unlocked", "player", playerGUID, "achievement", achievementID)
+		p.logger.Info("Achievement unlocked", zap.String("player", playerGUID), zap.String("achievement", achievementID))
 	}
 }
 
@@ -1077,7 +1077,7 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 			UPDATE servers SET last_seen = NOW(), is_active = true WHERE id = $1
 		`, event.ServerID)
 		if err != nil {
-			p.logger.Warnw("Failed to update server last_seen", "error", err, "server_id", event.ServerID)
+			p.logger.Warn("Failed to update server last_seen", zap.Error(err), zap.String("server_id", event.ServerID))
 		}
 	}()
 }

@@ -19,7 +19,7 @@ func BenchmarkProcessEvent(b *testing.B) {
 		db:              &MockDBStore{},
 		ch:              mockCH,
 		statStore:       NewMockStatStore(),
-		logger:          zap.NewNop().Sugar(),
+		logger:          zap.NewNop(),
 		achievementDefs: make(map[string]*AchievementDefinition),
 		ctx:             context.Background(),
 		cancel:          func() {},
