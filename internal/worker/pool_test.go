@@ -27,7 +27,7 @@ func TestConvertToClickHouseEvent_MatchOutcome(t *testing.T) {
 		Timestamp:    float64(time.Now().Unix()),
 	}
 
-	chEventWin := p.convertToClickHouseEvent(eventWin, "{}")
+	chEventWin := p.convertToClickHouseEvent(eventWin, "{}", time.Now())
 
 	if chEventWin.MatchOutcome != 1 {
 		t.Errorf("Expected MatchOutcome 1 (Win), got %d", chEventWin.MatchOutcome)
@@ -47,9 +47,32 @@ func TestConvertToClickHouseEvent_MatchOutcome(t *testing.T) {
 		Timestamp:    float64(time.Now().Unix()),
 	}
 
-	chEventLoss := p.convertToClickHouseEvent(eventLoss, "{}")
+	chEventLoss := p.convertToClickHouseEvent(eventLoss, "{}", time.Now())
 
 	if chEventLoss.MatchOutcome != 0 {
 		t.Errorf("Expected MatchOutcome 0 (Loss), got %d", chEventLoss.MatchOutcome)
+	}
+}
+
+func TestConvertToClickHouseEvent_Turret(t *testing.T) {
+	p := &Pool{}
+
+	matchID := uuid.New().String()
+	playerGUID := "test-guid"
+	turret := "flak88"
+
+	event := &models.RawEvent{
+		Type:       models.EventTurretEnter,
+		MatchID:    matchID,
+		PlayerGUID: playerGUID,
+		PlayerName: "TestPlayer",
+		Turret:     turret,
+		Timestamp:  float64(time.Now().Unix()),
+	}
+
+	chEvent := p.convertToClickHouseEvent(event, "{}", time.Now())
+
+	if chEvent.TargetID != turret {
+		t.Errorf("Expected TargetID to store turret %s, got %s", turret, chEvent.TargetID)
 	}
 }
