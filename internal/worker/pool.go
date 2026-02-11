@@ -1017,23 +1017,38 @@ func (p *Pool) reportQueueDepth() {
 // Helper functions
 
 func sanitizeName(s string) string {
-	// If no caret, return original string (no allocation)
-	if !strings.Contains(s, "^") {
+	// Fast path: check if any caret exists
+	idx := strings.IndexByte(s, '^')
+	if idx == -1 {
 		return s
 	}
 
 	var sb strings.Builder
 	sb.Grow(len(s))
 
-	n := len(s)
-	for i := 0; i < n; i++ {
-		// Check for color code format ^[0-9]
-		if s[i] == '^' && i+1 < n && s[i+1] >= '0' && s[i+1] <= '9' {
-			i++ // Skip next char too (the digit)
-			continue
+	current := 0
+	for {
+		idx := strings.IndexByte(s[current:], '^')
+		if idx == -1 {
+			sb.WriteString(s[current:])
+			break
 		}
-		sb.WriteByte(s[i])
+
+		// Calculate absolute index
+		absIdx := current + idx
+		sb.WriteString(s[current:absIdx])
+
+		// Check for color code
+		if absIdx+1 < len(s) && s[absIdx+1] >= '0' && s[absIdx+1] <= '9' {
+			// Skip both ^ and digit
+			current = absIdx + 2
+		} else {
+			// Just a caret, write it
+			sb.WriteByte('^')
+			current = absIdx + 1
+		}
 	}
+
 	return sb.String()
 }
 
