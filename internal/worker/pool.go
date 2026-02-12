@@ -247,10 +247,10 @@ func (p *Pool) worker(id int) {
 				return
 			}
 
-			p.logger.Infow("Received job", "worker", id, "eventType", job.Event.Type)
+			p.logger.Debugw("Received job", "worker", id, "eventType", job.Event.Type)
 			batch = append(batch, job)
 			if len(batch) >= p.config.BatchSize {
-				p.logger.Infow("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
+				p.logger.Debugw("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
 				flush()
 			}
 
@@ -353,7 +353,7 @@ func (p *Pool) processBatch(batch []Job) error {
 	for _, job := range batch {
 		event := job.Event
 		if p.achievementWorker != nil {
-			p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
+			p.logger.Debugw("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
 			go func(evt *models.RawEvent) {
 				defer func() {
 					if r := recover(); r != nil {
@@ -562,8 +562,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
 		// Use a consistent namespace for non-standard match IDs
-		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
-		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
+		matchID = uuid.NewMD5(uuid.Nil, []byte(event.MatchID))
 	}
 
 	// Determine real wall-clock timestamp.
@@ -1037,13 +1036,6 @@ func sanitizeName(s string) string {
 	return sb.String()
 }
 
-func parseOrGenerateUUID(s string) uuid.UUID {
-	if id, err := uuid.Parse(s); err == nil {
-		return id
-	}
-	// Generate deterministic UUID from string
-	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(s))
-}
 
 // updateServerStatus updates the server's live status in Redis and Postgres
 func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
