@@ -226,12 +226,12 @@ func (m *MockPGXRow) Scan(dest ...any) error {
 // MockPGXRows
 type MockPGXRows struct{}
 
-func (m *MockPGXRows) Close() {}
-func (m *MockPGXRows) Err() error { return nil }
-func (m *MockPGXRows) CommandTag() pgconn.CommandTag { return pgconn.CommandTag{} }
+func (m *MockPGXRows) Close()                                       {}
+func (m *MockPGXRows) Err() error                                   { return nil }
+func (m *MockPGXRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (m *MockPGXRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
-func (m *MockPGXRows) Next() bool { return false }
-func (m *MockPGXRows) Scan(dest ...any) error { return nil }
-func (m *MockPGXRows) Values() ([]any, error) { return nil, nil }
-func (m *MockPGXRows) RawValues() [][]byte { return nil }
-func (m *MockPGXRows) Conn() *pgx.Conn { return nil }
+func (m *MockPGXRows) Next() bool                                   { return false }
+func (m *MockPGXRows) Scan(dest ...any) error                       { return nil }
+func (m *MockPGXRows) Values() ([]any, error)                       { return nil, nil }
+func (m *MockPGXRows) RawValues() [][]byte                          { return nil }
+func (m *MockPGXRows) Conn() *pgx.Conn                              { return nil }
