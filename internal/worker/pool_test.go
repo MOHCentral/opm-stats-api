@@ -27,7 +27,8 @@ func TestConvertToClickHouseEvent_MatchOutcome(t *testing.T) {
 		Timestamp:    float64(time.Now().Unix()),
 	}
 
-	chEventWin := p.convertToClickHouseEvent(eventWin, "{}")
+	var chEventWin models.ClickHouseEvent
+	p.fillClickHouseEvent(eventWin, "{}", time.Now(), &chEventWin)
 
 	if chEventWin.MatchOutcome != 1 {
 		t.Errorf("Expected MatchOutcome 1 (Win), got %d", chEventWin.MatchOutcome)
@@ -47,7 +48,8 @@ func TestConvertToClickHouseEvent_MatchOutcome(t *testing.T) {
 		Timestamp:    float64(time.Now().Unix()),
 	}
 
-	chEventLoss := p.convertToClickHouseEvent(eventLoss, "{}")
+	var chEventLoss models.ClickHouseEvent
+	p.fillClickHouseEvent(eventLoss, "{}", time.Now(), &chEventLoss)
 
 	if chEventLoss.MatchOutcome != 0 {
 		t.Errorf("Expected MatchOutcome 0 (Loss), got %d", chEventLoss.MatchOutcome)
