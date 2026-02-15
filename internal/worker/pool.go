@@ -599,7 +599,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ch.ActorName = sanitizeName(event.AttackerName)
 		ch.ActorTeam = event.AttackerTeam
 		ch.ActorSMFID = event.AttackerSMFID
-		ch.ActorWeapon = event.Weapon
+		ch.ActorWeapon = normalizeWeaponLabel(event.Weapon, event.Mod, event.Inflictor)
 		ch.ActorPosX = event.AttackerX
 		ch.ActorPosY = event.AttackerY
 		ch.ActorPosZ = event.AttackerZ
@@ -622,7 +622,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ch.ActorID = event.AttackerGUID
 		ch.ActorName = sanitizeName(event.AttackerName)
 		ch.ActorSMFID = event.AttackerSMFID
-		ch.ActorWeapon = event.Weapon
+		ch.ActorWeapon = normalizeWeaponLabel(event.Weapon, event.Mod, event.Inflictor)
 		ch.ActorStance = event.AttackerStance // If available
 
 		ch.TargetID = event.VictimGUID
@@ -636,7 +636,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ch.ActorID = event.PlayerGUID
 		ch.ActorName = sanitizeName(event.PlayerName)
 		ch.ActorSMFID = event.PlayerSMFID
-		ch.ActorWeapon = event.Weapon
+		ch.ActorWeapon = normalizeWeaponLabel(event.Weapon, event.Mod, event.Inflictor)
 		ch.ActorPosX = event.PosX
 		ch.ActorPosY = event.PosY
 		ch.ActorPosZ = event.PosZ
@@ -652,7 +652,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ch.TargetName = sanitizeName(event.TargetName)
 		ch.TargetSMFID = event.TargetSMFID
 		ch.Hitloc = event.Hitloc
-		ch.ActorWeapon = event.Weapon
+		ch.ActorWeapon = normalizeWeaponLabel(event.Weapon, event.Mod, event.Inflictor)
 		ch.ActorStance = event.PlayerStance
 		ch.TargetStance = event.TargetStance
 
@@ -1035,6 +1035,28 @@ func sanitizeName(s string) string {
 		sb.WriteByte(s[i])
 	}
 	return sb.String()
+}
+
+func normalizeWeaponLabel(weapon, mod, inflictor string) string {
+	w := strings.TrimSpace(weapon)
+	if w == "" {
+		w = strings.TrimSpace(mod)
+	}
+
+	lw := strings.ToLower(w)
+	if lw == "" || lw == "world" || lw == "player" || lw == "projectile" || lw == "explosion" || lw == "unknown" {
+		if strings.TrimSpace(mod) != "" {
+			w = strings.TrimSpace(mod)
+		} else if strings.TrimSpace(inflictor) != "" {
+			w = strings.TrimSpace(inflictor)
+		}
+	}
+
+	if strings.TrimSpace(w) == "" {
+		return "unknown"
+	}
+
+	return w
 }
 
 func parseOrGenerateUUID(s string) uuid.UUID {
