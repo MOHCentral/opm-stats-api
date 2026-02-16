@@ -289,11 +289,13 @@ func (p *Pool) processBatch(batch []Job) error {
 		return err
 	}
 
+	var chEvent models.ClickHouseEvent
 	for _, job := range batch {
 		event := job.Event
 
 		// Convert to ClickHouse event, using job receipt time as fallback for game-relative timestamps
-		chEvent := p.convertToClickHouseEvent(event, job.RawJSON, job.Timestamp)
+		// Pass pointer to reuse struct and avoid heap allocation per event
+		p.fillClickHouseEvent(event, job.RawJSON, job.Timestamp, &chEvent)
 
 		err := chBatch.Append(
 			chEvent.Timestamp,
@@ -554,10 +556,11 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 // not a real Unix epoch, and we substitute the ingestion wall-clock time instead.
 const minValidUnixTimestamp = 1577836800
 
-// convertToClickHouseEvent normalizes a raw event for ClickHouse.
+// fillClickHouseEvent normalizes a raw event for ClickHouse.
 // receivedAt is the wall-clock time when the event was enqueued, used as fallback
 // when event.Timestamp is game-relative (level.time) rather than Unix epoch.
-func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, receivedAt time.Time) *models.ClickHouseEvent {
+// ch is a pointer to a reused struct to avoid allocation.
+func (p *Pool) fillClickHouseEvent(event *models.RawEvent, rawJSON string, receivedAt time.Time, ch *models.ClickHouseEvent) {
 	// Parse match_id as UUID or generate a consistent one from the string
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
@@ -578,7 +581,8 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ts = receivedAt
 	}
 
-	ch := &models.ClickHouseEvent{
+	// Reset struct fields to avoid leaking data from previous events
+	*ch = models.ClickHouseEvent{
 		Timestamp:    ts,
 		MatchID:      matchID,
 		ServerID:     event.ServerID,
@@ -693,8 +697,6 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ch.ActorPosZ = event.PosZ
 		ch.ActorWeapon = event.Item // Pickup events store item in ActorWeapon
 	}
-
-	return ch
 }
 
 // processEventSideEffects handles real-time updates (Redis, achievements)
