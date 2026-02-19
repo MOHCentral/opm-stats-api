@@ -387,9 +387,11 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		cmd  *redis.IntCmd
 	}
 
-	var killChecks []killCheck
-	var headshotChecks []headshotCheck
-	var deferredEvents []*models.RawEvent
+	// Pre-allocate slices to avoid resizing during batch processing
+	batchSize := len(batch)
+	killChecks := make([]killCheck, 0, batchSize)
+	headshotChecks := make([]headshotCheck, 0, batchSize)
+	deferredEvents := make([]*models.RawEvent, 0, batchSize)
 
 	for _, job := range batch {
 		event := job.Event
@@ -446,7 +448,9 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		achievementID string
 		sIsMemberCmd  *redis.BoolCmd
 	}
-	var potentialUnlocks []potentialUnlock
+	// Estimate capacity based on checks to minimize allocations
+	// Max potential unlocks = checks passed, but we allocate for worst case to avoid resize
+	potentialUnlocks := make([]potentialUnlock, 0, len(killChecks)+len(headshotChecks))
 
 	verifyPipe := p.config.Redis.Pipeline()
 
@@ -492,7 +496,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		guid          string
 		achievementID string
 	}
-	var newUnlocks []unlockToPersist
+	newUnlocks := make([]unlockToPersist, 0, len(potentialUnlocks))
 
 	for _, check := range potentialUnlocks {
 		// If SIsMember returned false (not member), it's a new unlock
@@ -509,7 +513,7 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 		// Construct query: INSERT INTO player_achievements (player_guid, achievement_id, unlocked_at) VALUES ...
 		var sb strings.Builder
 		sb.WriteString("INSERT INTO player_achievements (player_guid, achievement_id, unlocked_at) VALUES ")
-		vals := []interface{}{}
+		vals := make([]interface{}, 0, len(newUnlocks)*3)
 		now := time.Now()
 
 		for i, unlock := range newUnlocks {
