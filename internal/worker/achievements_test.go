@@ -41,9 +41,9 @@ func TestGetWeaponKills(t *testing.T) {
 	mockCh := &mockConn{
 		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) driver.Row {
 			// Verify query and args
-			expectedQuery := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND actor_weapon = ?`
+			expectedQuery := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND actor_weapon = ?`
 			if query != expectedQuery {
-				t.Errorf("expected query %q, got %q", expectedQuery, query)
+				t.Errorf("expected query \n%q\n, got \n%q", expectedQuery, query)
 			}
 			if len(args) != 2 {
 				t.Errorf("expected 2 args, got %d", len(args))
