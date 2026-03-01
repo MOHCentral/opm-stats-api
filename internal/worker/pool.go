@@ -1017,23 +1017,43 @@ func (p *Pool) reportQueueDepth() {
 // Helper functions
 
 func sanitizeName(s string) string {
-	// If no caret, return original string (no allocation)
-	if !strings.Contains(s, "^") {
+	// Fast path: find first caret
+	// Optimization: strings.IndexByte is much faster than strings.Contains and manual loops.
+	// It allows us to bulk-copy clean prefixes directly into the string builder.
+	idx := strings.IndexByte(s, '^')
+	if idx == -1 {
 		return s
 	}
 
 	var sb strings.Builder
 	sb.Grow(len(s))
 
-	n := len(s)
-	for i := 0; i < n; i++ {
-		// Check for color code format ^[0-9]
-		if s[i] == '^' && i+1 < n && s[i+1] >= '0' && s[i+1] <= '9' {
-			i++ // Skip next char too (the digit)
-			continue
+	for {
+		// Bulk copy clean prefix
+		if idx > 0 {
+			sb.WriteString(s[:idx])
 		}
-		sb.WriteByte(s[i])
+		s = s[idx:] // Now s starts with '^'
+
+		// Check for color code format ^[0-9]
+		if len(s) > 1 && s[1] >= '0' && s[1] <= '9' {
+			// Skip color code
+			s = s[2:]
+		} else {
+			// Not a color code, keep the caret
+			sb.WriteByte(s[0])
+			s = s[1:]
+		}
+
+		// Find next caret
+		idx = strings.IndexByte(s, '^')
+		if idx == -1 {
+			// No more carets, bulk copy the rest
+			sb.WriteString(s)
+			break
+		}
 	}
+
 	return sb.String()
 }
 
