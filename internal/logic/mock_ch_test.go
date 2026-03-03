@@ -105,5 +105,11 @@ func (m *MockRow) Err() error {
 func assign(dest interface{}, val interface{}) {
 	// Simple reflection to assign value to pointer
 	v := reflect.ValueOf(dest).Elem()
-	v.Set(reflect.ValueOf(val))
+	vVal := reflect.ValueOf(val)
+	if v.Type() != vVal.Type() {
+		if vVal.Type().ConvertibleTo(v.Type()) {
+			vVal = vVal.Convert(v.Type())
+		}
+	}
+	v.Set(vVal)
 }
