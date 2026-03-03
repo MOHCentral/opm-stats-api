@@ -562,8 +562,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
 		// Use a consistent namespace for non-standard match IDs
-		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
-		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
+		matchID = uuid.NewMD5(defaultUUIDNamespace, []byte(event.MatchID))
 	}
 
 	// Determine real wall-clock timestamp.
@@ -1017,16 +1016,21 @@ func (p *Pool) reportQueueDepth() {
 // Helper functions
 
 func sanitizeName(s string) string {
+	idx := strings.IndexByte(s, '^')
 	// If no caret, return original string (no allocation)
-	if !strings.Contains(s, "^") {
+	if idx == -1 {
 		return s
 	}
 
 	var sb strings.Builder
 	sb.Grow(len(s))
 
+	if idx > 0 {
+		sb.WriteString(s[:idx])
+	}
+
 	n := len(s)
-	for i := 0; i < n; i++ {
+	for i := idx; i < n; i++ {
 		// Check for color code format ^[0-9]
 		if s[i] == '^' && i+1 < n && s[i+1] >= '0' && s[i+1] <= '9' {
 			i++ // Skip next char too (the digit)
@@ -1036,6 +1040,9 @@ func sanitizeName(s string) string {
 	}
 	return sb.String()
 }
+
+// defaultUUIDNamespace is pre-parsed to avoid parsing it on every call.
+var defaultUUIDNamespace = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
 func parseOrGenerateUUID(s string) uuid.UUID {
 	if id, err := uuid.Parse(s); err == nil {
