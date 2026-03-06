@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1017,16 +1018,22 @@ func (p *Pool) reportQueueDepth() {
 // Helper functions
 
 func sanitizeName(s string) string {
-	// If no caret, return original string (no allocation)
-	if !strings.Contains(s, "^") {
+	// Fast path: find first caret
+	idx := strings.IndexByte(s, '^')
+	if idx == -1 {
 		return s
 	}
 
 	var sb strings.Builder
 	sb.Grow(len(s))
 
+	// Write everything up to the first caret in one go
+	if idx > 0 {
+		sb.WriteString(s[:idx])
+	}
+
 	n := len(s)
-	for i := 0; i < n; i++ {
+	for i := idx; i < n; i++ {
 		// Check for color code format ^[0-9]
 		if s[i] == '^' && i+1 < n && s[i+1] >= '0' && s[i+1] <= '9' {
 			i++ // Skip next char too (the digit)
@@ -1053,8 +1060,14 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 
 	// 1. Update Redis "live_servers"
 	// Format: "players:%d,map:%s,gametype:%s"
-	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s",
-		event.PlayerCount, event.MapName, event.Gametype)
+	var sb strings.Builder
+	sb.WriteString("players:")
+	sb.WriteString(strconv.Itoa(int(event.PlayerCount)))
+	sb.WriteString(",map:")
+	sb.WriteString(event.MapName)
+	sb.WriteString(",gametype:")
+	sb.WriteString(event.Gametype)
+	statusStr := sb.String()
 
 	p.config.Redis.HSet(ctx, "live_servers", event.ServerID, statusStr)
 	// Set expiration handling if needed? Redis Key itself doesn't expire, field doesn't expire.

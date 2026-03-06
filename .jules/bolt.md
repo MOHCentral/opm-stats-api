@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-06-05 - [fmt.Sprintf in Hot Paths]
+**Learning:** `fmt.Sprintf` allocates memory and requires runtime parsing. Replacing `fmt.Sprintf` with `strings.Builder` (and `strconv.Itoa` for ints) or simple string concatenation using `+` in frequently called loops reduces memory allocations. I found this issue while inspecting `updateServerStatus` in `internal/worker/pool.go`. The change replaces an allocation-heavy `fmt.Sprintf` call.
+**Action:** In high-throughput parts of the system like event handlers and workers, prefer string concatenation (`+`) or `strings.Builder` over `fmt.Sprintf`.
