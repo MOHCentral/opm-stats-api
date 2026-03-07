@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -161,7 +162,10 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
-	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	// Optimization: bytes.ReplaceAll unconditionally allocates. Guard with IndexByte for the fast path.
+	if bytes.IndexByte(body, 0) >= 0 {
+		body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	}
 	body = bytes.TrimSpace(body)
 
 	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
@@ -180,10 +184,18 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Fallback: newline-delimited format (legacy game scripts)
 		h.logger.Infow("Parsing as newline-delimited (legacy format)")
-		lines := strings.Split(string(body), "\n")
 
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
+		// Optimization: Use scanner instead of strings.Split to avoid large slice allocations
+		scanner := bufio.NewScanner(bytes.NewReader(body))
+		// Optional: Increase buffer size if lines might exceed 64KB (default).
+		// A 4KB initial buffer is good for standard lines, growing up to MaxBodySize.
+		buf := make([]byte, 4096)
+		scanner.Buffer(buf, MaxBodySize)
+
+		lineCount := 0
+		for scanner.Scan() {
+			lineCount++
+			line := strings.TrimSpace(scanner.Text())
 			if line == "" {
 				continue
 			}
@@ -205,7 +217,12 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			}
 			events = append(events, event)
 		}
-		h.logger.Infow("Parsed legacy format", "lineCount", len(lines), "parsedEvents", len(events))
+
+		if err := scanner.Err(); err != nil {
+			h.logger.Warnw("Error scanning legacy format", "error", err)
+		}
+
+		h.logger.Infow("Parsed legacy format", "lineCount", lineCount, "parsedEvents", len(events))
 	}
 
 	// Process all events

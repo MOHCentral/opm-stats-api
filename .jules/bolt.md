@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-05-25 - [Payload Parsing in Handlers]
+**Learning:** `strings.Split` with string conversion in the `IngestEvents` handler created excessive allocations for large payloads. By replacing `strings.Split` with `bufio.Scanner` and guarding `bytes.ReplaceAll` with `bytes.IndexByte`, memory allocations and processing time were significantly reduced in the hot path.
+**Action:** Use `bufio.Scanner` instead of `strings.Split` for parsing newline-delimited data to reduce memory allocations. Guard unconditional byte allocations (like `bytes.ReplaceAll`) with search functions like `bytes.IndexByte`.
