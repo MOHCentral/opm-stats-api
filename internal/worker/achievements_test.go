@@ -41,7 +41,8 @@ func TestGetWeaponKills(t *testing.T) {
 	mockCh := &mockConn{
 		queryRowFunc: func(ctx context.Context, query string, args ...interface{}) driver.Row {
 			// Verify query and args
-			expectedQuery := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type = 'kill' AND actor_weapon = ?`
+			// Updated to match the implementation in achievements.go
+			expectedQuery := `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND actor_weapon = ?`
 			if query != expectedQuery {
 				t.Errorf("expected query %q, got %q", expectedQuery, query)
 			}
@@ -72,7 +73,7 @@ func TestGetWeaponKills(t *testing.T) {
 		},
 	}
 
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 	// passing nil for db because we don't use it in getWeaponKills
 	worker := &AchievementWorker{
 		ch:     mockCh,
@@ -88,7 +89,7 @@ func TestGetWeaponKills(t *testing.T) {
 
 func TestNotifyPlayer(t *testing.T) {
 	mockStatStore := NewMockStatStore()
-	logger := zap.NewNop().Sugar()
+	logger := zap.NewNop()
 	worker := &AchievementWorker{
 		statStore: mockStatStore,
 		logger:    logger,

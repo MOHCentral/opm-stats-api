@@ -70,7 +70,7 @@ type AchievementWorker struct {
 	db              DBStore            // Postgres for achievement defs and unlocks
 	ch              driver.Conn        // ClickHouse for stats queries
 	statStore       StatStore          // Redis for stats
-	logger          *zap.SugaredLogger // Logger for debugging
+	logger          *zap.Logger        // Logger for debugging
 	achievementDefs map[string]*AchievementDefinition
 	mu              sync.RWMutex
 	ctx             context.Context
@@ -88,7 +88,7 @@ type AchievementDefinition struct {
 }
 
 // NewAchievementWorker creates a new achievement processing worker
-func NewAchievementWorker(db DBStore, ch driver.Conn, statStore StatStore, logger *zap.SugaredLogger) *AchievementWorker {
+func NewAchievementWorker(db DBStore, ch driver.Conn, statStore StatStore, logger *zap.Logger) *AchievementWorker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	worker := &AchievementWorker{
@@ -103,7 +103,7 @@ func NewAchievementWorker(db DBStore, ch driver.Conn, statStore StatStore, logge
 
 	// Load achievement definitions from database
 	if err := worker.loadAchievementDefinitions(); err != nil {
-		logger.Errorw("Failed to load achievement definitions", "error", err)
+		logger.Error("Failed to load achievement definitions", zap.Error(err))
 	}
 
 	return worker
@@ -148,7 +148,7 @@ func (w *AchievementWorker) loadAchievementDefinitions() error {
 			&def.Description,
 		)
 		if err != nil {
-			w.logger.Errorw("Failed to scan achievement", "error", err)
+			w.logger.Error("Failed to scan achievement", zap.Error(err))
 			continue
 		}
 
@@ -156,7 +156,7 @@ func (w *AchievementWorker) loadAchievementDefinitions() error {
 		count++
 	}
 
-	w.logger.Infow("Loaded achievement definitions", "count", count)
+	w.logger.Info("Loaded achievement definitions", zap.Int("count", count))
 	return nil
 }
 
@@ -176,21 +176,21 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 		w.checkStreak(victimSMFID, event)
 	}
 
-	w.logger.Infow("Processing achievement event",
-		"type", event.Type,
-		"actorSMFID", actorSMFID,
-		"timestamp", event.Timestamp,
+	w.logger.Info("Processing achievement event",
+		zap.String("type", string(event.Type)),
+		zap.Int64("actorSMFID", actorSMFID),
+		zap.Float64("timestamp", event.Timestamp),
 	)
 
 	if actorSMFID == 0 {
-		w.logger.Infow("Skipping achievement check - no authenticated player", "type", event.Type)
+		w.logger.Info("Skipping achievement check - no authenticated player", zap.String("type", string(event.Type)))
 		return // Only process for authenticated players
 	}
 
 	// Check different event types
 	switch event.Type {
 	case models.EventPlayerKill:
-		w.logger.Infow("Checking combat achievements", "smfID", actorSMFID)
+		w.logger.Info("Checking combat achievements", zap.Int64("smfID", actorSMFID))
 		w.checkCombatAchievements(actorSMFID, event)
 		w.checkStreak(actorSMFID, event)                    // Check streak increment
 		w.checkMultikillAchievement(int(actorSMFID), event) // Check multi-kill window
@@ -227,7 +227,7 @@ func (w *AchievementWorker) getActorSMFID(event *models.RawEvent) int64 {
 
 // checkCombatAchievements checks for combat-related achievements
 func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.RawEvent) {
-	w.logger.Infow("[ACHIEVEMENT] checkCombatAchievements called", "smfID", smfID)
+	w.logger.Info("[ACHIEVEMENT] checkCombatAchievements called", zap.Int64("smfID", smfID))
 	// Get player's total kills
 	totalKills := w.incrementPlayerStat(int(smfID), "total_kills")
 
@@ -236,9 +236,9 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 		w.incrementPlayerStat(int(smfID), "vehicle_kills")
 	}
 
-	w.logger.Infow("Player kill stats",
-		"smfID", smfID,
-		"totalKills", totalKills,
+	w.logger.Info("Player kill stats",
+		zap.Int64("smfID", smfID),
+		zap.Int("totalKills", totalKills),
 	)
 
 	serverID := 0
@@ -254,16 +254,21 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 		"killer_diamond":  10000,
 	}
 
-	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(milestones))
+	w.logger.Info("Checking milestones", zap.Int("totalKills", totalKills), zap.Int("milestoneCount", len(milestones)))
 
 	for slug, threshold := range milestones {
-		w.logger.Debugw("Checking milestone", "slug", slug, "threshold", threshold, "totalKills", totalKills, "passes", totalKills >= threshold)
+		w.logger.Debug("Checking milestone",
+			zap.String("slug", slug),
+			zap.Int("threshold", threshold),
+			zap.Int("totalKills", totalKills),
+			zap.Bool("passes", totalKills >= threshold),
+		)
 		if totalKills >= threshold {
-			w.logger.Infow("Achievement milestone reached!",
-				"slug", slug,
-				"threshold", threshold,
-				"totalKills", totalKills,
-				"smfID", smfID,
+			w.logger.Info("Achievement milestone reached!",
+				zap.String("slug", slug),
+				zap.Int("threshold", threshold),
+				zap.Int("totalKills", totalKills),
+				zap.Int64("smfID", smfID),
 			)
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -512,7 +517,7 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	// Increment the kill count in the current window
 	val, err := w.statStore.Incr(w.ctx, multikillKey)
 	if err != nil {
-		w.logger.Errorw("Failed to increment multi-kill counter", "key", multikillKey, "error", err)
+		w.logger.Error("Failed to increment multi-kill counter", zap.String("key", multikillKey), zap.Error(err))
 		return
 	}
 
@@ -532,10 +537,10 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	for slug, threshold := range multikillMilestones {
 		if killCount == threshold && smfID > 0 {
 			w.unlockAchievement(smfID, slug, serverID, ts)
-			w.logger.Infow("Multi-kill achievement unlocked!",
-				"slug", slug,
-				"killCount", killCount,
-				"smfID", smfID,
+			w.logger.Info("Multi-kill achievement unlocked!",
+				zap.String("slug", slug),
+				zap.Int("killCount", killCount),
+				zap.Int("smfID", smfID),
 			)
 		}
 	}
@@ -548,7 +553,7 @@ func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int 
 	// Increment in Redis
 	val, err := w.statStore.Incr(w.ctx, key)
 	if err != nil {
-		w.logger.Errorw("Failed to increment player stat", "key", key, "error", err)
+		w.logger.Error("Failed to increment player stat", zap.String("key", key), zap.Error(err))
 		return w.fetchFromDB(smfID, statName)
 	}
 
@@ -571,7 +576,7 @@ func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string,
 
 	val, err := w.statStore.IncrByFloat(w.ctx, key, incrAmount)
 	if err != nil {
-		w.logger.Errorw("Failed to increment player stat float", "key", key, "error", err)
+		w.logger.Error("Failed to increment player stat float", zap.String("key", key), zap.Error(err))
 		return float64(w.fetchFromDB(smfID, statName))
 	}
 
@@ -629,19 +634,19 @@ func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 	var value uint64
 	err := w.ch.QueryRow(w.ctx, query, smfID).Scan(&value)
 	if err != nil {
-		w.logger.Errorw("ClickHouse query error",
-			"statName", statName,
-			"smfID", smfID,
-			"query", query,
-			"error", err,
+		w.logger.Error("ClickHouse query error",
+			zap.String("statName", statName),
+			zap.Int("smfID", smfID),
+			zap.String("query", query),
+			zap.Error(err),
 		)
 		return 0
 	}
 
-	w.logger.Debugw("Retrieved player stat from DB",
-		"statName", statName,
-		"smfID", smfID,
-		"value", value,
+	w.logger.Debug("Retrieved player stat from DB",
+		zap.String("statName", statName),
+		zap.Int("smfID", smfID),
+		zap.Uint64("value", value),
 	)
 	return int(value)
 }
@@ -653,12 +658,12 @@ func (w *AchievementWorker) getWeaponKills(smfID int, weapon string) int {
 	var count uint64
 	err := w.ch.QueryRow(w.ctx, query, smfID, weapon).Scan(&count)
 	if err != nil {
-		w.logger.Errorw("ClickHouse query error",
-			"func", "getWeaponKills",
-			"smfID", smfID,
-			"weapon", weapon,
-			"query", query,
-			"error", err,
+		w.logger.Error("ClickHouse query error",
+			zap.String("func", "getWeaponKills"),
+			zap.Int("smfID", smfID),
+			zap.String("weapon", weapon),
+			zap.String("query", query),
+			zap.Error(err),
 		)
 		return 0
 	}
@@ -675,9 +680,9 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 	`
 	err := w.db.QueryRow(w.ctx, getIDQuery, slug).Scan(&achievementID)
 	if err != nil {
-		w.logger.Errorw("Achievement code not found in database",
-			"slug", slug,
-			"error", err,
+		w.logger.Error("Achievement code not found in database",
+			zap.String("slug", slug),
+			zap.Error(err),
 		)
 		return
 	}
@@ -692,11 +697,11 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 	`
 	err = w.db.QueryRow(w.ctx, checkQuery, smfID, achievementID).Scan(&exists)
 	if err != nil {
-		w.logger.Errorw("Error checking existing achievement", "error", err)
+		w.logger.Error("Error checking existing achievement", zap.Error(err))
 		return
 	}
 	if exists {
-		w.logger.Debugw("Achievement already unlocked", "slug", slug, "smfID", smfID)
+		w.logger.Debug("Achievement already unlocked", zap.String("slug", slug), zap.Int("smfID", smfID))
 		return // Already unlocked
 	}
 
@@ -706,7 +711,7 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 	w.mu.RUnlock()
 
 	if !exists {
-		w.logger.Errorw("Achievement definition not found in memory", "slug", slug)
+		w.logger.Error("Achievement definition not found in memory", zap.String("slug", slug))
 		return
 	}
 
@@ -721,11 +726,11 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 
 	_, err = w.db.Exec(w.ctx, insertQuery, smfID, achievementID, 100, timestamp)
 	if err != nil {
-		w.logger.Errorw("Failed to insert achievement unlock",
-			"slug", slug,
-			"smfID", smfID,
-			"achievementID", achievementID,
-			"error", err,
+		w.logger.Error("Failed to insert achievement unlock",
+			zap.String("slug", slug),
+			zap.Int("smfID", smfID),
+			zap.Int("achievementID", achievementID),
+			zap.Error(err),
 		)
 		return
 	}
@@ -733,11 +738,11 @@ func (w *AchievementWorker) unlockAchievement(smfID int, slug string, serverID i
 	// Note: Player achievement points can be calculated via SUM query
 	// No need to maintain separate counter
 
-	w.logger.Infow("🏆 Achievement unlocked!",
-		"slug", slug,
-		"smfID", smfID,
-		"points", def.Points,
-		"description", def.Description,
+	w.logger.Info("🏆 Achievement unlocked!",
+		zap.String("slug", slug),
+		zap.Int("smfID", smfID),
+		zap.Int("points", def.Points),
+		zap.String("description", def.Description),
 	)
 
 	// Send notification to player
@@ -759,16 +764,16 @@ func (w *AchievementWorker) notifyPlayer(smfID int, slug string, def *Achievemen
 
 	jsonData, err := json.Marshal(notification)
 	if err != nil {
-		w.logger.Errorw("Failed to marshal achievement notification", "error", err)
+		w.logger.Error("Failed to marshal achievement notification", zap.Error(err))
 		return
 	}
 
 	if err := w.statStore.Publish(w.ctx, "achievement_unlocks", jsonData); err != nil {
-		w.logger.Errorw("Failed to publish achievement notification", "error", err)
+		w.logger.Error("Failed to publish achievement notification", zap.Error(err))
 		return
 	}
 
-	w.logger.Debugw("Achievement notification published", "smfID", smfID, "slug", slug)
+	w.logger.Debug("Achievement notification published", zap.Int("smfID", smfID), zap.String("slug", slug))
 }
 
 // ProcessBatch processes multiple events in batch
