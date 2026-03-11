@@ -88,16 +88,25 @@ type RawEvent struct {
 	Amount        int     `json:"amount,omitempty"` // Generic amount field (ammo, health, etc.)
 
 	// Movement
-	FallHeight float32 `json:"fall_height,omitempty"`
-	Walked     float32 `json:"walked,omitempty"`
-	Sprinted   float32 `json:"sprinted,omitempty"`
-	Swam       float32 `json:"swam,omitempty"`
-	Driven     float32 `json:"driven,omitempty"`
-	Distance   float32 `json:"distance,omitempty"`
+	FallHeight    float32 `json:"fall_height,omitempty"`
+	Walked        float32 `json:"walked,omitempty"`
+	Sprinted      float32 `json:"sprinted,omitempty"`
+	Swam          float32 `json:"swam,omitempty"`
+	Driven        float32 `json:"driven,omitempty"`
+	Distance      float32 `json:"distance,omitempty"`
+	TotalDistance float32 `json:"total_distance,omitempty"`
+	DeltaDistance float32 `json:"delta_distance,omitempty"`
 
 	// Aim angles
-	AimPitch float32 `json:"aim_pitch,omitempty"`
-	AimYaw   float32 `json:"aim_yaw,omitempty"`
+	AimPitch    float32 `json:"aim_pitch,omitempty"`
+	AimYaw      float32 `json:"aim_yaw,omitempty"`
+	PlayerPitch float32 `json:"player_pitch,omitempty"`
+	PlayerYaw   float32 `json:"player_yaw,omitempty"`
+
+	// Player position aliases used by game scripts
+	PlayerX float32 `json:"player_x,omitempty"`
+	PlayerY float32 `json:"player_y,omitempty"`
+	PlayerZ float32 `json:"player_z,omitempty"`
 
 	// Items & Pickups
 	Item           string `json:"item,omitempty"`

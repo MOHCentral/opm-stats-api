@@ -4600,6 +4600,9 @@ const docTemplate = `{
                 "damage": {
                     "type": "number"
                 },
+                "delta_distance": {
+                    "type": "number"
+                },
                 "destroyer_guid": {
                     "type": "string"
                 },
@@ -4769,6 +4772,9 @@ const docTemplate = `{
                     "description": "Player info (primary actor for single-player events)",
                     "type": "string"
                 },
+                "player_pitch": {
+                    "type": "number"
+                },
                 "player_smf_id": {
                     "description": "SMF member ID (if authenticated)",
                     "type": "integer"
@@ -4778,6 +4784,19 @@ const docTemplate = `{
                 },
                 "player_team": {
                     "type": "string"
+                },
+                "player_x": {
+                    "description": "Player position aliases used by game scripts",
+                    "type": "number"
+                },
+                "player_y": {
+                    "type": "number"
+                },
+                "player_yaw": {
+                    "type": "number"
+                },
+                "player_z": {
+                    "type": "number"
                 },
                 "players": {
                     "description": "Alias for player_count (heartbeat)",
@@ -4906,6 +4925,9 @@ const docTemplate = `{
                 },
                 "to_vehicle": {
                     "type": "string"
+                },
+                "total_distance": {
+                    "type": "number"
                 },
                 "total_rounds": {
                     "type": "integer"

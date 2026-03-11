@@ -325,14 +325,25 @@ func (s *playerStatsService) fillWeaponStats(ctx context.Context, guid string, o
 }
 
 func (s *playerStatsService) fillMovementStats(ctx context.Context, guid string, out *models.MovementStats) error {
-	// Distance event stores walked/sprinted/swam/driven in raw_json
-	// Convert game units to kilometers (divide by 100000)
+	// Distance event may store either legacy keys (walked/sprinted/...) or
+	// script keys (delta_distance/total_distance). Prefer incremental distance
+	// (walked or delta_distance) to avoid over-counting cumulative totals.
+	// Convert game units to kilometers (divide by 100000).
 	query := `
 		SELECT 
-			(sumIf(JSONExtractFloat(raw_json, 'walked'), event_type = 'distance') + 
-			 sumIf(JSONExtractFloat(raw_json, 'sprinted'), event_type = 'distance') + 
-			 sumIf(JSONExtractFloat(raw_json, 'swam'), event_type = 'distance') + 
-			 sumIf(JSONExtractFloat(raw_json, 'driven'), event_type = 'distance')) / 100000.0 as km,
+			(
+				sumIf(
+					if(
+						JSONHas(raw_json, 'walked'),
+						JSONExtractFloat(raw_json, 'walked'),
+						if(JSONHas(raw_json, 'delta_distance'), JSONExtractFloat(raw_json, 'delta_distance'), 0)
+					),
+					event_type = 'distance'
+				) +
+				sumIf(JSONExtractFloat(raw_json, 'sprinted'), event_type = 'distance') +
+				sumIf(JSONExtractFloat(raw_json, 'swam'), event_type = 'distance') +
+				sumIf(JSONExtractFloat(raw_json, 'driven'), event_type = 'distance')
+			) / 100000.0 as km,
 			countIf(event_type = 'jump') as jumps,
 			countIf(event_type = 'crouch') as crouches,
 			countIf(event_type = 'prone') as prones

@@ -210,6 +210,8 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Process all events
 	for i, event := range events {
+		normalizeRawEventAliases(&event)
+
 		// Inject ServerID from context if authenticated
 		if sid, ok := r.Context().Value("server_id").(string); ok && sid != "" {
 			if event.ServerID == "" {
@@ -344,6 +346,36 @@ func parseInt64(s string) int64 {
 func parseFloat32(s string) float32 {
 	f, _ := strconv.ParseFloat(s, 32)
 	return float32(f)
+}
+
+func normalizeRawEventAliases(event *models.RawEvent) {
+	if event == nil {
+		return
+	}
+
+	if event.PosX == 0 && event.PlayerX != 0 {
+		event.PosX = event.PlayerX
+	}
+	if event.PosY == 0 && event.PlayerY != 0 {
+		event.PosY = event.PlayerY
+	}
+	if event.PosZ == 0 && event.PlayerZ != 0 {
+		event.PosZ = event.PlayerZ
+	}
+
+	if event.AimPitch == 0 && event.PlayerPitch != 0 {
+		event.AimPitch = event.PlayerPitch
+	}
+	if event.AimYaw == 0 && event.PlayerYaw != 0 {
+		event.AimYaw = event.PlayerYaw
+	}
+
+	if event.Distance == 0 && event.TotalDistance > 0 {
+		event.Distance = event.TotalDistance
+	}
+	if event.Walked == 0 && event.DeltaDistance > 0 {
+		event.Walked = event.DeltaDistance
+	}
 }
 
 // IngestMatchResult handles POST /api/v1/ingest/match-result
