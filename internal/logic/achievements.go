@@ -5,15 +5,16 @@ import (
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/openmohaa/stats-api/internal/db"
 	"github.com/openmohaa/stats-api/internal/models"
 )
 
 type achievementsService struct {
 	ch driver.Conn
-	pg PgPool
+	pg db.DBQuerier
 }
 
-func NewAchievementsService(ch driver.Conn, pg PgPool) AchievementsService {
+func NewAchievementsService(ch driver.Conn, pg db.DBQuerier) AchievementsService {
 	return &achievementsService{ch: ch, pg: pg}
 }
 

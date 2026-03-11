@@ -7,19 +7,18 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/openmohaa/stats-api/internal/db"
 	"github.com/openmohaa/stats-api/internal/models"
-	"github.com/redis/go-redis/v9"
 )
 
 // ServerTrackingService provides comprehensive server monitoring
 type ServerTrackingService struct {
 	ch    driver.Conn
-	pg    PgPool
-	redis RedisClient
+	pg    db.DBQuerier
+	redis db.RedisClient
 }
 
-func NewServerTrackingService(ch driver.Conn, pg *pgxpool.Pool, redis *redis.Client) *ServerTrackingService {
+func NewServerTrackingService(ch driver.Conn, pg db.DBQuerier, redis db.RedisClient) *ServerTrackingService {
 	return &ServerTrackingService{ch: ch, pg: pg, redis: redis}
 }
 

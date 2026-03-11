@@ -66,7 +66,10 @@ func main() {
 	// @name Authorization
 
 	// Load configuration
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		sugar.Fatalw("Failed to load configuration", "error", err)
+	}
 	sugar.Infow("Configuration loaded",
 		"port", cfg.Port,
 		"workers", cfg.WorkerCount,
@@ -161,7 +164,7 @@ func main() {
 
 	// CORS for frontend
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   cfg.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Server-Token"},
 		ExposedHeaders:   []string{"Link"},
