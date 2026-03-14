@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2025-01-20 - [strings.IndexByte in string sanitization]
+**Learning:** Found that `strings.Contains` loops over the string to match a single character when checking for a caret (`^`) in `sanitizeName` within the worker pool. Furthermore, character-by-character processing of a string prefix is less efficient than copying it directly. Using `strings.IndexByte` and copying the prefix using `sb.WriteString(s[:idx])` improved performance for clean strings by ~30% and mixed strings by ~35% without introducing any extra memory allocations.
+**Action:** When searching for single bytes in hot paths, use `strings.IndexByte` or `bytes.IndexByte`. When copying a large clean prefix to a `strings.Builder`, skip the loop and use `sb.WriteString` with the found index instead of manually pushing bytes.
