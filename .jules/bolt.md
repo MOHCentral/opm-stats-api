@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-05-25 - [Zap Logger Allocations & Map Allocations]
+**Learning:** Found that `zap.DebugLevel` string formatting calls in hot paths inside `checkCombatAchievements` were causing allocations from variable substitutions even when debug logging was off. Additionally, milestone achievement maps were being recreated on every function call. Making them package-level variables and guarding the debug logger calls reduced CPU overhead and memory allocations.
+**Action:** Always check if a logger call has variable formatting. If so, guard it with an `Enabled` check. Keep static lookup tables out of hot functions.
