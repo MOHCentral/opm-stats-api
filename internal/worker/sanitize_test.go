@@ -33,9 +33,19 @@ func TestSanitizeName(t *testing.T) {
 }
 
 func BenchmarkSanitizeName(b *testing.B) {
-	input := "^1Player^2Name^3With^4Colors"
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = sanitizeName(input)
-	}
+	b.Run("Clean", func(b *testing.B) {
+		name := "PlayerOne"
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sanitizeName(name)
+		}
+	})
+
+	b.Run("Mixed", func(b *testing.B) {
+		name := "^1Player^2Name^3With^4Colors"
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			sanitizeName(name)
+		}
+	})
 }
