@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2026-03-27 - [Map Initialization Overhead in Hot Paths]
+**Learning:** Initializing map literals (e.g., milestone definitions for achievements) inside frequently called functions causes unnecessary map allocations on every invocation, leading to increased GC pressure and CPU overhead in a high-throughput event ingestion system.
+**Action:** Extract static, read-only map definitions into package-level variables rather than redeclaring them inside hot loops or functions.
