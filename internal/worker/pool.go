@@ -337,15 +337,26 @@ func (p *Pool) processBatch(batch []Job) error {
 	}
 
 	// Process side effects in batch (Redis state updates)
-	// Must copy batch because the slice is reused in the worker loop
-	batchCopy := make([]Job, len(batch))
-	copy(batchCopy, batch)
-	go p.processBatchSideEffects(ctx, batchCopy)
+	// Synchonous processing to prevent goroutine explosion
+	p.processBatchSideEffects(ctx, batch)
 
 	// Send batch to ClickHouse FIRST
-	err = chBatch.Send()
+	maxRetries := 3
+	baseDelay := 100 * time.Millisecond
+
+	for i := 0; i <= maxRetries; i++ {
+		err = chBatch.Send()
+		if err == nil {
+			break
+		}
+		if i < maxRetries {
+			p.logger.Warnw("Failed to send batch to ClickHouse, retrying", "attempt", i+1, "error", err)
+			time.Sleep(baseDelay * time.Duration(1<<i))
+		}
+	}
+
 	if err != nil {
-		p.logger.Errorw("Failed to send batch to ClickHouse", "error", err, "batchSize", len(batch))
+		p.logger.Errorw("Failed to send batch to ClickHouse after retries", "error", err, "batchSize", len(batch))
 		return err
 	}
 
@@ -354,7 +365,7 @@ func (p *Pool) processBatch(batch []Job) error {
 		event := job.Event
 		if p.achievementWorker != nil {
 			p.logger.Infow("Calling achievement worker", "event_type", event.Type, "attacker_smf_id", event.AttackerSMFID)
-			go func(evt *models.RawEvent) {
+			func(evt *models.RawEvent) {
 				defer func() {
 					if r := recover(); r != nil {
 						p.logger.Errorw("Achievement worker panic", "error", r, "event_type", evt.Type)
