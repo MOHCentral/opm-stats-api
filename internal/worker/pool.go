@@ -682,6 +682,12 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		ch.TargetID = event.Entity // Store vehicle entity name here
 		ch.Hitloc = event.Seat     // Reuse Hitloc for Seat
 
+	case models.EventTurretEnter, models.EventTurretExit:
+		ch.ActorID = event.PlayerGUID
+		ch.ActorName = sanitizeName(event.PlayerName)
+		ch.ActorSMFID = event.PlayerSMFID
+		ch.TargetID = event.Turret // Store turret name here
+
 	default:
 		// Generic player event (Movement, Interaction, Items, etc.)
 		ch.ActorID = event.PlayerGUID

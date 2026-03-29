@@ -20,12 +20,12 @@ type DynamicQueryRequest struct {
 
 // AllowedDimensions maps safe API values to SQL columns
 var allowedDimensions = map[string]string{
-	"weapon":      "extract(extra, 'weapon_([a-zA-Z0-9_]+)')", // Complex regex extraction for weapon
+	"weapon":      "actor_weapon",
 	"map":         "map_name",
 	"player":      "actor_name",
 	"player_guid": "actor_id",
 	"server":      "server_id",
-	"hitloc":      "extract(extra, 'hitloc_([a-zA-Z_]+)')",
+	"hitloc":      "hitloc",
 	"match":       "match_id",
 }
 
@@ -86,9 +86,7 @@ func BuildStatsQuery(req DynamicQueryRequest) (string, []interface{}, error) {
 		args = append(args, req.FilterServer)
 	}
 	if req.FilterWeapon != "" {
-		// This is tricky. Weapon is usually in 'extra' JSON or string.
-		// Assuming extra contains "weapon": "kar98"
-		query += " AND extra LIKE ?"
+		query += " AND actor_weapon LIKE ?"
 		args = append(args, fmt.Sprintf("%%%s%%", req.FilterWeapon))
 	}
 	if !req.StartDate.IsZero() {
