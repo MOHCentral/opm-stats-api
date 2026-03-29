@@ -27,13 +27,14 @@ func TestConvertToClickHouseEvent_MatchOutcome(t *testing.T) {
 		Timestamp:    float64(time.Now().Unix()),
 	}
 
-	chEventWin := p.convertToClickHouseEvent(eventWin, "{}")
+	var chEvent models.ClickHouseEvent
+	p.fillClickHouseEvent(eventWin, "{}", time.Now(), &chEvent)
 
-	if chEventWin.MatchOutcome != 1 {
-		t.Errorf("Expected MatchOutcome 1 (Win), got %d", chEventWin.MatchOutcome)
+	if chEvent.MatchOutcome != 1 {
+		t.Errorf("Expected MatchOutcome 1 (Win), got %d", chEvent.MatchOutcome)
 	}
-	if chEventWin.ActorWeapon != gametype {
-		t.Errorf("Expected ActorWeapon to store gametype %s, got %s", gametype, chEventWin.ActorWeapon)
+	if chEvent.ActorWeapon != gametype {
+		t.Errorf("Expected ActorWeapon to store gametype %s, got %s", gametype, chEvent.ActorWeapon)
 	}
 
 	// Test case: Loss
@@ -47,9 +48,9 @@ func TestConvertToClickHouseEvent_MatchOutcome(t *testing.T) {
 		Timestamp:    float64(time.Now().Unix()),
 	}
 
-	chEventLoss := p.convertToClickHouseEvent(eventLoss, "{}")
+	p.fillClickHouseEvent(eventLoss, "{}", time.Now(), &chEvent)
 
-	if chEventLoss.MatchOutcome != 0 {
-		t.Errorf("Expected MatchOutcome 0 (Loss), got %d", chEventLoss.MatchOutcome)
+	if chEvent.MatchOutcome != 0 {
+		t.Errorf("Expected MatchOutcome 0 (Loss), got %d", chEvent.MatchOutcome)
 	}
 }
