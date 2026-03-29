@@ -5,7 +5,7 @@
 # ==============================================================================
 
 API_BASE="http://localhost:8080/api/v1"
-TEST_GUID="GUID_00006"  # GrimHunter6 - Has most data
+TEST_GUID="72750883-29ae-4377-85c4-9367f1f89d1a" # Matching seed GUID
 OUTPUT_DIR="audit_results_$(date +%Y%m%d_%H%M%S)"
 
 mkdir -p "$OUTPUT_DIR"
@@ -82,15 +82,15 @@ test_endpoint "Server Pulse" "$API_BASE/stats/server/pulse" "events_per_sec" "se
 
 echo ""
 echo -e "${CYAN}━━━ LEADERBOARDS ━━━${NC}"
-test_endpoint "Leaderboard Global" "$API_BASE/leaderboards/global" "players" "leaderboard_global.json"
-test_endpoint "Leaderboard Cards" "$API_BASE/leaderboards/cards" "total_domination" "leaderboard_cards.json"
+test_endpoint "Leaderboard Global" "$API_BASE/stats/leaderboard" "players" "leaderboard_global.json"
+test_endpoint "Leaderboard Cards" "$API_BASE/stats/leaderboard/cards" "total_domination" "leaderboard_cards.json"
 
 echo ""
 echo -e "${CYAN}━━━ WEAPONS ━━━${NC}"
 test_endpoint "Weapons Global" "$API_BASE/stats/weapons" "weapons" "weapons_global.json"
 test_endpoint "Weapons List" "$API_BASE/stats/weapons/list" "name" "weapons_list.json"
 test_endpoint "Weapon Detail (MP40)" "$API_BASE/stats/weapon/MP40" "name" "weapon_detail.json"
-test_endpoint "Weapon Leaderboard" "$API_BASE/leaderboards/weapon/MP40" "players" "weapon_leaderboard.json"
+test_endpoint "Weapon Leaderboard" "$API_BASE/stats/leaderboard/weapon/MP40" "players" "weapon_leaderboard.json"
 
 echo ""
 echo -e "${CYAN}━━━ MAPS ━━━${NC}"
@@ -98,7 +98,7 @@ test_endpoint "Maps All" "$API_BASE/stats/maps" "maps" "maps_all.json"
 test_endpoint "Maps List" "$API_BASE/stats/maps/list" "name" "maps_list.json"
 test_endpoint "Maps Popularity" "$API_BASE/stats/maps/popularity" "map_name" "maps_popularity.json"
 test_endpoint "Map Detail" "$API_BASE/stats/map/mp_city" "map_name" "map_detail.json"
-test_endpoint "Map Leaderboard" "$API_BASE/leaderboards/map/mp_city" "players" "map_leaderboard.json"
+test_endpoint "Map Leaderboard" "$API_BASE/stats/leaderboard/map/mp_city" "players" "map_leaderboard.json"
 test_endpoint "Map Heatmap" "$API_BASE/stats/map/mp_city/heatmap" "kills" "map_heatmap.json"
 
 echo ""
@@ -106,13 +106,13 @@ echo -e "${CYAN}━━━ GAME TYPES ━━━${NC}"
 test_endpoint "GameTypes All" "$API_BASE/stats/gametypes" "gametypes" "gametypes_all.json"
 test_endpoint "GameTypes List" "$API_BASE/stats/gametypes/list" "name" "gametypes_list.json"
 test_endpoint "GameType Detail" "$API_BASE/stats/gametype/tdm" "name" "gametype_detail.json"
-test_endpoint "GameType Leaderboard" "$API_BASE/leaderboards/gametype/tdm" "players" "gametype_leaderboard.json"
+test_endpoint "GameType Leaderboard" "$API_BASE/stats/leaderboard/gametype/tdm" "players" "gametype_leaderboard.json"
 
 echo ""
 echo -e "${CYAN}━━━ SERVERS ━━━${NC}"
-test_endpoint "Servers List" "$API_BASE/servers/list" "servers" "servers_list.json"
+test_endpoint "Servers List" "$API_BASE/servers" "servers" "servers_list.json"
 test_endpoint "Servers Rankings" "$API_BASE/servers/rankings" "servers" "servers_rankings.json"
-test_endpoint "Servers Global Stats" "$API_BASE/servers/stats/global" "total_" "servers_global_stats.json"
+test_endpoint "Servers Global Stats" "$API_BASE/servers/stats" "total_" "servers_global_stats.json"
 
 echo ""
 echo -e "${CYAN}━━━ MATCHES ━━━${NC}"
@@ -120,7 +120,7 @@ test_endpoint "Recent Matches" "$API_BASE/stats/matches" "matches" "recent_match
 
 echo ""
 echo -e "${CYAN}━━━ ACHIEVEMENTS ━━━${NC}"
-test_endpoint "Achievements List" "$API_BASE/achievements/list" "achievements" "achievements_list.json"
+test_endpoint "Achievements List" "$API_BASE/achievements" "achievements" "achievements_list.json"
 test_endpoint "Achievements Leaderboard" "$API_BASE/achievements/leaderboard" "players" "achievements_leaderboard.json"
 test_endpoint "Recent Achievements" "$API_BASE/achievements/recent" "timestamp" "achievements_recent.json"
 
@@ -130,7 +130,7 @@ test_endpoint "Faction Performance" "$API_BASE/stats/teams/performance" "axis" "
 
 echo ""
 echo -e "${CYAN}━━━ TOURNAMENTS ━━━${NC}"
-test_endpoint "Tournaments List" "$API_BASE/tournaments/list" "tournaments" "tournaments_list.json"
+test_endpoint "Tournaments List" "$API_BASE/tournaments" "tournaments" "tournaments_list.json"
 
 echo ""
 echo -e "${CYAN}========================================================================${NC}"
