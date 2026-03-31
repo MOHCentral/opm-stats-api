@@ -39,3 +39,19 @@ func BenchmarkSanitizeName(b *testing.B) {
 		_ = sanitizeName(input)
 	}
 }
+
+func BenchmarkSanitizeNameClean(b *testing.B) {
+	input := "CleanNameWithoutColors123"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = sanitizeName(input)
+	}
+}
+
+func BenchmarkSanitizeNameMixed(b *testing.B) {
+	input := "NormalPrefix^1Player^2Name"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = sanitizeName(input)
+	}
+}
