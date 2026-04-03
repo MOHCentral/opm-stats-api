@@ -19,6 +19,68 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	combatMilestones = map[string]int{
+		"killer_bronze":   100,
+		"killer_silver":   500,
+		"killer_gold":     1000,
+		"killer_platinum": 5000,
+		"killer_diamond":  10000,
+	}
+	streakMilestones = map[string]int{
+		"killing_spree": 5,
+		"rampage":       10,
+		"dominating":    15,
+		"unstoppable":   20,
+		"godlike":       25,
+		"wicked_sick":   30,
+	}
+	headshotMilestones = map[string]int{
+		"headshot_bronze": 100,
+		"headshot_silver": 500,
+		"headshot_gold":   1000,
+	}
+	movementMilestones = map[string]float64{
+		"marathon_bronze": 10,
+		"marathon_silver": 50,
+		"marathon_gold":   100,
+	}
+	vehicleMilestones = map[string]int{
+		"tank_destroyer_bronze":   5,
+		"tank_destroyer_silver":   25,
+		"tank_destroyer":          50, // Gold
+		"tank_destroyer_platinum": 100,
+		"tank_destroyer_diamond":  250,
+	}
+	survivalMilestones = map[string]int{
+		"health_hoarder_bronze":   10,
+		"health_hoarder_silver":   50,
+		"health_hoarder_gold":     100,
+		"health_hoarder_platinum": 250,
+		"health_hoarder_diamond":  500,
+	}
+	objectiveMilestones = map[string]int{
+		"objective_hero_bronze":   5,
+		"objective_hero_silver":   25,
+		"objective_hero":          100, // Gold
+		"objective_hero_platinum": 250,
+		"objective_hero_diamond":  500,
+	}
+	teamplayMilestones = map[string]int{
+		"victor_bronze":   10,
+		"victor_silver":   25,
+		"victor_gold":     50,
+		"victor_platinum": 100,
+		"victor_diamond":  250,
+	}
+	multikillMilestones = map[string]int{
+		"double_kill":  2,
+		"triple_kill":  3,
+		"ultra_kill":   4,
+		"monster_kill": 5,
+	}
+)
+
 // DBStore abstracts the database operations
 type DBStore interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -176,21 +238,27 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 		w.checkStreak(victimSMFID, event)
 	}
 
-	w.logger.Infow("Processing achievement event",
-		"type", event.Type,
-		"actorSMFID", actorSMFID,
-		"timestamp", event.Timestamp,
-	)
+	if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+		w.logger.Infow("Processing achievement event",
+			"type", event.Type,
+			"actorSMFID", actorSMFID,
+			"timestamp", event.Timestamp,
+		)
+	}
 
 	if actorSMFID == 0 {
-		w.logger.Infow("Skipping achievement check - no authenticated player", "type", event.Type)
+		if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+			w.logger.Infow("Skipping achievement check - no authenticated player", "type", event.Type)
+		}
 		return // Only process for authenticated players
 	}
 
 	// Check different event types
 	switch event.Type {
 	case models.EventPlayerKill:
-		w.logger.Infow("Checking combat achievements", "smfID", actorSMFID)
+		if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+			w.logger.Infow("Checking combat achievements", "smfID", actorSMFID)
+		}
 		w.checkCombatAchievements(actorSMFID, event)
 		w.checkStreak(actorSMFID, event)                    // Check streak increment
 		w.checkMultikillAchievement(int(actorSMFID), event) // Check multi-kill window
@@ -227,7 +295,9 @@ func (w *AchievementWorker) getActorSMFID(event *models.RawEvent) int64 {
 
 // checkCombatAchievements checks for combat-related achievements
 func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.RawEvent) {
-	w.logger.Infow("[ACHIEVEMENT] checkCombatAchievements called", "smfID", smfID)
+	if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+		w.logger.Infow("[ACHIEVEMENT] checkCombatAchievements called", "smfID", smfID)
+	}
 	// Get player's total kills
 	totalKills := w.incrementPlayerStat(int(smfID), "total_kills")
 
@@ -236,35 +306,35 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 		w.incrementPlayerStat(int(smfID), "vehicle_kills")
 	}
 
-	w.logger.Infow("Player kill stats",
-		"smfID", smfID,
-		"totalKills", totalKills,
-	)
+	if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+		w.logger.Infow("Player kill stats",
+			"smfID", smfID,
+			"totalKills", totalKills,
+		)
+	}
 
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
 	// Check milestone achievements (Lifetime Kills)
 	// Updated slugs to match DB (killer_*)
-	milestones := map[string]int{
-		"killer_bronze":   100,
-		"killer_silver":   500,
-		"killer_gold":     1000,
-		"killer_platinum": 5000,
-		"killer_diamond":  10000,
+	if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+		w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(combatMilestones))
 	}
 
-	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(milestones))
-
-	for slug, threshold := range milestones {
-		w.logger.Debugw("Checking milestone", "slug", slug, "threshold", threshold, "totalKills", totalKills, "passes", totalKills >= threshold)
+	for slug, threshold := range combatMilestones {
+		if w.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			w.logger.Debugw("Checking milestone", "slug", slug, "threshold", threshold, "totalKills", totalKills, "passes", totalKills >= threshold)
+		}
 		if totalKills >= threshold {
-			w.logger.Infow("Achievement milestone reached!",
-				"slug", slug,
-				"threshold", threshold,
-				"totalKills", totalKills,
-				"smfID", smfID,
-			)
+			if w.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+				w.logger.Infow("Achievement milestone reached!",
+					"slug", slug,
+					"threshold", threshold,
+					"totalKills", totalKills,
+					"smfID", smfID,
+				)
+			}
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
 	}
@@ -292,7 +362,7 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 		return
 	}
 
-	key := fmt.Sprintf("streak:kill:%s", guid)
+	key := "streak:kill:" + guid
 
 	if event.Type == models.EventDeath {
 		// Reset streak
@@ -309,17 +379,7 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 
 		streak := int(val)
 
-		// Check thresholds (Unreal Tournament style)
-		milestones := map[string]int{
-			"killing_spree": 5,
-			"rampage":       10,
-			"dominating":    15,
-			"unstoppable":   20,
-			"godlike":       25,
-			"wicked_sick":   30,
-		}
-
-		for slug, threshold := range milestones {
+		for slug, threshold := range streakMilestones {
 			if streak >= threshold {
 				// We need SMFID to unlock. If we came here from ProcessEvent with smfID != 0, great.
 				// If not (e.g. unauthenticated), we can't unlock (database constraint).
@@ -338,15 +398,7 @@ func (w *AchievementWorker) checkHeadshotAchievements(smfID int64, event *models
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	// Updated to match DB slugs and thresholds
-	milestones := map[string]int{
-		"headshot_bronze": 100,
-		"headshot_silver": 500,
-		"headshot_gold":   1000,
-		// Assuming platinum/diamond might be added or exist
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range headshotMilestones {
 		if totalHeadshots == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -364,15 +416,7 @@ func (w *AchievementWorker) checkMovementAchievements(smfID int64, event *models
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	// Updated to match DB slugs (meters vs km handled by logic)
-	// DB: marathon_bronze = 10000 meters = 10km
-	milestones := map[string]float64{
-		"marathon_bronze": 10,
-		"marathon_silver": 50,
-		"marathon_gold":   100,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range movementMilestones {
 		if distanceKM >= threshold && distanceKM < threshold+0.1 {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -386,17 +430,7 @@ func (w *AchievementWorker) checkVehicleAchievements(smfID int64, event *models.
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	// Updated to match DB slugs
-	milestones := map[string]int{
-		"tank_destroyer_bronze":   5,
-		"tank_destroyer_silver":   25,
-		"tank_destroyer_platinum": 100,
-		"tank_destroyer_diamond":  250,
-		// tank_destroyer (Gold) is 50 in DB
-		"tank_destroyer": 50,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range vehicleMilestones {
 		if vehicleKills == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -411,16 +445,7 @@ func (w *AchievementWorker) checkSurvivalAchievements(smfID int64, event *models
 	if event.Type == models.EventHealthPickup {
 		healthPickups := w.incrementPlayerStat(int(smfID), "health_pickups")
 
-		// Updated to match DB slugs
-		milestones := map[string]int{
-			"health_hoarder_bronze":   10,
-			"health_hoarder_silver":   50,
-			"health_hoarder_gold":     100,
-			"health_hoarder_platinum": 250,
-			"health_hoarder_diamond":  500,
-		}
-
-		for slug, threshold := range milestones {
+		for slug, threshold := range survivalMilestones {
 			if healthPickups == threshold {
 				w.unlockAchievement(int(smfID), slug, serverID, ts)
 			}
@@ -440,16 +465,7 @@ func (w *AchievementWorker) checkObjectiveAchievements(smfID int64, event *model
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	// Updated to match DB slugs
-	milestones := map[string]int{
-		"objective_hero_bronze":   5,
-		"objective_hero_silver":   25,
-		"objective_hero":          100, // Gold
-		"objective_hero_platinum": 250,
-		"objective_hero_diamond":  500,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range objectiveMilestones {
 		if totalObjectives == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -463,16 +479,7 @@ func (w *AchievementWorker) checkTeamplayAchievements(smfID int64, event *models
 	serverID := 0
 	ts := time.Unix(int64(event.Timestamp), 0)
 
-	// Updated to match DB slugs
-	milestones := map[string]int{
-		"victor_bronze":   10,
-		"victor_silver":   25,
-		"victor_gold":     50,
-		"victor_platinum": 100,
-		"victor_diamond":  250,
-	}
-
-	for slug, threshold := range milestones {
+	for slug, threshold := range teamplayMilestones {
 		if totalWins == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
@@ -507,7 +514,7 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	// Use a Redis key with TTL for multi-kill window tracking.
 	// Key stores the count of kills within the current 4-second window.
 	// Each kill increments the counter; the key auto-expires after 4s of inactivity.
-	multikillKey := fmt.Sprintf("multikill:%s", guid)
+	multikillKey := "multikill:" + guid
 
 	// Increment the kill count in the current window
 	val, err := w.statStore.Incr(w.ctx, multikillKey)
@@ -520,14 +527,6 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	w.statStore.Set(w.ctx, multikillKey, val, 4*time.Second)
 
 	killCount := int(val)
-
-	// Check multi-kill achievement thresholds
-	multikillMilestones := map[string]int{
-		"double_kill":  2,
-		"triple_kill":  3,
-		"ultra_kill":   4,
-		"monster_kill": 5,
-	}
 
 	for slug, threshold := range multikillMilestones {
 		if killCount == threshold && smfID > 0 {
@@ -543,7 +542,7 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 
 // incrementPlayerStat increments a stat in Redis and backfills from ClickHouse if needed
 func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	key := "stats:smf:" + strconv.Itoa(smfID) + ":" + statName
 
 	// Increment in Redis
 	val, err := w.statStore.Incr(w.ctx, key)
@@ -567,7 +566,7 @@ func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int 
 
 // incrementPlayerStatFloat increments a float stat (like distance)
 func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string, incrAmount float64) float64 {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	key := "stats:smf:" + strconv.Itoa(smfID) + ":" + statName
 
 	val, err := w.statStore.IncrByFloat(w.ctx, key, incrAmount)
 	if err != nil {
@@ -589,7 +588,7 @@ func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string,
 
 // getPlayerStat retrieves a player stat from Redis, falling back to ClickHouse
 func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	key := "stats:smf:" + strconv.Itoa(smfID) + ":" + statName
 
 	valStr, err := w.statStore.Get(w.ctx, key)
 	if err == nil {
