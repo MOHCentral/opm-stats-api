@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-05-25 - [UUID Parsing in Hot Paths]
+**Learning:** Found that `uuid.MustParse("00000000-0000-0000-0000-000000000000")` was being called inside `convertToClickHouseEvent`, which executes per-event in the worker pool. This incurred string parsing overhead and memory allocations on every invalid/missing UUID.
+**Action:** Replace all-zero UUID strings inside hot loops with the built-in `uuid.Nil` variable to completely eliminate parsing overhead and memory allocations.
