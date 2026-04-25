@@ -161,10 +161,14 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
-	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	if bytes.IndexByte(body, 0) != -1 {
+		body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	}
 	body = bytes.TrimSpace(body)
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+		h.logger.Debugw("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	}
 
 	var events []models.RawEvent
 	processed := 0
@@ -176,10 +180,14 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			h.errorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON array: %v", err))
 			return
 		}
-		h.logger.Infow("Parsed as JSON array", "eventCount", len(events))
+		if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			h.logger.Debugw("Parsed as JSON array", "eventCount", len(events))
+		}
 	} else {
 		// Fallback: newline-delimited format (legacy game scripts)
-		h.logger.Infow("Parsing as newline-delimited (legacy format)")
+		if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			h.logger.Debugw("Parsing as newline-delimited (legacy format)")
+		}
 		lines := strings.Split(string(body), "\n")
 
 		for _, line := range lines {
@@ -205,7 +213,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			}
 			events = append(events, event)
 		}
-		h.logger.Infow("Parsed legacy format", "lineCount", len(lines), "parsedEvents", len(events))
+		if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			h.logger.Debugw("Parsed legacy format", "lineCount", len(lines), "parsedEvents", len(events))
+		}
 	}
 
 	// Process all events
@@ -224,7 +234,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		h.logger.Infow("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
+		if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			h.logger.Debugw("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
+		}
 		if !h.pool.Enqueue(&event) {
 			h.logger.Warn("Worker pool queue full, dropping remaining events in batch")
 			break

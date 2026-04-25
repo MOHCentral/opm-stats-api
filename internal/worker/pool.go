@@ -214,11 +214,15 @@ func (p *Pool) worker(id int) {
 
 	flush := func() {
 		if len(batch) == 0 {
-			p.logger.Infow("Flush called with empty batch", "worker", id)
+			if p.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+				p.logger.Debugw("Flush called with empty batch", "worker", id)
+			}
 			return
 		}
 
-		p.logger.Infow("Flushing batch", "worker", id, "batchSize", len(batch))
+		if p.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			p.logger.Debugw("Flushing batch", "worker", id, "batchSize", len(batch))
+		}
 
 		start := time.Now()
 		if err := p.processBatch(batch); err != nil {
@@ -229,7 +233,9 @@ func (p *Pool) worker(id int) {
 			)
 			eventsFailed.Add(float64(len(batch)))
 		} else {
-			p.logger.Infow("Batch processed successfully", "worker", id, "batchSize", len(batch), "duration", time.Since(start))
+			if p.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+				p.logger.Debugw("Batch processed successfully", "worker", id, "batchSize", len(batch), "duration", time.Since(start))
+			}
 			eventsProcessed.Add(float64(len(batch)))
 		}
 		batchInsertDuration.Observe(time.Since(start).Seconds())
@@ -247,15 +253,21 @@ func (p *Pool) worker(id int) {
 				return
 			}
 
-			p.logger.Infow("Received job", "worker", id, "eventType", job.Event.Type)
+			if p.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+				p.logger.Debugw("Received job", "worker", id, "eventType", job.Event.Type)
+			}
 			batch = append(batch, job)
 			if len(batch) >= p.config.BatchSize {
-				p.logger.Infow("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
+				if p.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+					p.logger.Debugw("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
+				}
 				flush()
 			}
 
 		case <-ticker.C:
-			p.logger.Infow("Ticker fired", "worker", id, "batchSize", len(batch))
+			if p.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+				p.logger.Debugw("Ticker fired", "worker", id, "batchSize", len(batch))
+			}
 			flush()
 
 		case <-p.ctx.Done():
@@ -1017,23 +1029,39 @@ func (p *Pool) reportQueueDepth() {
 // Helper functions
 
 func sanitizeName(s string) string {
-	// If no caret, return original string (no allocation)
-	if !strings.Contains(s, "^") {
+	idx := strings.IndexByte(s, '^')
+	if idx == -1 {
 		return s
 	}
 
 	var sb strings.Builder
 	sb.Grow(len(s))
 
-	n := len(s)
-	for i := 0; i < n; i++ {
-		// Check for color code format ^[0-9]
-		if s[i] == '^' && i+1 < n && s[i+1] >= '0' && s[i+1] <= '9' {
-			i++ // Skip next char too (the digit)
-			continue
+	for {
+		// Bulk write up to caret
+		sb.WriteString(s[:idx])
+
+		// Advance s past the caret we just found
+		s = s[idx:]
+
+		// Check if it's a color code
+		if len(s) >= 2 && s[1] >= '0' && s[1] <= '9' {
+			// Skip the caret and the digit
+			s = s[2:]
+		} else {
+			// Write the caret, skip just the caret
+			sb.WriteByte('^')
+			s = s[1:]
 		}
-		sb.WriteByte(s[i])
+
+		idx = strings.IndexByte(s, '^')
+		if idx == -1 {
+			// Write remainder and finish
+			sb.WriteString(s)
+			break
+		}
 	}
+
 	return sb.String()
 }
 
