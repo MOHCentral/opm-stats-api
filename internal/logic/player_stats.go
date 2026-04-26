@@ -345,20 +345,18 @@ func (s *playerStatsService) fillMovementStats(ctx context.Context, guid string,
 				sumIf(JSONExtractFloat(raw_json, 'driven'), event_type = 'distance')
 			) / 100000.0 as km,
 			countIf(event_type = 'jump') as jumps,
-			countIf(event_type = 'crouch') as crouches,
-			countIf(event_type = 'prone') as prones
+			countIf(event_type = 'crouch') as crouches
 		FROM mohaa_stats.raw_events
 		WHERE actor_id = ?
 	`
 
-	var crouches, prones uint64
-	if err := s.ch.QueryRow(ctx, query, guid).Scan(&out.TotalDistanceKm, &out.JumpCount, &crouches, &prones); err != nil {
+	var crouches uint64
+	if err := s.ch.QueryRow(ctx, query, guid).Scan(&out.TotalDistanceKm, &out.JumpCount, &crouches); err != nil {
 		return err
 	}
-	// CrouchTimeSec and ProneTimeSec would need duration tracking from events
+	// CrouchTimeSec would need duration tracking from events
 	// For now, count events as proxy
 	out.CrouchTimeSec = float64(crouches)
-	out.ProneTimeSec = float64(prones)
 	return nil
 }
 
@@ -434,14 +432,6 @@ func (s *playerStatsService) fillInteractionStats(ctx context.Context, guid stri
 	// Chat (both player_say and chat events)
 	s.ch.QueryRow(ctx, "SELECT countIf((event_type='chat' OR event_type='chat') AND actor_id=?) FROM mohaa_stats.raw_events", guid).Scan(&out.ChatMessages)
 
-	// Vehicle/Turret Uses
-	s.ch.QueryRow(ctx, `
-		SELECT 
-			countIf(event_type='vehicle_enter' AND actor_id=?) as v_uses,
-			countIf(event_type='turret_enter' AND actor_id=?) as t_uses
-		FROM mohaa_stats.raw_events
-	`, guid, guid).Scan(&out.VehicleUses, &out.TurretUses)
-
 	// Top Pickups (item, ammo, health)
 	rows, err := s.ch.Query(ctx, `
 		WITH pickup_events AS (
@@ -512,27 +502,22 @@ func (s *playerStatsService) fillStanceStats(ctx context.Context, guid string, o
 			countIf((actor_stance = 'stand' OR actor_stance = 'standing') AND event_type = 'bot_killed') as standing_bot,
 			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type IN ('player_kill', 'bot_killed')) as crouching,
 			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type = 'player_kill') as crouch_player,
-			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type = 'bot_killed') as crouch_bot,
-			countIf(actor_stance = 'prone' AND event_type IN ('player_kill', 'bot_killed')) as prone,
-			countIf(actor_stance = 'prone' AND event_type = 'player_kill') as prone_player,
-			countIf(actor_stance = 'prone' AND event_type = 'bot_killed') as prone_bot
+			countIf((actor_stance = 'crouch' OR actor_stance = 'crouching') AND event_type = 'bot_killed') as crouch_bot
 		FROM mohaa_stats.raw_events 
 		WHERE actor_id = ? AND actor_stance != ''
 	`
 	if err := s.ch.QueryRow(ctx, query, guid).Scan(
 		&out.StandingKills, &out.StandingPlayerKills, &out.StandingBotKills,
 		&out.CrouchKills, &out.CrouchPlayerKills, &out.CrouchBotKills,
-		&out.ProneKills, &out.PronePlayerKills, &out.ProneBotKills,
 	); err != nil {
 		return nil
 	}
 
 	// Calculate percentages from real data only
-	stanceTotal := out.StandingKills + out.CrouchKills + out.ProneKills
+	stanceTotal := out.StandingKills + out.CrouchKills
 	if stanceTotal > 0 {
 		out.StandingPct = (float64(out.StandingKills) / float64(stanceTotal)) * 100
 		out.CrouchPct = (float64(out.CrouchKills) / float64(stanceTotal)) * 100
-		out.PronePct = (float64(out.ProneKills) / float64(stanceTotal)) * 100
 	}
 
 	return nil

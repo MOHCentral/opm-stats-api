@@ -112,7 +112,6 @@ components:
         - jump
         - land
         - crouch
-        - prone
         - player_stand
         - player_spawn
         - player_respawn
@@ -134,13 +133,6 @@ components:
         - health_pickup
         - ammo_pickup
         - armor_pickup
-        # Vehicle & Turret Events
-        - vehicle_enter
-        - vehicle_exit
-        - vehicle_crash
-        - vehicle_change
-        - turret_enter
-        - turret_exit
         # Server Events
         - server_console_command
         - heartbeat
@@ -343,14 +335,12 @@ components:
       properties:
         standing_kills: { type: integer }
         crouch_kills: { type: integer }
-        prone_kills: { type: integer }
         standing_pct: { type: number }
 
     InteractionStats:
       type: object
       properties:
         chat_messages: { type: integer }
-        vehicle_uses: { type: integer }
         pickups:
           type: array
           items:

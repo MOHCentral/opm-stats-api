@@ -48,7 +48,6 @@ type AdvancedStatsService interface {
 	GetPeakPerformance(ctx context.Context, guid string) (*models.PeakPerformance, error)
 	GetDrillDown(ctx context.Context, guid string, stat string, dimension string, limit int) (*models.DrillDownResult, error)
 	GetComboMetrics(ctx context.Context, guid string) (*models.ComboMetrics, error)
-	GetVehicleStats(ctx context.Context, guid string) (*models.VehicleStats, error)
 	GetGameFlowStats(ctx context.Context, guid string) (*models.GameFlowStats, error)
 	GetWorldStats(ctx context.Context, guid string) (*models.WorldStats, error)
 	GetBotStats(ctx context.Context, guid string) (*models.BotStats, error)

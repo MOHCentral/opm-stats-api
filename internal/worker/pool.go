@@ -675,13 +675,6 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 		// Actually raw_json has it, but lets put it in ActorWeapon for now
 		ch.ActorWeapon = event.Objective
 
-	case models.EventVehicleEnter, models.EventVehicleExit, models.EventVehicleCrash:
-		ch.ActorID = event.PlayerGUID
-		ch.ActorName = sanitizeName(event.PlayerName)
-		ch.ActorSMFID = event.PlayerSMFID
-		ch.TargetID = event.Entity // Store vehicle entity name here
-		ch.Hitloc = event.Seat     // Reuse Hitloc for Seat
-
 	default:
 		// Generic player event (Movement, Interaction, Items, etc.)
 		ch.ActorID = event.PlayerGUID

@@ -29,6 +29,16 @@ type Config struct {
 	// Rate limiting
 	RateLimitPerSecond int
 	RateLimitBurst     int
+
+	// MQTT
+	MQTTBrokerURL    string
+	MQTTClientID     string
+	MQTTTopicPrefix  string
+	MQTTUsername     string
+	MQTTPassword     string
+	MQTTQoS          int
+	MQTTCleanSession bool
+	MQTTEnabled      bool
 }
 
 func Load() *Config {
@@ -50,6 +60,15 @@ func Load() *Config {
 
 		RateLimitPerSecond: getEnvInt("RATE_LIMIT_PER_SECOND", 100),
 		RateLimitBurst:     getEnvInt("RATE_LIMIT_BURST", 200),
+
+		MQTTEnabled:      getEnvBool("MQTT_ENABLED", true),
+		MQTTBrokerURL:    getEnv("MQTT_BROKER_URL", "tcp://localhost:1883"),
+		MQTTClientID:     getEnv("MQTT_CLIENT_ID", "opm-stats-api"),
+		MQTTTopicPrefix:  getEnv("MQTT_TOPIC_PREFIX", "openmohaa"),
+		MQTTUsername:     getEnv("MQTT_USERNAME", ""),
+		MQTTPassword:     getEnv("MQTT_PASSWORD", ""),
+		MQTTQoS:          getEnvInt("MQTT_QOS", 0),
+		MQTTCleanSession: getEnvBool("MQTT_CLEAN_SESSION", true),
 	}
 }
 
@@ -73,6 +92,15 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if d, err := time.ParseDuration(value); err == nil {
 			return d
+		}
+	}
+	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if b, err := strconv.ParseBool(value); err == nil {
+			return b
 		}
 	}
 	return fallback

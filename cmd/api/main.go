@@ -28,6 +28,7 @@ import (
 	"github.com/openmohaa/stats-api/internal/db"
 	"github.com/openmohaa/stats-api/internal/handlers"
 	"github.com/openmohaa/stats-api/internal/logic"
+	mqttsubscriber "github.com/openmohaa/stats-api/internal/mqtt"
 	"github.com/openmohaa/stats-api/internal/worker"
 )
 
@@ -119,6 +120,32 @@ func main() {
 
 	// Achievement worker is now integrated into worker pool (no separate instance needed)
 
+	// Start MQTT subscriber for game telemetry
+	var mqttSub *mqttsubscriber.Subscriber
+	if cfg.MQTTEnabled {
+		mqttSub = mqttsubscriber.NewSubscriber(mqttsubscriber.Config{
+			BrokerURL:    cfg.MQTTBrokerURL,
+			ClientID:     cfg.MQTTClientID,
+			TopicPrefix:  cfg.MQTTTopicPrefix,
+			Username:     cfg.MQTTUsername,
+			Password:     cfg.MQTTPassword,
+			QoS:          byte(cfg.MQTTQoS),
+			CleanSession: cfg.MQTTCleanSession,
+		}, workerPool, logger)
+
+		if err := mqttSub.Start(ctx); err != nil {
+			sugar.Warnw("MQTT subscriber failed to start (continuing with HTTP only)", "error", err)
+			mqttSub = nil
+		} else {
+			sugar.Infow("MQTT subscriber started",
+				"broker", cfg.MQTTBrokerURL,
+				"topicPrefix", cfg.MQTTTopicPrefix,
+			)
+		}
+	} else {
+		sugar.Info("MQTT subscriber disabled")
+	}
+
 	// Initialize services
 	playerStats := logic.NewPlayerStatsService(chConn)
 	serverStats := logic.NewServerStatsService(chConn)
@@ -131,12 +158,17 @@ func main() {
 	prediction := logic.NewPredictionService(chConn)
 
 	// Initialize handlers
+	var mqttHealthFn func() bool
+	if mqttSub != nil {
+		mqttHealthFn = mqttSub.IsConnected
+	}
 	h := handlers.New(handlers.Config{
 		WorkerPool:    workerPool,
 		Postgres:      pgPool,
 		ClickHouse:    chConn,
 		Redis:         redisClient,
 		Logger:        logger,
+		MQTTConnected: mqttHealthFn,
 		PlayerStats:   playerStats,
 		ServerStats:   serverStats,
 		Gamification:  gamification,
@@ -243,7 +275,6 @@ func main() {
 			r.Get("/player/{guid}/peak-performance", h.GetPlayerPeakPerformance)
 			r.Get("/player/{guid}/combos", h.GetPlayerComboMetrics)
 			r.Get("/player/{guid}/drilldown", h.GetPlayerDrillDown)
-			r.Get("/player/{guid}/vehicles", h.GetPlayerVehicleStats)
 			r.Get("/player/{guid}/game-flow", h.GetPlayerGameFlowStats)
 			r.Get("/player/{guid}/world", h.GetPlayerWorldStats)
 			r.Get("/player/{guid}/bots", h.GetPlayerBotStats)
@@ -392,6 +423,11 @@ func main() {
 	// Give workers time to flush
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Stop MQTT subscriber first (stop ingesting new events)
+	if mqttSub != nil {
+		mqttSub.Stop()
+	}
 
 	workerPool.Stop()
 	server.Shutdown(ctx)

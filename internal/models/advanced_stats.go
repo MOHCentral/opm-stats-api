@@ -172,7 +172,6 @@ type StanceMapCombo struct {
 	MapName     string  `json:"map_name"`
 	StandingPct float64 `json:"standing_pct"`
 	CrouchPct   float64 `json:"crouch_pct"`
-	PronePct    float64 `json:"prone_pct"`
 }
 
 type HitlocWeapon struct {
@@ -190,34 +189,7 @@ type WeaponProgress struct {
 }
 
 // =============================================================================
-// VEHICLE & TURRET STATS
-// =============================================================================
-
-// VehicleStats represents vehicle-related statistics
-type VehicleStats struct {
-	VehicleUses   int64         `json:"vehicle_uses"`
-	VehicleKills  int64         `json:"vehicle_kills"`
-	VehicleDeaths int64         `json:"vehicle_deaths"`
-	TotalDriven   float64       `json:"total_driven_km"`
-	VehicleTypes  []VehicleType `json:"vehicle_types"`
-	TurretStats   TurretStats   `json:"turret_stats"`
-}
-
-type VehicleType struct {
-	VehicleName string  `json:"vehicle_name"`
-	Uses        int64   `json:"uses"`
-	Kills       int64   `json:"kills"`
-	Deaths      int64   `json:"deaths"`
-	DistanceKm  float64 `json:"distance_km"`
-}
-
-type TurretStats struct {
-	TurretUses   int64 `json:"turret_uses"`
-	TurretKills  int64 `json:"turret_kills"`
-	TurretDeaths int64 `json:"turret_deaths"`
-}
-
-// =============================================================================
+// HITLOC & WEAPON ANALYSIS
 // GAME FLOW STATS
 // =============================================================================
 

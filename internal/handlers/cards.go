@@ -52,7 +52,6 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			sumIf(JSONExtractFloat(a.raw_json, 'driven'), a.event_type = 'distance') as driven,
 			countIf(a.event_type = 'jump') as jumps,
 			countIf(a.event_type = 'crouch') as crouch_events,
-			countIf(a.event_type = 'prone') as prone_events,
 			countIf(a.event_type = 'ladder_mount') as ladders,
 
 			-- D. Survival & Items
@@ -69,12 +68,7 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			countIf(a.event_type IN ('round_end', 'round_start')) as rounds_played,
 			countIf(a.event_type = 'match_outcome') as games_finished,
 
-			-- F. Vehicles
-			countIf(a.event_type IN ('vehicle_enter', 'turret_enter')) as vehicle_enter,
-			countIf(a.event_type = 'turret_enter') as turret_enter,
-			countIf(a.event_type IN ('player_kill', 'bot_killed') AND a.actor_id = 'vehicle') as vehicle_kills,
-
-			-- G. Social & Misc
+			-- F. Social & Misc
 			countIf(a.event_type IN ('chat', 'chat')) as chat_msgs,
 			countIf(a.event_type = 'player_spectate') as spectating,
 			countIf(a.event_type = 'door_open') as doors_opened,
@@ -83,7 +77,6 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			countIf(a.event_type IN ('ladder_mount', 'jump')) as verticality,
 			uniqIf(a.actor_weapon, a.event_type IN ('player_kill', 'player_bash', 'bash')) as unique_weapon_kills,
 			countIf(a.event_type = 'item_drop') as items_dropped,
-			countIf(a.event_type = 'vehicle_collision') as vehicle_collisions,
 			countIf(a.event_type = 'bot_killed') as bot_kills,
 
             -- Movement specific
@@ -124,12 +117,11 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			kills, deaths, headshots, shotsFired, shotsHit, damage, bash, nade, road, tele, crush, tk, self, mystery uint64
 			reloads, swaps, noAmmo, looter                                                                           uint64
 			walked, sprinted, swam, driven                                                                           float64
-			jumps, crouch, prone, ladders                                                                            uint64
+			jumps, crouch, ladders                                                                            uint64
 			health, ammo, armor, items                                                                               uint64
 			wins, ffaWins, teamWins, obj, rounds, games                                                              uint64
-			vEnter, tEnter, vKills                                                                                   uint64
 			chat, spec, doors                                                                                        uint64
-			verticality, uniqueWeapons, itemsDropped, vehicleCollisions, botKills                                    uint64
+			verticality, uniqueWeapons, itemsDropped, botKills                                    uint64
 			totalDistance                                                                                            float64
 			reloadCnt, ladMnt, manCrouch                                                                             uint64
 		)
@@ -138,12 +130,11 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			&p.ID, &p.Name,
 			&kills, &deaths, &headshots, &shotsFired, &shotsHit, &damage, &bash, &nade, &road, &tele, &crush, &tk, &self, &mystery,
 			&reloads, &swaps, &noAmmo, &looter,
-			&walked, &sprinted, &swam, &driven, &jumps, &crouch, &prone, &ladders,
+			&walked, &sprinted, &swam, &driven, &jumps, &crouch, &ladders,
 			&health, &ammo, &armor, &items,
 			&wins, &ffaWins, &teamWins, &obj, &rounds, &games,
-			&vEnter, &tEnter, &vKills,
 			&chat, &spec, &doors,
-			&verticality, &uniqueWeapons, &itemsDropped, &vehicleCollisions, &botKills,
+			&verticality, &uniqueWeapons, &itemsDropped, &botKills,
 			&totalDistance, &reloadCnt, &ladMnt, &manCrouch,
 		); err != nil {
 			h.logger.Errorw("Row scan failed", "error", err)
@@ -160,7 +151,6 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 		p.Metrics["bash_kills"] = float64(bash)
 		p.Metrics["grenade_kills"] = float64(nade)
 		p.Metrics["roadkills"] = float64(road)
-		p.Metrics["vehicle_kills"] = float64(vKills)
 		p.Metrics["telefrags"] = float64(tele)
 		p.Metrics["crushed"] = float64(crush)
 		p.Metrics["teamkills"] = float64(tk)
@@ -204,7 +194,6 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 		p.Metrics["verticality"] = float64(verticality)
 		p.Metrics["swiss_army_knife"] = float64(uniqueWeapons)
 		p.Metrics["the_architect"] = float64(itemsDropped)
-		p.Metrics["road_rage"] = float64(vehicleCollisions)
 		p.Metrics["bot_bully"] = float64(botKills)
 		if kills > 0 {
 			p.Metrics["bot_bully_ratio"] = float64(botKills) / float64(kills)
@@ -264,9 +253,8 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 		"marathon", "bunny_hopper", "camper",
 		"health_picked", "ammo_picked", "armor_picked", "items_picked", "medic", "loot_goblin",
 		"wins", "ffa_wins", "team_wins", "objectives_done", "rounds_played", "games_finished", "pacifist",
-		"vehicle_enter", "turret_enter", "vehicle_kills",
 		"chat_msgs", "spectating", "doors_opened", "watcher", "door_opener",
-		"verticality", "swiss_army_knife", "the_architect", "road_rage", "bot_bully",
+		"verticality", "swiss_army_knife", "the_architect", "bot_bully",
 		"butterfingers", "ocd_reloading", "fireman", "sneaky", "chatterbox",
 	}
 

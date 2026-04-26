@@ -175,10 +175,6 @@ type RawEvent struct {
 	Progress        int    `json:"progress,omitempty"` // Objective progress percentage
 	CapturingTeam   string `json:"capturing_team,omitempty"`
 
-	// Vehicle/Turret
-	BotID string `json:"bot_id,omitempty"`
-	Seat  string `json:"seat,omitempty"`
-
 	// Door Events
 	Door       string `json:"door,omitempty"`
 	OpenerGUID string `json:"opener_guid,omitempty"`
@@ -217,18 +213,6 @@ type RawEvent struct {
 	FromTeam      string `json:"from_team,omitempty"` // Alias for old_team
 	ToTeam        string `json:"to_team,omitempty"`   // Alias for new_team
 	TeamkillCount int    `json:"teamkill_count,omitempty"`
-
-	// Vehicle Events
-	Vehicle       string  `json:"vehicle,omitempty"`
-	FromVehicle   string  `json:"from_vehicle,omitempty"`
-	ToVehicle     string  `json:"to_vehicle,omitempty"`
-	Position      string  `json:"position,omitempty"` // Seat position
-	DriverGUID    string  `json:"driver_guid,omitempty"`
-	DestroyerGUID string  `json:"destroyer_guid,omitempty"`
-	Speed         float32 `json:"speed,omitempty"`
-
-	// Turret Events
-	Turret string `json:"turret,omitempty"`
 
 	// Vote Events
 	VoteType   string `json:"vote_type,omitempty"`

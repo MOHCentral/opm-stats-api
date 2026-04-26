@@ -26,12 +26,8 @@ type StanceStats struct {
 	CrouchKills         uint64  `json:"crouch_kills"`
 	CrouchPlayerKills   uint64  `json:"crouch_player_kills"`
 	CrouchBotKills      uint64  `json:"crouch_bot_kills"`
-	ProneKills          uint64  `json:"prone_kills"`
-	PronePlayerKills    uint64  `json:"prone_player_kills"`
-	ProneBotKills       uint64  `json:"prone_bot_kills"`
 	StandingPct         float64 `json:"standing_pct"`
 	CrouchPct           float64 `json:"crouch_pct"`
-	PronePct            float64 `json:"prone_pct"`
 }
 
 type CombatStats struct {
@@ -94,7 +90,6 @@ type MovementStats struct {
 	TotalDistanceKm float64 `json:"total_distance_km"`
 	JumpCount       uint64  `json:"jump_count"`
 	CrouchTimeSec   float64 `json:"crouch_time_sec"`
-	ProneTimeSec    float64 `json:"prone_time_sec"`
 	SprintTimeSec   float64 `json:"sprint_time_sec"`
 }
 
@@ -114,8 +109,7 @@ type SessionStats struct {
 type InteractionStats struct {
 	ChatMessages uint64       `json:"chat_messages"`
 	Pickups      []PickupStat `json:"pickups"`
-	VehicleUses  uint64       `json:"vehicle_uses"`
-	TurretUses   uint64       `json:"turret_uses"`
+
 }
 
 type PickupStat struct {
@@ -158,7 +152,6 @@ type PlayerStats struct {
 	Jumps           uint64  `json:"jumps"`
 	StandingKills   uint64  `json:"standing_kills"`
 	CrouchingKills  uint64  `json:"crouching_kills"`
-	ProneKills      uint64  `json:"prone_kills"`
 
 	Weapons       []PlayerWeaponStats `json:"weapons"`
 	Maps          []PlayerMapStats    `json:"maps"`

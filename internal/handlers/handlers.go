@@ -41,11 +41,12 @@ func hashToken(token string) string {
 }
 
 type Config struct {
-	WorkerPool IngestQueue
-	Postgres   *pgxpool.Pool
-	ClickHouse driver.Conn
-	Redis      *redis.Client
-	Logger     *zap.Logger
+	WorkerPool     IngestQueue
+	Postgres       *pgxpool.Pool
+	ClickHouse     driver.Conn
+	Redis          *redis.Client
+	Logger         *zap.Logger
+	MQTTConnected  func() bool // Optional: returns MQTT connection status
 	// Services
 	PlayerStats   logic.PlayerStatsService
 	ServerStats   logic.ServerStatsService
@@ -64,6 +65,7 @@ type Handler struct {
 	ch            driver.Conn
 	redis         *redis.Client
 	logger        *zap.SugaredLogger
+	mqttConnected func() bool
 	playerStats   logic.PlayerStatsService
 	serverStats   logic.ServerStatsService
 	gamification  logic.GamificationService
@@ -82,6 +84,7 @@ func New(cfg Config) *Handler {
 		ch:            cfg.ClickHouse,
 		redis:         cfg.Redis,
 		logger:        cfg.Logger.Sugar(),
+		mqttConnected: cfg.MQTTConnected,
 		playerStats:   cfg.PlayerStats,
 		serverStats:   cfg.ServerStats,
 		gamification:  cfg.Gamification,
@@ -116,9 +119,15 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 		"redis":      h.redis.Ping(ctx).Err() == nil,
 	}
 
+	// MQTT is optional — report status but don't fail readiness
+	if h.mqttConnected != nil {
+		checks["mqtt"] = h.mqttConnected()
+	}
+
 	allHealthy := true
-	for _, ok := range checks {
-		if !ok {
+	for k, ok := range checks {
+		// MQTT is not required for readiness
+		if !ok && k != "mqtt" {
 			allHealthy = false
 			break
 		}
@@ -210,7 +219,7 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Process all events
 	for i, event := range events {
-		normalizeRawEventAliases(&event)
+		NormalizeRawEventAliases(&event)
 
 		// Inject ServerID from context if authenticated
 		if sid, ok := r.Context().Value("server_id").(string); ok && sid != "" {
@@ -287,8 +296,6 @@ func (h *Handler) parseFormToEvent(form url.Values) models.RawEvent {
 
 		Objective:       form.Get("objective"), // Also check objective_index if needed
 		ObjectiveStatus: form.Get("objective_status"),
-		BotID:           form.Get("bot_id"),
-		Seat:            form.Get("seat"),
 	}
 
 	// Parse numeric fields
@@ -348,7 +355,9 @@ func parseFloat32(s string) float32 {
 	return float32(f)
 }
 
-func normalizeRawEventAliases(event *models.RawEvent) {
+// NormalizeRawEventAliases normalizes field aliases in a RawEvent.
+// Exported so MQTT subscriber can reuse the same normalization.
+func NormalizeRawEventAliases(event *models.RawEvent) {
 	if event == nil {
 		return
 	}
@@ -672,8 +681,6 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		orderExpr = "jumps"
 	case "crouch_time":
 		orderExpr = "crouch_events"
-	case "prone_time":
-		orderExpr = "prone_events"
 	case "ladders":
 		orderExpr = "ladders"
 	case "health_picked":
@@ -742,7 +749,6 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			sum(driven) AS driven,
 			sum(jumps) AS jumps,
 			sum(crouch_events) AS crouches,
-			sum(prone_events) AS prone,
 			sum(ladders) AS ladders,
 			sum(health_picked) AS health_picked,
 			sum(ammo_picked) AS ammo_picked,
@@ -781,7 +787,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 			&entry.Crushed, &entry.TeamKills, &entry.Suicides, &entry.Reloads,
 			&entry.WeaponSwaps, &entry.NoAmmo, &entry.Distance, &entry.Sprinted,
 			&entry.Swam, &entry.Driven, &entry.Jumps, &entry.Crouches,
-			&entry.Prone, &entry.Ladders, &entry.HealthPicked, &entry.AmmoPicked,
+			&entry.Ladders, &entry.HealthPicked, &entry.AmmoPicked,
 			&entry.ArmorPicked, &entry.ItemsPicked, &entry.Wins, &entry.Rounds,
 			&entry.GamesFinished, &entry.Playtime, &lastActive,
 		); err != nil {
@@ -1190,7 +1196,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		// Stance
 		StandingKills:  deepStats.Stance.StandingKills,
 		CrouchingKills: deepStats.Stance.CrouchKills,
-		ProneKills:     deepStats.Stance.ProneKills,
 
 		// Lists
 		Weapons:       deepStats.Weapons,
@@ -1367,21 +1372,6 @@ func (h *Handler) GetPlayerStanceStats(w http.ResponseWriter, r *http.Request) {
 
 	// Return only stance section
 	h.jsonResponse(w, http.StatusOK, stats.Stance)
-}
-
-// GetPlayerVehicleStats returns vehicle and turret statistics
-func (h *Handler) GetPlayerVehicleStats(w http.ResponseWriter, r *http.Request) {
-	guid := chi.URLParam(r, "guid")
-	ctx := r.Context()
-
-	stats, err := h.advancedStats.GetVehicleStats(ctx, guid)
-	if err != nil {
-		h.logger.Errorw("Failed to get vehicle stats", "guid", guid, "error", err)
-		h.errorResponse(w, http.StatusInternalServerError, "Failed to calculate vehicle stats")
-		return
-	}
-
-	h.jsonResponse(w, http.StatusOK, stats)
 }
 
 // GetPlayerGameFlowStats returns round/objective/team statistics

@@ -615,59 +615,6 @@ func (s *advancedStatsService) GetComboMetrics(ctx context.Context, guid string)
 	return combo, nil
 }
 
-// GetVehicleStats returns vehicle and turret statistics
-func (s *advancedStatsService) GetVehicleStats(ctx context.Context, guid string) (*models.VehicleStats, error) {
-	stats := &models.VehicleStats{}
-
-	// Basic vehicle stats
-	err := s.ch.QueryRow(ctx, `
-		SELECT 
-			toInt64(countIf(event_type = 'vehicle_enter' AND actor_id = ?)) as uses,
-			toInt64(countIf(event_type = 'player_roadkill' AND actor_id = ?)) as kills,
-			toInt64(countIf(event_type = 'vehicle_death' AND actor_id = ?)) as deaths,
-			sumIf(JSONExtractFloat(raw_json, 'driven', 'Float64'), event_type = 'distance' AND actor_id = ?) / 100000.0 as driven_km
-		FROM raw_events
-		WHERE actor_id = ?
-	`, guid, guid, guid, guid, guid).Scan(&stats.VehicleUses, &stats.VehicleKills, &stats.VehicleDeaths, &stats.TotalDriven)
-	if err != nil {
-		return nil, err
-	}
-
-	// Turret stats
-	s.ch.QueryRow(ctx, `
-		SELECT 
-			toInt64(countIf(event_type = 'turret_enter' AND actor_id = ?)) as uses,
-			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND actor_id = ? AND actor_weapon LIKE '%turret%')) as kills,
-			toInt64(countIf(event_type IN ('player_kill', 'bot_killed') AND target_id = ? AND actor_weapon LIKE '%turret%')) as deaths
-		FROM raw_events
-		WHERE actor_id = ? OR target_id = ?
-	`, guid, guid, guid, guid, guid).Scan(&stats.TurretStats.TurretUses, &stats.TurretStats.TurretKills, &stats.TurretStats.TurretDeaths)
-
-	// Vehicle breakdown by type
-	rows, err := s.ch.Query(ctx, `
-		SELECT 
-			JSONExtractString(raw_json, 'vehicle') as vehicle,
-			count() as uses
-		FROM raw_events
-		WHERE event_type = 'vehicle_enter' AND actor_id = ? AND JSONExtractString(raw_json, 'vehicle') != ''
-		GROUP BY vehicle
-		ORDER BY uses DESC
-		LIMIT 10
-	`, guid)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var vt models.VehicleType
-			if err := rows.Scan(&vt.VehicleName, &vt.Uses); err != nil {
-				continue
-			}
-			stats.VehicleTypes = append(stats.VehicleTypes, vt)
-		}
-	}
-
-	return stats, nil
-}
-
 // GetGameFlowStats returns round/objective/team statistics
 func (s *advancedStatsService) GetGameFlowStats(ctx context.Context, guid string) (*models.GameFlowStats, error) {
 	stats := &models.GameFlowStats{}

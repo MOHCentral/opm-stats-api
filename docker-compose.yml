@@ -20,12 +20,18 @@ services:
       - WORKER_BATCH_SIZE=${WORKER_BATCH_SIZE}
       - WORKER_FLUSH_INTERVAL=${WORKER_FLUSH_INTERVAL}
       - JWT_SECRET=${JWT_SECRET}
+      - MQTT_ENABLED=${MQTT_ENABLED:-true}
+      - MQTT_BROKER_URL=${MQTT_BROKER_URL:-tcp://opm-stats-mosquitto:1883}
+      - MQTT_CLIENT_ID=${MQTT_CLIENT_ID:-opm-stats-api}
+      - MQTT_TOPIC_PREFIX=${MQTT_TOPIC_PREFIX:-openmohaa}
     depends_on:
       opm-stats-postgres:
         condition: service_healthy
       opm-stats-clickhouse:
         condition: service_healthy
       opm-stats-redis:
+        condition: service_healthy
+      opm-stats-mosquitto:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -110,10 +116,37 @@ services:
     networks:
       - opm-stats-network
 
+  # ============================================================================
+  # Mosquitto - MQTT Broker (Game Telemetry Transport)
+  # ============================================================================
+  opm-stats-mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: opm-stats-mosquitto
+    labels:
+      - "com.opm.service=opm-stats-mosquitto"
+      - "com.opm.description=MQTT broker for game server telemetry"
+    ports:
+      - "1883:1883"    # MQTT
+      - "9001:9001"    # WebSocket (optional)
+    volumes:
+      - opm-stats-mosquitto-data:/mosquitto/data
+      - opm-stats-mosquitto-log:/mosquitto/log
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - opm-stats-network
+
 volumes:
   opm-stats-postgres-data:
   opm-stats-clickhouse-data:
   opm-stats-redis-data:
+  opm-stats-mosquitto-data:
+  opm-stats-mosquitto-log:
 
 networks:
   opm-stats-network:

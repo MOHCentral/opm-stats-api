@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"strconv"
-	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
@@ -200,8 +199,6 @@ func (w *AchievementWorker) ProcessEvent(event *models.RawEvent) {
 		}
 	case models.EventDistance:
 		w.checkMovementAchievements(actorSMFID, event)
-	case models.EventVehicleEnter:
-		w.checkVehicleAchievements(actorSMFID, event)
 	case models.EventItemPickup, models.EventHealthPickup:
 		w.checkSurvivalAchievements(actorSMFID, event)
 	case models.EventObjectiveUpdate, models.EventObjectiveCapture:
@@ -230,11 +227,6 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 	w.logger.Infow("[ACHIEVEMENT] checkCombatAchievements called", "smfID", smfID)
 	// Get player's total kills
 	totalKills := w.incrementPlayerStat(int(smfID), "total_kills")
-
-	// Check for vehicle kills
-	if strings.Contains(event.Inflictor, "vehicle") {
-		w.incrementPlayerStat(int(smfID), "vehicle_kills")
-	}
 
 	w.logger.Infow("Player kill stats",
 		"smfID", smfID,
@@ -374,30 +366,6 @@ func (w *AchievementWorker) checkMovementAchievements(smfID int64, event *models
 
 	for slug, threshold := range milestones {
 		if distanceKM >= threshold && distanceKM < threshold+0.1 {
-			w.unlockAchievement(int(smfID), slug, serverID, ts)
-		}
-	}
-}
-
-// checkVehicleAchievements checks vehicle-related achievements
-func (w *AchievementWorker) checkVehicleAchievements(smfID int64, event *models.RawEvent) {
-	vehicleKills := w.getPlayerStat(int(smfID), "vehicle_kills")
-
-	serverID := 0
-	ts := time.Unix(int64(event.Timestamp), 0)
-
-	// Updated to match DB slugs
-	milestones := map[string]int{
-		"tank_destroyer_bronze":   5,
-		"tank_destroyer_silver":   25,
-		"tank_destroyer_platinum": 100,
-		"tank_destroyer_diamond":  250,
-		// tank_destroyer (Gold) is 50 in DB
-		"tank_destroyer": 50,
-	}
-
-	for slug, threshold := range milestones {
-		if vehicleKills == threshold {
 			w.unlockAchievement(int(smfID), slug, serverID, ts)
 		}
 	}
@@ -614,8 +582,6 @@ func (w *AchievementWorker) fetchFromDB(smfID int, statName string) int {
 		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND hitloc = 'head'`
 	case "total_distance":
 		query = `SELECT SUM(walked + sprinted + swam + driven) FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'distance'`
-	case "vehicle_kills":
-		query = `SELECT count() FROM mohaa_stats.raw_events WHERE actor_smf_id = ? AND event_type IN ('player_kill', 'bot_killed') AND inflictor LIKE '%vehicle%'`
 	case "health_pickups":
 		query = `SELECT count() FROM mohaa_stats.raw_events WHERE player_smf_id = ? AND event_type = 'item_pickup' AND item LIKE '%health%'`
 	case "objectives_completed":

@@ -40,7 +40,6 @@ type LeaderboardEntry struct {
 	Driven   float64 `json:"driven"`
 	Jumps    uint64  `json:"jumps"`
 	Crouches uint64  `json:"crouch_time"`
-	Prone    uint64  `json:"prone_time"`
 	Ladders  uint64  `json:"ladders"`
 
 	// Survival
