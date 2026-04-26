@@ -562,7 +562,8 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
 		// Use a consistent namespace for non-standard match IDs
-		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+		// Optimization: Use uuid.Nil instead of parsing it to save CPU cycles
+		namespace := uuid.Nil
 		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
 	}
 
