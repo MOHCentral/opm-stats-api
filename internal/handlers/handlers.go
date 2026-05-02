@@ -41,12 +41,12 @@ func hashToken(token string) string {
 }
 
 type Config struct {
-	WorkerPool     IngestQueue
-	Postgres       *pgxpool.Pool
-	ClickHouse     driver.Conn
-	Redis          *redis.Client
-	Logger         *zap.Logger
-	MQTTConnected  func() bool // Optional: returns MQTT connection status
+	WorkerPool    IngestQueue
+	Postgres      *pgxpool.Pool
+	ClickHouse    driver.Conn
+	Redis         *redis.Client
+	Logger        *zap.Logger
+	MQTTConnected func() bool // Optional: returns MQTT connection status
 	// Services
 	PlayerStats   logic.PlayerStatsService
 	ServerStats   logic.ServerStatsService
@@ -173,7 +173,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
 	body = bytes.TrimSpace(body)
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+		h.logger.Debugw("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	}
 
 	var events []models.RawEvent
 	processed := 0
@@ -233,7 +235,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		h.logger.Infow("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
+		if h.logger.Desugar().Core().Enabled(zap.DebugLevel) {
+			h.logger.Debugw("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
+		}
 		if !h.pool.Enqueue(&event) {
 			h.logger.Warn("Worker pool queue full, dropping remaining events in batch")
 			break
