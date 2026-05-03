@@ -170,10 +170,16 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
-	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	// PERF: Guard bytes.ReplaceAll with bytes.IndexByte to avoid unconditional allocations for clean payloads
+	if bytes.IndexByte(body, 0) != -1 {
+		body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	}
 	body = bytes.TrimSpace(body)
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	// PERF: Guard variadic logging and string conversions with strict level check to prevent allocation overhead
+	if h.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+		h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	}
 
 	var events []models.RawEvent
 	processed := 0
