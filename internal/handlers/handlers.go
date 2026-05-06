@@ -35,9 +35,8 @@ type IngestQueue interface {
 
 // hashToken creates a SHA256 hash of a token for secure storage lookup
 func hashToken(token string) string {
-	h := sha256.New()
-	h.Write([]byte(token))
-	return hex.EncodeToString(h.Sum(nil))
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }
 
 type Config struct {
@@ -170,10 +169,14 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
-	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	if bytes.IndexByte(body, 0) != -1 {
+		body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	}
 	body = bytes.TrimSpace(body)
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	if h.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+		h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	}
 
 	var events []models.RawEvent
 	processed := 0
@@ -188,33 +191,45 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 		h.logger.Infow("Parsed as JSON array", "eventCount", len(events))
 	} else {
 		// Fallback: newline-delimited format (legacy game scripts)
-		h.logger.Infow("Parsing as newline-delimited (legacy format)")
-		lines := strings.Split(string(body), "\n")
+		if h.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+			h.logger.Infow("Parsing as newline-delimited (legacy format)")
+		}
+		lineCount := 0
+		for len(body) > 0 {
+			var line []byte
+			idx := bytes.IndexByte(body, '\n')
+			if idx >= 0 {
+				line = body[:idx]
+				body = body[idx+1:]
+			} else {
+				line = body
+				body = nil
+			}
 
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
+			line = bytes.TrimSpace(line)
+			if len(line) == 0 {
 				continue
 			}
+			lineCount++
 
 			var event models.RawEvent
 			// Support both JSON objects and URL-encoded
-			if strings.HasPrefix(line, "{") {
-				if err := json.Unmarshal([]byte(line), &event); err != nil {
-					h.logger.Warnw("Failed to unmarshal JSON line", "error", err, "line", line)
+			if line[0] == '{' {
+				if err := json.Unmarshal(line, &event); err != nil {
+					h.logger.Warnw("Failed to unmarshal JSON line", "error", err, "line", string(line))
 					continue
 				}
 			} else {
-				values, err := url.ParseQuery(line)
+				values, err := url.ParseQuery(string(line))
 				if err != nil {
-					h.logger.Warnw("Failed to parse URL-encoded line", "error", err, "line", line)
+					h.logger.Warnw("Failed to parse URL-encoded line", "error", err, "line", string(line))
 					continue
 				}
 				event = h.parseFormToEvent(values)
 			}
 			events = append(events, event)
 		}
-		h.logger.Infow("Parsed legacy format", "lineCount", len(lines), "parsedEvents", len(events))
+		h.logger.Infow("Parsed legacy format", "lineCount", lineCount, "parsedEvents", len(events))
 	}
 
 	// Process all events
@@ -233,7 +248,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		h.logger.Infow("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
+		if h.logger.Desugar().Core().Enabled(zap.InfoLevel) {
+			h.logger.Infow("Enqueueing event", "index", i, "type", event.Type, "match_id", event.MatchID)
+		}
 		if !h.pool.Enqueue(&event) {
 			h.logger.Warn("Worker pool queue full, dropping remaining events in batch")
 			break

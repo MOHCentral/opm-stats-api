@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-05-24 - [Handler Ingest Parsing Allocation Optimization]
+**Learning:** The legacy newline-delimited format parsing in `IngestEvents` was using `strings.Split` which allocated an entire slice of strings. When processing large event streams, converting the body to a string and splitting it allocated significantly. Furthermore, using `bytes.IndexByte` looping directly over the `body` byte slice instead of `strings.Split` prevents massive allocations and speeds up parsing. Also, guarding the null-byte `bytes.ReplaceAll` with `bytes.IndexByte(..., 0)` avoids a 1MB slice allocation when the payload is already clean. Lastly, guarding `zap.SugaredLogger` calls with `logger.Desugar().Core().Enabled(zap.InfoLevel)` removes argument formatting overhead in production where only error logs are captured.
+**Action:** In high-throughput ingest paths, avoid `strings.Split(string(body), "\n")`. Loop over byte slices and find delimiters via `bytes.IndexByte`. Guard unconditional allocations (`bytes.ReplaceAll`) and variadic logging (`SugaredLogger.Infow`) in hot paths.
