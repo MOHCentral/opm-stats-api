@@ -64,7 +64,69 @@ func (s *RedisStatStore) Del(ctx context.Context, keys ...string) error {
 	return s.client.Del(ctx, keys...).Err()
 }
 
+// Hoisted to package level to avoid heap allocation on every function call
+var combatMilestones = map[string]int{
+	"killer_bronze":   100,
+	"killer_silver":   500,
+	"killer_gold":     1000,
+	"killer_platinum": 5000,
+	"killer_diamond":  10000,
+}
+
+var streakMilestones = map[string]int{
+	"killing_spree": 5,
+	"rampage":       10,
+	"dominating":    15,
+	"unstoppable":   20,
+	"godlike":       25,
+	"wicked_sick":   30,
+}
+
+var headshotMilestones = map[string]int{
+	"headshot_bronze": 100,
+	"headshot_silver": 500,
+	"headshot_gold":   1000,
+}
+
+var marathonMilestones = map[string]float64{
+	"marathon_bronze": 10,
+	"marathon_silver": 50,
+	"marathon_gold":   100,
+}
+
+var healthMilestones = map[string]int{
+	"health_hoarder_bronze":   10,
+	"health_hoarder_silver":   50,
+	"health_hoarder_gold":     100,
+	"health_hoarder_platinum": 250,
+	"health_hoarder_diamond":  500,
+}
+
+var objectiveMilestones = map[string]int{
+	"objective_hero_bronze":   5,
+	"objective_hero_silver":   25,
+	"objective_hero":          100, // Gold
+	"objective_hero_platinum": 250,
+	"objective_hero_diamond":  500,
+}
+
+var victorMilestones = map[string]int{
+	"victor_bronze":   10,
+	"victor_silver":   25,
+	"victor_gold":     50,
+	"victor_platinum": 100,
+	"victor_diamond":  250,
+}
+
+var multikillMilestonesMap = map[string]int{
+	"double_kill":  2,
+	"triple_kill":  3,
+	"ultra_kill":   4,
+	"monster_kill": 5,
+}
+
 // AchievementWorker processes events and unlocks achievements
+
 type AchievementWorker struct {
 	db              DBStore            // Postgres for achievement defs and unlocks
 	ch              driver.Conn        // ClickHouse for stats queries
@@ -238,13 +300,7 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 
 	// Check milestone achievements (Lifetime Kills)
 	// Updated slugs to match DB (killer_*)
-	milestones := map[string]int{
-		"killer_bronze":   100,
-		"killer_silver":   500,
-		"killer_gold":     1000,
-		"killer_platinum": 5000,
-		"killer_diamond":  10000,
-	}
+	milestones := combatMilestones
 
 	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(milestones))
 
@@ -302,14 +358,7 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 		streak := int(val)
 
 		// Check thresholds (Unreal Tournament style)
-		milestones := map[string]int{
-			"killing_spree": 5,
-			"rampage":       10,
-			"dominating":    15,
-			"unstoppable":   20,
-			"godlike":       25,
-			"wicked_sick":   30,
-		}
+		milestones := streakMilestones
 
 		for slug, threshold := range milestones {
 			if streak >= threshold {
@@ -331,12 +380,7 @@ func (w *AchievementWorker) checkHeadshotAchievements(smfID int64, event *models
 	ts := time.Unix(int64(event.Timestamp), 0)
 
 	// Updated to match DB slugs and thresholds
-	milestones := map[string]int{
-		"headshot_bronze": 100,
-		"headshot_silver": 500,
-		"headshot_gold":   1000,
-		// Assuming platinum/diamond might be added or exist
-	}
+	milestones := headshotMilestones
 
 	for slug, threshold := range milestones {
 		if totalHeadshots == threshold {
@@ -358,11 +402,7 @@ func (w *AchievementWorker) checkMovementAchievements(smfID int64, event *models
 
 	// Updated to match DB slugs (meters vs km handled by logic)
 	// DB: marathon_bronze = 10000 meters = 10km
-	milestones := map[string]float64{
-		"marathon_bronze": 10,
-		"marathon_silver": 50,
-		"marathon_gold":   100,
-	}
+	milestones := marathonMilestones
 
 	for slug, threshold := range milestones {
 		if distanceKM >= threshold && distanceKM < threshold+0.1 {
@@ -380,13 +420,7 @@ func (w *AchievementWorker) checkSurvivalAchievements(smfID int64, event *models
 		healthPickups := w.incrementPlayerStat(int(smfID), "health_pickups")
 
 		// Updated to match DB slugs
-		milestones := map[string]int{
-			"health_hoarder_bronze":   10,
-			"health_hoarder_silver":   50,
-			"health_hoarder_gold":     100,
-			"health_hoarder_platinum": 250,
-			"health_hoarder_diamond":  500,
-		}
+		milestones := healthMilestones
 
 		for slug, threshold := range milestones {
 			if healthPickups == threshold {
@@ -409,13 +443,7 @@ func (w *AchievementWorker) checkObjectiveAchievements(smfID int64, event *model
 	ts := time.Unix(int64(event.Timestamp), 0)
 
 	// Updated to match DB slugs
-	milestones := map[string]int{
-		"objective_hero_bronze":   5,
-		"objective_hero_silver":   25,
-		"objective_hero":          100, // Gold
-		"objective_hero_platinum": 250,
-		"objective_hero_diamond":  500,
-	}
+	milestones := objectiveMilestones
 
 	for slug, threshold := range milestones {
 		if totalObjectives == threshold {
@@ -432,13 +460,7 @@ func (w *AchievementWorker) checkTeamplayAchievements(smfID int64, event *models
 	ts := time.Unix(int64(event.Timestamp), 0)
 
 	// Updated to match DB slugs
-	milestones := map[string]int{
-		"victor_bronze":   10,
-		"victor_silver":   25,
-		"victor_gold":     50,
-		"victor_platinum": 100,
-		"victor_diamond":  250,
-	}
+	milestones := victorMilestones
 
 	for slug, threshold := range milestones {
 		if totalWins == threshold {
@@ -490,12 +512,7 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	killCount := int(val)
 
 	// Check multi-kill achievement thresholds
-	multikillMilestones := map[string]int{
-		"double_kill":  2,
-		"triple_kill":  3,
-		"ultra_kill":   4,
-		"monster_kill": 5,
-	}
+	multikillMilestones := multikillMilestonesMap
 
 	for slug, threshold := range multikillMilestones {
 		if killCount == threshold && smfID > 0 {
