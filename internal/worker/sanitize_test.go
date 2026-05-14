@@ -32,8 +32,24 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
-func BenchmarkSanitizeName(b *testing.B) {
+func BenchmarkSanitizeName_Dirty(b *testing.B) {
 	input := "^1Player^2Name^3With^4Colors"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = sanitizeName(input)
+	}
+}
+
+func BenchmarkSanitizeName_Clean(b *testing.B) {
+	input := "PlayerNameWithNoColors"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = sanitizeName(input)
+	}
+}
+
+func BenchmarkSanitizeName_LateDirty(b *testing.B) {
+	input := "PlayerNameWith^1ColorAtEnd"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = sanitizeName(input)
