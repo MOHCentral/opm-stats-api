@@ -170,7 +170,11 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
-	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	// PERFORMANCE OPTIMIZATION: Check for null bytes before unconditionally calling ReplaceAll
+	// bytes.ReplaceAll always allocates a new slice. A vast majority of payloads are clean.
+	if bytes.IndexByte(body, 0) != -1 {
+		body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	}
 	body = bytes.TrimSpace(body)
 
 	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
