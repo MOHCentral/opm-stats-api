@@ -41,12 +41,12 @@ func hashToken(token string) string {
 }
 
 type Config struct {
-	WorkerPool     IngestQueue
-	Postgres       *pgxpool.Pool
-	ClickHouse     driver.Conn
-	Redis          *redis.Client
-	Logger         *zap.Logger
-	MQTTConnected  func() bool // Optional: returns MQTT connection status
+	WorkerPool    IngestQueue
+	Postgres      *pgxpool.Pool
+	ClickHouse    driver.Conn
+	Redis         *redis.Client
+	Logger        *zap.Logger
+	MQTTConnected func() bool // Optional: returns MQTT connection status
 	// Services
 	PlayerStats   logic.PlayerStatsService
 	ServerStats   logic.ServerStatsService

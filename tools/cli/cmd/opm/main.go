@@ -47,10 +47,10 @@ const (
 	EventTeamWin           = "team_win"
 
 	// Combat (23)
-	EventKill              = "kill"
-	EventDeath             = "death"
-	EventDamage            = "damage"
-	EventPlayerPain        = "player_pain"
+	EventKill       = "kill"
+	EventDeath      = "death"
+	EventDamage     = "damage"
+	EventPlayerPain = "player_pain"
 	// EventHeadshot removed - headshots derived from hitloc="head" on kill events
 	EventPlayerSuicide     = "player_suicide"
 	EventPlayerCrushed     = "player_crushed"

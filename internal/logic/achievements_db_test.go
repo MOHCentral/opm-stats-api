@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/google/uuid"
 )
 
 type MockPgPool struct {
@@ -21,16 +21,18 @@ func (m *MockPgPool) Query(ctx context.Context, sql string, args ...any) (pgx.Ro
 	return nil, nil
 }
 func (m *MockPgPool) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row { return nil }
-func (m *MockPgPool) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) { return pgconn.CommandTag{}, nil }
+func (m *MockPgPool) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
 
 type MockPgRows struct {
 	count int
 	curr  int
 }
 
-func (r *MockPgRows) Close() {}
-func (r *MockPgRows) Err() error { return nil }
-func (r *MockPgRows) CommandTag() pgconn.CommandTag { return pgconn.CommandTag{} }
+func (r *MockPgRows) Close()                                       {}
+func (r *MockPgRows) Err() error                                   { return nil }
+func (r *MockPgRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
 func (r *MockPgRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
 func (r *MockPgRows) Next() bool {
 	r.curr++
@@ -95,8 +97,8 @@ func (r *MockPgRows) Scan(dest ...any) error {
 	return nil
 }
 func (r *MockPgRows) Values() ([]any, error) { return nil, nil }
-func (r *MockPgRows) RawValues() [][]byte { return nil }
-func (r *MockPgRows) Conn() *pgx.Conn { return nil }
+func (r *MockPgRows) RawValues() [][]byte    { return nil }
+func (r *MockPgRows) Conn() *pgx.Conn        { return nil }
 
 func TestGetPlayerAchievements(t *testing.T) {
 	mockPg := &MockPgPool{

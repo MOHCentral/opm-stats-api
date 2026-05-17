@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
 )
 
 // InstallDatabase checks for database schema and installs it if missing

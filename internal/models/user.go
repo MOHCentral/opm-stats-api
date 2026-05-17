@@ -62,8 +62,6 @@ type IdentityClaim struct {
 	VerifiedAt *time.Time `json:"verified_at,omitempty" db:"verified_at"`
 }
 
-
-
 // DeviceAuthState stored in Redis
 type DeviceAuthState struct {
 	DeviceCode string     `json:"device_code"`

@@ -19,14 +19,14 @@ func TestStressEvents(t *testing.T) {
 
 	totalEvents := 1000
 	concurrency := 20
-	
+
 	t.Logf("=== Starting Stress Test (%d events, %d concurrent) ===", totalEvents, concurrency)
 
 	var successCount int64
 	var failCount int64
 
 	start := time.Now()
-	
+
 	var wg sync.WaitGroup
 	jobs := make(chan int, totalEvents)
 
@@ -45,11 +45,11 @@ func TestStressEvents(t *testing.T) {
 					"hitloc":        "head",
 					"stress_id":     fmt.Sprintf("%d", i),
 				}
-				
+
 				// Re-use sendEvent helper (assuming it returns error or we panic on fail inside)
 				// Modify sendEvent in e2e_test.go to return error instead of Fatalf if we want to count failures
 				// For now, we will construct a local sender to avoid failing the whole test on one timeout
-				
+
 				if err := sendEventSafe(t, "kill", params); err == nil {
 					atomic.AddInt64(&successCount, 1)
 				} else {
@@ -81,5 +81,3 @@ func TestStressEvents(t *testing.T) {
 		}
 	}
 }
-
-

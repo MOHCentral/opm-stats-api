@@ -13,7 +13,7 @@ func TestIsInvalidGUID(t *testing.T) {
 		{"SIMPLEGUID", true},
 		{"", true},
 		{"12345678-1234-1234-1234-1234567890ab", false}, // Valid UUID
-		{"some-other-guid", false}, // Has hyphens, technically "valid" by current simple check
+		{"some-other-guid", false},                      // Has hyphens, technically "valid" by current simple check
 	}
 
 	for _, test := range tests {

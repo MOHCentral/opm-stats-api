@@ -25,22 +25,22 @@ type Event struct {
 	MatchID     string  `json:"match_id"`
 	Timestamp   float64 `json:"timestamp"`
 	ServerToken string  `json:"server_token"` // Although header is used, sometimes redundant payload helps debug
-	
+
 	// Actor
-	PlayerGUID   string `json:"player_guid"`
-	PlayerName   string `json:"player_name"`
-	PlayerTeam   string `json:"player_team"`
-	
+	PlayerGUID string `json:"player_guid"`
+	PlayerName string `json:"player_name"`
+	PlayerTeam string `json:"player_team"`
+
 	// Attacker
 	AttackerGUID string `json:"attacker_guid"`
 	AttackerName string `json:"attacker_name"`
 	AttackerTeam string `json:"attacker_team"`
-	
+
 	// Victim
 	VictimGUID string `json:"victim_guid"`
 	VictimName string `json:"victim_name"`
 	VictimTeam string `json:"victim_team"`
-	
+
 	// Data
 	Weapon string `json:"weapon"`
 	Hitloc string `json:"hitloc"`
@@ -57,22 +57,22 @@ type Event struct {
 func main() {
 	// Create a mock kill event
 	event := Event{
-		Type:        "kill",
-		MatchID:     "test-match-001",
-		Timestamp:   float64(time.Now().Unix()),
-		
-		PlayerGUID:   "attacker-guid-456", // In kill event, Player is usually attacker
-		PlayerName:   "TestAttacker",
-		PlayerTeam:   "axis",
+		Type:      "kill",
+		MatchID:   "test-match-001",
+		Timestamp: float64(time.Now().Unix()),
+
+		PlayerGUID: "attacker-guid-456", // In kill event, Player is usually attacker
+		PlayerName: "TestAttacker",
+		PlayerTeam: "axis",
 
 		AttackerGUID: "attacker-guid-456",
 		AttackerName: "TestAttacker",
 		AttackerTeam: "axis",
-		
-		VictimGUID:   "victim-guid-123",
-		VictimName:   "TestVictim",
-		VictimTeam:   "allies",
-		
+
+		VictimGUID: "victim-guid-123",
+		VictimName: "TestVictim",
+		VictimTeam: "allies",
+
 		Weapon: "Thompson",
 		Hitloc: "head",
 		Damage: 100,
@@ -100,7 +100,7 @@ func main() {
 	for i := 0; i < 5; i++ {
 		event.MatchID = fmt.Sprintf("test-match-%d", i)
 		event.Timestamp = float64(time.Now().Unix())
-		
+
 		payload, _ := json.Marshal(event)
 		buffer.Write(payload)
 		buffer.Write([]byte("\n")) // NDJSON
@@ -111,8 +111,8 @@ func main() {
 		log.Fatalf("Failed to create request: %v", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json") 
-	req.Header.Set("Authorization", JWT_TOKEN)         
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", JWT_TOKEN)
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
