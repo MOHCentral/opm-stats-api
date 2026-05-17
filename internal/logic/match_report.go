@@ -86,7 +86,7 @@ func (s *matchReportService) getMatchInfo(ctx context.Context, matchID string) (
 	var duration int64
 	var alliesScore, axisScore, playerCount, maxPlayers int32
 	if err := s.ch.QueryRow(ctx, query, matchID).Scan(
-		&m.MapName, &m.Gametype, &duration, &m.ServerID, 
+		&m.MapName, &m.Gametype, &duration, &m.ServerID,
 		&alliesScore, &axisScore, &playerCount, &maxPlayers, &m.StartedAt,
 	); err != nil {
 		return nil, err

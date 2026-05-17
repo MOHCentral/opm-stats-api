@@ -17,8 +17,6 @@ func NewAchievementsService(ch driver.Conn, pg PgPool) AchievementsService {
 	return &achievementsService{ch: ch, pg: pg}
 }
 
-
-
 type AchievementScope string
 
 const (

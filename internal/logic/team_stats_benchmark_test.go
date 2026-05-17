@@ -78,9 +78,11 @@ func (m *BenchMockConn) Query(ctx context.Context, query string, args ...any) (d
 }
 
 // Stubs for other methods
-func (m *BenchMockConn) Contributors() []string                                                { return nil }
-func (m *BenchMockConn) ServerVersion() (*driver.ServerVersion, error)                         { return nil, nil }
-func (m *BenchMockConn) Select(ctx context.Context, dest any, query string, args ...any) error { return nil }
+func (m *BenchMockConn) Contributors() []string                        { return nil }
+func (m *BenchMockConn) ServerVersion() (*driver.ServerVersion, error) { return nil, nil }
+func (m *BenchMockConn) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return nil
+}
 func (m *BenchMockConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
 	return nil, nil
 }

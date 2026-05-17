@@ -156,10 +156,10 @@ func generateBarChartSVG(title string, labels []string, values []uint64, maxVal 
 
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" viewBox="0 0 %d %d" xmlns="http://www.w3.org/2000/svg">`, width, height, width, height))
-	
+
 	// Background
 	sb.WriteString(`<rect width="100%" height="100%" fill="#1a1a1a" />`)
-	
+
 	// Title
 	sb.WriteString(fmt.Sprintf(`<text x="%d" y="30" fill="white" font-family="Arial" font-size="20" text-anchor="middle">%s</text>`, width/2, title))
 
@@ -170,13 +170,13 @@ func generateBarChartSVG(title string, labels []string, values []uint64, maxVal 
 		}
 		x := padding + i*barWidth
 		y := height - padding - barHeight
-		
+
 		// Bar
 		sb.WriteString(fmt.Sprintf(`<rect x="%d" y="%d" width="%d" height="%d" fill="%s" rx="4" />`, x+5, y, barWidth-10, barHeight, color))
-		
+
 		// Label (rotated)
 		sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="white" font-family="Arial" font-size="12" text-anchor="end" transform="rotate(-45 %d %d)">%s</text>`, x+barWidth/2, height-padding+20, x+barWidth/2, height-padding+20, labels[i]))
-		
+
 		// Value on top
 		sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="white" font-family="Arial" font-size="10" text-anchor="middle">%d</text>`, x+barWidth/2, y-5, val))
 	}

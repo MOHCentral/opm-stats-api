@@ -109,7 +109,6 @@ type SessionStats struct {
 type InteractionStats struct {
 	ChatMessages uint64       `json:"chat_messages"`
 	Pickups      []PickupStat `json:"pickups"`
-
 }
 
 type PickupStat struct {

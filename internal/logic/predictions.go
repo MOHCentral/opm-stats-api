@@ -46,7 +46,7 @@ func (s *predictionService) GetPlayerPredictions(ctx context.Context, guid strin
 
 		if len(pred.RecentPerformance) > 0 {
 			pred.ExpectedKD = sumKD / float64(len(pred.RecentPerformance))
-			
+
 			// Simple trend analysis
 			if len(pred.RecentPerformance) >= 3 {
 				latest := pred.RecentPerformance[0]
@@ -86,7 +86,9 @@ func (s *predictionService) GetPlayerPredictions(ctx context.Context, guid strin
 			var kills int
 			if err := rivalRows.Scan(&r.OpponentGUID, &r.OpponentName, &kills); err == nil {
 				r.WinProb = 0.5 + (0.05 * float64(kills))
-				if r.WinProb > 0.95 { r.WinProb = 0.95 }
+				if r.WinProb > 0.95 {
+					r.WinProb = 0.95
+				}
 				r.Nemesis = kills > 20
 				pred.RivalAnalysis = append(pred.RivalAnalysis, r)
 			}

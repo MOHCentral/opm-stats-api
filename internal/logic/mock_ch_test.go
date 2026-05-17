@@ -68,8 +68,8 @@ func (m *MockRows) Scan(dest ...interface{}) error {
 
 		if len(dest) == 3 {
 			// Optimized query
-			assign(dest[0], "map1") // map_name
-			assign(dest[1], "next_map") // next_map
+			assign(dest[0], "map1")       // map_name
+			assign(dest[1], "next_map")   // next_map
 			assign(dest[2], float64(0.5)) // prob
 		} else {
 			// Legacy loop query

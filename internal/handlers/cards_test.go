@@ -3,9 +3,9 @@ package handlers
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"sort"
 	"testing"
-	"reflect"
 )
 
 // Redefining types locally as they are local in the original function
