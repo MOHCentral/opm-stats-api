@@ -42,6 +42,10 @@ var (
 	}
 )
 
+// defaultUUIDNamespace pre-parses the UUID namespace to avoid parsing overhead
+// inside the hot path convertToClickHouseEvent worker loop.
+var defaultUUIDNamespace = uuid.Nil
+
 // Prometheus metrics
 var (
 	eventsIngested = promauto.NewCounter(prometheus.CounterOpts{
@@ -562,8 +566,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
 		// Use a consistent namespace for non-standard match IDs
-		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
-		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
+		matchID = uuid.NewMD5(defaultUUIDNamespace, []byte(event.MatchID))
 	}
 
 	// Determine real wall-clock timestamp.
