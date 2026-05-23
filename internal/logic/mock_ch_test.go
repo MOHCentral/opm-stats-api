@@ -51,7 +51,7 @@ func (m *MockRows) Scan(dest ...interface{}) error {
 		assign(dest[1], int64(10))
 		assign(dest[2], float64(10.0))
 		assign(dest[3], float64(5.0))
-		assign(dest[4], int64(100))
+		assign(dest[4], float64(100.0))
 		assign(dest[5], int(20))
 		assign(dest[6], float64(50.0))
 	} else if m.callIndex == 2 {

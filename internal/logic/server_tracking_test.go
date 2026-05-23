@@ -19,12 +19,9 @@ func TestGetServerMapRotation_Performance(t *testing.T) {
 
 	// Optimized calculation:
 	// 1. Get map stats (Query) -> Returns 2 maps
-	// 2. Get avg maps per day (QueryRow - not counted in QueryCalls in mock)
-	// 3. Get rotation pattern (Query)
-	// 4. Get transition probabilities (Query) - Single query for all maps!
-	// Total Query calls = 1 + 1 + 1 = 3
+	// Total Query calls = 1
 
-	expectedCalls := 3
+	expectedCalls := 1
 	if mockCH.QueryCalls != expectedCalls {
 		t.Errorf("Expected %d Query calls (Optimized), got %d", expectedCalls, mockCH.QueryCalls)
 	}
