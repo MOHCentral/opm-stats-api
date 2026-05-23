@@ -38,8 +38,14 @@ func TestIngestEvents(t *testing.T) {
 			wantStatus:  http.StatusRequestEntityTooLarge,
 		},
 		{
-			name:        "Valid Payload",
+			name:        "Valid Payload (URL Encoded)",
 			body:        "type=kill",
+			mockEnqueue: func(e *models.RawEvent) bool { return true },
+			wantStatus:  http.StatusAccepted,
+		},
+		{
+			name:        "Valid Payload (JSON Line)",
+			body:        `{"type":"kill"}`,
 			mockEnqueue: func(e *models.RawEvent) bool { return true },
 			wantStatus:  http.StatusAccepted,
 		},
