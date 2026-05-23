@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -189,32 +190,40 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Fallback: newline-delimited format (legacy game scripts)
 		h.logger.Infow("Parsing as newline-delimited (legacy format)")
-		lines := strings.Split(string(body), "\n")
 
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
+		scanner := bufio.NewScanner(bytes.NewReader(body))
+		// Use a 4KB initial buffer but allow growth up to MaxBodySize for compatibility
+		scanner.Buffer(make([]byte, 0, 4096), MaxBodySize)
+
+		for scanner.Scan() {
+			line := bytes.TrimSpace(scanner.Bytes())
+			if len(line) == 0 {
 				continue
 			}
 
 			var event models.RawEvent
 			// Support both JSON objects and URL-encoded
-			if strings.HasPrefix(line, "{") {
-				if err := json.Unmarshal([]byte(line), &event); err != nil {
-					h.logger.Warnw("Failed to unmarshal JSON line", "error", err, "line", line)
+			if len(line) > 0 && line[0] == '{' {
+				if err := json.Unmarshal(line, &event); err != nil {
+					h.logger.Warnw("Failed to unmarshal JSON line", "error", err, "line", string(line))
 					continue
 				}
 			} else {
-				values, err := url.ParseQuery(line)
+				values, err := url.ParseQuery(string(line))
 				if err != nil {
-					h.logger.Warnw("Failed to parse URL-encoded line", "error", err, "line", line)
+					h.logger.Warnw("Failed to parse URL-encoded line", "error", err, "line", string(line))
 					continue
 				}
 				event = h.parseFormToEvent(values)
 			}
 			events = append(events, event)
 		}
-		h.logger.Infow("Parsed legacy format", "lineCount", len(lines), "parsedEvents", len(events))
+
+		if err := scanner.Err(); err != nil {
+			h.logger.Warnw("Scanner error during parsing", "error", err)
+		}
+
+		h.logger.Infow("Parsed legacy format", "parsedEvents", len(events))
 	}
 
 	// Process all events
