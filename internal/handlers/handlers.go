@@ -35,9 +35,8 @@ type IngestQueue interface {
 
 // hashToken creates a SHA256 hash of a token for secure storage lookup
 func hashToken(token string) string {
-	h := sha256.New()
-	h.Write([]byte(token))
-	return hex.EncodeToString(h.Sum(nil))
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 type Config struct {
