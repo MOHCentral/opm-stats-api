@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-05-29 - Optimize string generation in hot loops
+**Learning:** Using `fmt.Sprintf` dynamically inside high-frequency processing loops (like Redis key generation in `achievements.go` and `pool.go`) creates unnecessary memory allocations (3 allocs/op) and overhead (321ns/op) due to reflection.
+**Action:** Replace `fmt.Sprintf` with string concatenation and `strconv.Itoa` (which drops to 1 alloc/op and 94ns/op) for simple string formatting in performance-critical paths.
