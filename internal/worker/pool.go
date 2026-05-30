@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -562,7 +563,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
 		// Use a consistent namespace for non-standard match IDs
-		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+		namespace := uuid.Nil
 		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
 	}
 
@@ -1068,8 +1069,7 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 
 	// 1. Update Redis "live_servers"
 	// Format: "players:%d,map:%s,gametype:%s"
-	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s",
-		event.PlayerCount, event.MapName, event.Gametype)
+	statusStr := "players:" + strconv.Itoa(event.PlayerCount) + ",map:" + event.MapName + ",gametype:" + event.Gametype
 
 	p.config.Redis.HSet(ctx, "live_servers", event.ServerID, statusStr)
 	// Set expiration handling if needed? Redis Key itself doesn't expire, field doesn't expire.
