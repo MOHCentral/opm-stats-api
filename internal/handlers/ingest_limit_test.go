@@ -56,8 +56,9 @@ func TestIngestEvents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Handler{
-				logger: logger.Sugar(),
-				pool:   &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
+				logger:    logger.Sugar(),
+				rawLogger: logger,
+				pool:      &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
 			}
 
 			req := httptest.NewRequest("POST", "/api/v1/ingest/events", strings.NewReader(tt.body))

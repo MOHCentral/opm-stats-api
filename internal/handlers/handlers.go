@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"go.uber.org/zap/zapcore"
+
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -41,12 +43,12 @@ func hashToken(token string) string {
 }
 
 type Config struct {
-	WorkerPool     IngestQueue
-	Postgres       *pgxpool.Pool
-	ClickHouse     driver.Conn
-	Redis          *redis.Client
-	Logger         *zap.Logger
-	MQTTConnected  func() bool // Optional: returns MQTT connection status
+	WorkerPool    IngestQueue
+	Postgres      *pgxpool.Pool
+	ClickHouse    driver.Conn
+	Redis         *redis.Client
+	Logger        *zap.Logger
+	MQTTConnected func() bool // Optional: returns MQTT connection status
 	// Services
 	PlayerStats   logic.PlayerStatsService
 	ServerStats   logic.ServerStatsService
@@ -65,6 +67,7 @@ type Handler struct {
 	ch            driver.Conn
 	redis         *redis.Client
 	logger        *zap.SugaredLogger
+	rawLogger     *zap.Logger
 	mqttConnected func() bool
 	playerStats   logic.PlayerStatsService
 	serverStats   logic.ServerStatsService
@@ -84,6 +87,7 @@ func New(cfg Config) *Handler {
 		ch:            cfg.ClickHouse,
 		redis:         cfg.Redis,
 		logger:        cfg.Logger.Sugar(),
+		rawLogger:     cfg.Logger,
 		mqttConnected: cfg.MQTTConnected,
 		playerStats:   cfg.PlayerStats,
 		serverStats:   cfg.ServerStats,
@@ -173,7 +177,9 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
 	body = bytes.TrimSpace(body)
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	if h.rawLogger.Core().Enabled(zapcore.InfoLevel) {
+		h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	}
 
 	var events []models.RawEvent
 	processed := 0
