@@ -549,6 +549,10 @@ func (p *Pool) processBatchSideEffects(ctx context.Context, batch []Job) {
 	}
 }
 
+// defaultUUIDNamespace is a pre-parsed UUID namespace used to generate deterministic match IDs.
+// ⚡ Bolt: Extracted to a package-level variable to avoid calling uuid.MustParse for every event in hot loops.
+var defaultUUIDNamespace = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+
 // minValidUnixTimestamp is 2020-01-01 00:00:00 UTC in seconds.
 // Any event.Timestamp below this is treated as game-relative time (e.g. level.time),
 // not a real Unix epoch, and we substitute the ingestion wall-clock time instead.
@@ -562,8 +566,7 @@ func (p *Pool) convertToClickHouseEvent(event *models.RawEvent, rawJSON string, 
 	matchID, err := uuid.Parse(event.MatchID)
 	if err != nil {
 		// Use a consistent namespace for non-standard match IDs
-		namespace := uuid.MustParse("00000000-0000-0000-0000-000000000000")
-		matchID = uuid.NewMD5(namespace, []byte(event.MatchID))
+		matchID = uuid.NewMD5(defaultUUIDNamespace, []byte(event.MatchID))
 	}
 
 	// Determine real wall-clock timestamp.
