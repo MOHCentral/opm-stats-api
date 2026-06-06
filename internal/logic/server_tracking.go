@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -153,9 +154,15 @@ func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*mode
 	// Get current players from Redis
 	liveServers, _ := s.redis.HGetAll(ctx, "live_servers").Result()
 	for _, data := range liveServers {
-		var players int
-		fmt.Sscanf(data, "players:%d", &players)
-		stats.TotalPlayersNow += players
+		if strings.HasPrefix(data, "players:") {
+			// Optimized: Extract players count without fmt.Sscanf to avoid reflection and allocations
+			endIdx := strings.IndexByte(data, ',')
+			if endIdx == -1 {
+				endIdx = len(data)
+			}
+			players, _ := strconv.Atoi(data[8:endIdx])
+			stats.TotalPlayersNow += players
+		}
 	}
 	if stats.OnlineServers > 0 {
 		stats.AvgPlayersNow = float64(stats.TotalPlayersNow) / float64(stats.OnlineServers)
@@ -1169,7 +1176,10 @@ func parseServerLiveData(data string, srv *models.ServerOverview) {
 	fmt.Printf("[DEBUG] Parsing server data: %v\n", parts)
 	for _, part := range parts {
 		if strings.HasPrefix(part, "players:") {
-			fmt.Sscanf(part, "players:%d", &srv.CurrentPlayers)
+			// Optimized: Replacing fmt.Sscanf with strconv.Atoi for performance
+			playersStr := part[8:]
+			players, _ := strconv.Atoi(playersStr)
+			srv.CurrentPlayers = players
 		} else if strings.HasPrefix(part, "map:") {
 			srv.CurrentMap = strings.TrimPrefix(part, "map:")
 		} else if strings.HasPrefix(part, "gametype:") {
