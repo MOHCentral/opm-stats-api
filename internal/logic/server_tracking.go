@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"strconv"
 	"context"
 	"fmt"
 	"strings"
@@ -154,7 +155,13 @@ func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*mode
 	liveServers, _ := s.redis.HGetAll(ctx, "live_servers").Result()
 	for _, data := range liveServers {
 		var players int
-		fmt.Sscanf(data, "players:%d", &players)
+		idx := strings.IndexByte(data, ',')
+		if idx == -1 {
+			idx = len(data)
+		}
+		if strings.HasPrefix(data[:idx], "players:") {
+			players, _ = strconv.Atoi(data[8:idx])
+		}
 		stats.TotalPlayersNow += players
 	}
 	if stats.OnlineServers > 0 {
@@ -1160,20 +1167,30 @@ func LookupCountryFromIP(ip string) string {
 // HELPER FUNCTIONS
 // =============================================================================
 
+// Optimized: parsing server live data without allocations
 func parseServerLiveData(data string, srv *models.ServerOverview) {
 	// Parse format: "players:5,map:mohdm6,gametype:dm"
 	if srv == nil {
 		return
 	}
-	parts := strings.Split(data, ",")
-	fmt.Printf("[DEBUG] Parsing server data: %v\n", parts)
-	for _, part := range parts {
+	d := data
+	for len(d) > 0 {
+		idx := strings.IndexByte(d, ',')
+		var part string
+		if idx == -1 {
+			part = d
+			d = ""
+		} else {
+			part = d[:idx]
+			d = d[idx+1:]
+		}
+
 		if strings.HasPrefix(part, "players:") {
-			fmt.Sscanf(part, "players:%d", &srv.CurrentPlayers)
+			srv.CurrentPlayers, _ = strconv.Atoi(part[8:])
 		} else if strings.HasPrefix(part, "map:") {
-			srv.CurrentMap = strings.TrimPrefix(part, "map:")
+			srv.CurrentMap = part[4:]
 		} else if strings.HasPrefix(part, "gametype:") {
-			srv.Gametype = strings.TrimPrefix(part, "gametype:")
+			srv.Gametype = part[9:]
 		}
 	}
 }
