@@ -16,9 +16,6 @@ func NewTeamStatsService(ch driver.Conn) TeamStatsService {
 	return &teamStatsService{ch: ch}
 }
 
-
-
-
 func (s *teamStatsService) GetFactionComparison(ctx context.Context, days int) (*models.FactionStats, error) {
 	if days <= 0 {
 		days = 30
