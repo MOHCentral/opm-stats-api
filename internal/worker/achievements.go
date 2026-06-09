@@ -18,6 +18,16 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	combatMilestones = map[string]int{
+		"killer_bronze":   100,
+		"killer_silver":   500,
+		"killer_gold":     1000,
+		"killer_platinum": 5000,
+		"killer_diamond":  10000,
+	}
+)
+
 // DBStore abstracts the database operations
 type DBStore interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -238,17 +248,10 @@ func (w *AchievementWorker) checkCombatAchievements(smfID int64, event *models.R
 
 	// Check milestone achievements (Lifetime Kills)
 	// Updated slugs to match DB (killer_*)
-	milestones := map[string]int{
-		"killer_bronze":   100,
-		"killer_silver":   500,
-		"killer_gold":     1000,
-		"killer_platinum": 5000,
-		"killer_diamond":  10000,
-	}
 
-	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(milestones))
+	w.logger.Infow("Checking milestones", "totalKills", totalKills, "milestoneCount", len(combatMilestones))
 
-	for slug, threshold := range milestones {
+	for slug, threshold := range combatMilestones {
 		w.logger.Debugw("Checking milestone", "slug", slug, "threshold", threshold, "totalKills", totalKills, "passes", totalKills >= threshold)
 		if totalKills >= threshold {
 			w.logger.Infow("Achievement milestone reached!",
@@ -284,7 +287,8 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 		return
 	}
 
-	key := fmt.Sprintf("streak:kill:%s", guid)
+	// Optimized: Replace fmt.Sprintf with concat
+	key := "streak:kill:" + guid
 
 	if event.Type == models.EventDeath {
 		// Reset streak
@@ -475,7 +479,8 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	// Use a Redis key with TTL for multi-kill window tracking.
 	// Key stores the count of kills within the current 4-second window.
 	// Each kill increments the counter; the key auto-expires after 4s of inactivity.
-	multikillKey := fmt.Sprintf("multikill:%s", guid)
+	// Optimized: Replace fmt.Sprintf with concat
+	multikillKey := "multikill:" + guid
 
 	// Increment the kill count in the current window
 	val, err := w.statStore.Incr(w.ctx, multikillKey)
@@ -511,7 +516,8 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 
 // incrementPlayerStat increments a stat in Redis and backfills from ClickHouse if needed
 func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	// Optimized: Replace fmt.Sprintf with concat and strconv
+	key := "stats:smf:" + strconv.Itoa(int(smfID)) + ":" + statName
 
 	// Increment in Redis
 	val, err := w.statStore.Incr(w.ctx, key)
@@ -535,7 +541,8 @@ func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int 
 
 // incrementPlayerStatFloat increments a float stat (like distance)
 func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string, incrAmount float64) float64 {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	// Optimized: Replace fmt.Sprintf with concat and strconv
+	key := "stats:smf:" + strconv.Itoa(int(smfID)) + ":" + statName
 
 	val, err := w.statStore.IncrByFloat(w.ctx, key, incrAmount)
 	if err != nil {
@@ -557,7 +564,8 @@ func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string,
 
 // getPlayerStat retrieves a player stat from Redis, falling back to ClickHouse
 func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	// Optimized: Replace fmt.Sprintf with concat and strconv
+	key := "stats:smf:" + strconv.Itoa(int(smfID)) + ":" + statName
 
 	valStr, err := w.statStore.Get(w.ctx, key)
 	if err == nil {
