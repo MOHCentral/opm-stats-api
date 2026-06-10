@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-06-10 - [Redis Key Generation Overhead]
+**Learning:** Using `fmt.Sprintf` for Redis key generation in hot paths (like event processing loop) causes significant allocation overhead due to reflection. Replacing it with `strconv.Itoa` and string concatenation yields a ~3x speedup.
+**Action:** Always prefer string concatenation and `strconv` functions over `fmt.Sprintf` for string building in high-frequency functions.
