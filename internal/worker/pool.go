@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"strconv"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -1068,8 +1069,7 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 
 	// 1. Update Redis "live_servers"
 	// Format: "players:%d,map:%s,gametype:%s"
-	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s",
-		event.PlayerCount, event.MapName, event.Gametype)
+	statusStr := "players:" + strconv.Itoa(event.PlayerCount) + ",map:" + event.MapName + ",gametype:" + event.Gametype // Optimized: replaced fmt.Sprintf with concat
 
 	p.config.Redis.HSet(ctx, "live_servers", event.ServerID, statusStr)
 	// Set expiration handling if needed? Redis Key itself doesn't expire, field doesn't expire.
