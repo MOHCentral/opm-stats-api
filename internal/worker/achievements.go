@@ -284,7 +284,7 @@ func (w *AchievementWorker) checkStreak(smfID int64, event *models.RawEvent) {
 		return
 	}
 
-	key := fmt.Sprintf("streak:kill:%s", guid)
+	key := "streak:kill:" + guid // Optimized: replaced fmt.Sprintf with concat
 
 	if event.Type == models.EventDeath {
 		// Reset streak
@@ -475,7 +475,7 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 	// Use a Redis key with TTL for multi-kill window tracking.
 	// Key stores the count of kills within the current 4-second window.
 	// Each kill increments the counter; the key auto-expires after 4s of inactivity.
-	multikillKey := fmt.Sprintf("multikill:%s", guid)
+	multikillKey := "multikill:" + guid // Optimized: replaced fmt.Sprintf with concat
 
 	// Increment the kill count in the current window
 	val, err := w.statStore.Incr(w.ctx, multikillKey)
@@ -511,7 +511,7 @@ func (w *AchievementWorker) checkMultikillAchievement(smfID int, event *models.R
 
 // incrementPlayerStat increments a stat in Redis and backfills from ClickHouse if needed
 func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	key := "stats:smf:" + strconv.Itoa(smfID) + ":" + statName // Optimized: replaced fmt.Sprintf with concat
 
 	// Increment in Redis
 	val, err := w.statStore.Incr(w.ctx, key)
@@ -535,7 +535,7 @@ func (w *AchievementWorker) incrementPlayerStat(smfID int, statName string) int 
 
 // incrementPlayerStatFloat increments a float stat (like distance)
 func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string, incrAmount float64) float64 {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	key := "stats:smf:" + strconv.Itoa(smfID) + ":" + statName // Optimized: replaced fmt.Sprintf with concat
 
 	val, err := w.statStore.IncrByFloat(w.ctx, key, incrAmount)
 	if err != nil {
@@ -557,7 +557,7 @@ func (w *AchievementWorker) incrementPlayerStatFloat(smfID int, statName string,
 
 // getPlayerStat retrieves a player stat from Redis, falling back to ClickHouse
 func (w *AchievementWorker) getPlayerStat(smfID int, statName string) int {
-	key := fmt.Sprintf("stats:smf:%d:%s", smfID, statName)
+	key := "stats:smf:" + strconv.Itoa(smfID) + ":" + statName // Optimized: replaced fmt.Sprintf with concat
 
 	valStr, err := w.statStore.Get(w.ctx, key)
 	if err == nil {
