@@ -5,3 +5,6 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+## 2025-02-24 - [Optimize smfid parsing in hot paths]
+**Learning:** `fmt.Sscanf` uses reflection and allocates on the heap, which causes significant overhead in hot loops compared to `strconv.ParseInt`.
+**Action:** Always prefer `strconv` functions for parsing simple strings into primitives instead of `fmt.Sscanf`.

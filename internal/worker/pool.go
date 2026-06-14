@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -788,7 +789,8 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 			var smfid int64
 			if cmd, ok := smfLookups[guid]; ok {
 				if val, err := cmd.Result(); err == nil {
-					fmt.Sscanf(val, "%d", &smfid)
+					// Optimized: replaced fmt.Sscanf with strconv.ParseInt for faster, zero-allocation parsing
+					smfid, _ = strconv.ParseInt(val, 10, 64)
 				}
 			}
 			playerName := ""
