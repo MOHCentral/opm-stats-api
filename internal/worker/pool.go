@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openmohaa/stats-api/internal/models"
+	"strconv"
 )
 
 // Achievement thresholds
@@ -1068,8 +1069,8 @@ func (p *Pool) updateServerStatus(ctx context.Context, event *models.RawEvent) {
 
 	// 1. Update Redis "live_servers"
 	// Format: "players:%d,map:%s,gametype:%s"
-	statusStr := fmt.Sprintf("players:%d,map:%s,gametype:%s",
-		event.PlayerCount, event.MapName, event.Gametype)
+	// Optimized: Replaced fmt.Sprintf with string concatenation and strconv.Itoa to eliminate reflection and heap allocations
+	statusStr := "players:" + strconv.Itoa(event.PlayerCount) + ",map:" + event.MapName + ",gametype:" + event.Gametype
 
 	p.config.Redis.HSet(ctx, "live_servers", event.ServerID, statusStr)
 	// Set expiration handling if needed? Redis Key itself doesn't expire, field doesn't expire.
