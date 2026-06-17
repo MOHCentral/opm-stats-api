@@ -5,3 +5,7 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+
+## 2024-05-25 - [Unconditional Allocations in Hot Paths]
+**Learning:** Functions like `bytes.ReplaceAll` unconditionally allocate a new byte slice even if the search target is not present. Similarly, calling `uuid.MustParse` with a constant string in a hot loop (like event ingestion) introduces significant, unnecessary parsing and memory allocation overhead.
+**Action:** Guard functions like `bytes.ReplaceAll` with `bytes.IndexByte` (or `strings.IndexByte`) before executing them in hot paths. Move constant `uuid.MustParse` calls to package-level variables.
