@@ -5,3 +5,6 @@
 ## 2024-05-24 - [Regex in Hot Paths]
 **Learning:** `regexp.ReplaceAllString` was used for sanitizing player names (stripping color codes) in the ingestion worker. This function is called multiple times per event. Replacing regex with a manual string builder loop reduced execution time from ~1000ns to ~130ns per call (~7x speedup).
 **Action:** Avoid regex in hot paths (ingestion workers) for simple string patterns. Use `strings` functions or manual loops with `strings.Builder`.
+## 2024-04-26 - [Avoid parsing zero-UUIDs in hot loops]
+**Learning:** Parsing the nil UUID `00000000-0000-0000-0000-000000000000` inside a hot loop using `uuid.MustParse` incurs significant parsing overhead despite being a constant string.
+**Action:** When a nil UUID is required, always use the built-in `uuid.Nil` package variable instead of parsing it from a string to completely eliminate overhead and memory allocations.
