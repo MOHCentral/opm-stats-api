@@ -1030,22 +1030,25 @@ func sanitizeName(s string) string {
 	return sb.String()
 }
 
+// normalizeWeaponLabel standardizes weapon names.
+// It avoids allocating a new lowercase string by using strings.EqualFold for comparisons.
 func normalizeWeaponLabel(weapon, mod, inflictor string) string {
 	w := strings.TrimSpace(weapon)
 	if w == "" {
 		w = strings.TrimSpace(mod)
 	}
 
-	lw := strings.ToLower(w)
-	if lw == "" || lw == "world" || lw == "player" || lw == "projectile" || lw == "explosion" || lw == "unknown" {
-		if strings.TrimSpace(mod) != "" {
-			w = strings.TrimSpace(mod)
-		} else if strings.TrimSpace(inflictor) != "" {
-			w = strings.TrimSpace(inflictor)
+	// Use strings.EqualFold to avoid allocating a new string for case-insensitive comparison
+	if w == "" || strings.EqualFold(w, "world") || strings.EqualFold(w, "player") ||
+		strings.EqualFold(w, "projectile") || strings.EqualFold(w, "explosion") || strings.EqualFold(w, "unknown") {
+		if m := strings.TrimSpace(mod); m != "" {
+			w = m
+		} else if i := strings.TrimSpace(inflictor); i != "" {
+			w = i
 		}
 	}
 
-	if strings.TrimSpace(w) == "" {
+	if w == "" {
 		return "unknown"
 	}
 
