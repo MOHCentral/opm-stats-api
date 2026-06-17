@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,7 +58,8 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]models.Ser
 		}
 
 		srv.MaxPlayers = 32 // Default max players
-		srv.DisplayName = fmt.Sprintf("%s:%d", srv.Name, srv.Port)
+		// Optimized: using string concat + strconv instead of fmt.Sprintf
+		srv.DisplayName = srv.Name + ":" + strconv.Itoa(srv.Port)
 		srv.Rank = rank
 		rank++
 
@@ -206,7 +208,8 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 		return nil, fmt.Errorf("server not found: %w", err)
 	}
 
-	detail.DisplayName = fmt.Sprintf("%s:%d", detail.Name, detail.Port)
+	// Optimized: using string concat + strconv instead of fmt.Sprintf
+	detail.DisplayName = detail.Name + ":" + strconv.Itoa(detail.Port)
 
 	// Check live status
 	liveData, err := s.redis.HGet(ctx, "live_servers", serverID).Result()
@@ -873,7 +876,8 @@ func (s *ServerTrackingService) GetUserFavoriteServers(ctx context.Context, user
 		if nickname != "" {
 			srv.DisplayName = nickname
 		} else {
-			srv.DisplayName = fmt.Sprintf("%s:%d", srv.Name, srv.Port)
+			// Optimized: using string concat + strconv instead of fmt.Sprintf
+			srv.DisplayName = srv.Name + ":" + strconv.Itoa(srv.Port)
 		}
 		servers = append(servers, srv)
 	}
