@@ -99,7 +99,7 @@ func (h *Handler) GetPlayerDrillDown(w http.ResponseWriter, r *http.Request) {
 	if dimension == "" {
 		dimension = "weapon"
 	}
-	
+
 	limit := 10
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
@@ -428,7 +428,6 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	// ...
 
-
 	// ...
 	var entries []models.StatLeaderboardEntry
 	rank := 1
@@ -438,21 +437,26 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 		switch metric {
 		case "run_gun":
 			var kills int64
-			if err := rows.Scan(&e.PlayerID, &e.PlayerName, &kills, &e.Value); err != nil { continue }
+			if err := rows.Scan(&e.PlayerID, &e.PlayerName, &kills, &e.Value); err != nil {
+				continue
+			}
 		case "clutch":
 			var wins, matches int64
-			if err := rows.Scan(&e.PlayerID, &e.PlayerName, &wins, &matches, &e.Value); err != nil { continue }
+			if err := rows.Scan(&e.PlayerID, &e.PlayerName, &wins, &matches, &e.Value); err != nil {
+				continue
+			}
 			secondary = float64(wins)
 		case "consistency":
 			var matches int64
-			if err := rows.Scan(&e.PlayerID, &e.PlayerName, &secondary, &e.Value, &matches); err != nil { continue }
+			if err := rows.Scan(&e.PlayerID, &e.PlayerName, &secondary, &e.Value, &matches); err != nil {
+				continue
+			}
 		}
 		e.Rank = rank
 		e.Secondary = secondary
 		entries = append(entries, e)
 		rank++
 	}
-
 
 	h.jsonResponse(w, http.StatusOK, models.ComboLeaderboardResponse{
 		Metric:  metric,
@@ -474,22 +478,31 @@ func (h *Handler) GetComboLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Router /stats/leaderboard/peak [get]
 func (h *Handler) GetPeakPerformanceLeaderboard(w http.ResponseWriter, r *http.Request) {
 	dimension := r.URL.Query().Get("dimension")
-	if dimension == "" { dimension = "evening" }
+	if dimension == "" {
+		dimension = "evening"
+	}
 
 	limit := 25
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 { limit = parsed }
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
 	}
 
 	ctx := r.Context()
 	var timeFilter string
 	switch dimension {
-	case "morning": timeFilter = "toHour(timestamp) BETWEEN 6 AND 11"
-	case "afternoon": timeFilter = "toHour(timestamp) BETWEEN 12 AND 17"
-	case "evening": timeFilter = "toHour(timestamp) BETWEEN 18 AND 23"
-	case "night": timeFilter = "toHour(timestamp) BETWEEN 0 AND 5"
-	case "weekend": timeFilter = "toDayOfWeek(timestamp) IN (6, 7)"
-	default: 
+	case "morning":
+		timeFilter = "toHour(timestamp) BETWEEN 6 AND 11"
+	case "afternoon":
+		timeFilter = "toHour(timestamp) BETWEEN 12 AND 17"
+	case "evening":
+		timeFilter = "toHour(timestamp) BETWEEN 18 AND 23"
+	case "night":
+		timeFilter = "toHour(timestamp) BETWEEN 0 AND 5"
+	case "weekend":
+		timeFilter = "toDayOfWeek(timestamp) IN (6, 7)"
+	default:
 		h.errorResponse(w, http.StatusBadRequest, "Unknown dimension")
 		return
 	}
@@ -518,12 +531,13 @@ func (h *Handler) GetPeakPerformanceLeaderboard(w http.ResponseWriter, r *http.R
 
 	// ...
 
-
 	var entries []models.PeakLeaderboardEntry
 	rank := 1
 	for rows.Next() {
 		var e models.PeakLeaderboardEntry
-		if err := rows.Scan(&e.PlayerID, &e.PlayerName, &e.Kills, &e.Deaths, &e.KD); err != nil { continue }
+		if err := rows.Scan(&e.PlayerID, &e.PlayerName, &e.Kills, &e.Deaths, &e.KD); err != nil {
+			continue
+		}
 		e.Rank = rank
 		entries = append(entries, e)
 		rank++
