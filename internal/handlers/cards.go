@@ -117,11 +117,11 @@ func (h *Handler) GetLeaderboardCards(w http.ResponseWriter, r *http.Request) {
 			kills, deaths, headshots, shotsFired, shotsHit, damage, bash, nade, road, tele, crush, tk, self, mystery uint64
 			reloads, swaps, noAmmo, looter                                                                           uint64
 			walked, sprinted, swam, driven                                                                           float64
-			jumps, crouch, ladders                                                                            uint64
+			jumps, crouch, ladders                                                                                   uint64
 			health, ammo, armor, items                                                                               uint64
 			wins, ffaWins, teamWins, obj, rounds, games                                                              uint64
 			chat, spec, doors                                                                                        uint64
-			verticality, uniqueWeapons, itemsDropped, botKills                                    uint64
+			verticality, uniqueWeapons, itemsDropped, botKills                                                       uint64
 			totalDistance                                                                                            float64
 			reloadCnt, ladMnt, manCrouch                                                                             uint64
 		)
