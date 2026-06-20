@@ -21,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/openmohaa/stats-api/internal/models"
 )
@@ -103,6 +104,7 @@ type Pool struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	logger            *zap.SugaredLogger
+	rawLogger         *zap.Logger
 	achievementWorker *AchievementWorker
 }
 
@@ -125,6 +127,7 @@ func NewPool(cfg PoolConfig) *Pool {
 		config:   cfg,
 		jobQueue: make(chan Job, cfg.QueueSize),
 		logger:   cfg.Logger.Sugar(),
+		rawLogger: cfg.Logger,
 	}
 
 	// Initialize Achievement Worker with both Postgres and ClickHouse
@@ -247,10 +250,16 @@ func (p *Pool) worker(id int) {
 				return
 			}
 
-			p.logger.Infow("Received job", "worker", id, "eventType", job.Event.Type)
+			// Optimized: Guard high-frequency log with raw logger check to prevent allocations
+			if p.rawLogger.Core().Enabled(zapcore.InfoLevel) {
+				p.logger.Infow("Received job", "worker", id, "eventType", job.Event.Type)
+			}
 			batch = append(batch, job)
 			if len(batch) >= p.config.BatchSize {
-				p.logger.Infow("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
+				// Optimized: Guard high-frequency log with raw logger check to prevent allocations
+				if p.rawLogger.Core().Enabled(zapcore.InfoLevel) {
+					p.logger.Infow("Batch size reached, flushing", "worker", id, "batchSize", len(batch))
+				}
 				flush()
 			}
 
