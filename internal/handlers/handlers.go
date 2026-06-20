@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/openmohaa/stats-api/internal/logic"
 	"github.com/openmohaa/stats-api/internal/models"
@@ -65,6 +66,7 @@ type Handler struct {
 	ch            driver.Conn
 	redis         *redis.Client
 	logger        *zap.SugaredLogger
+	rawLogger     *zap.Logger
 	mqttConnected func() bool
 	playerStats   logic.PlayerStatsService
 	serverStats   logic.ServerStatsService
@@ -84,6 +86,7 @@ func New(cfg Config) *Handler {
 		ch:            cfg.ClickHouse,
 		redis:         cfg.Redis,
 		logger:        cfg.Logger.Sugar(),
+		rawLogger:     cfg.Logger,
 		mqttConnected: cfg.MQTTConnected,
 		playerStats:   cfg.PlayerStats,
 		serverStats:   cfg.ServerStats,
@@ -170,10 +173,16 @@ func (h *Handler) IngestEvents(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Sanitize body: strip null bytes and trim whitespace (game engines may embed C-string artifacts)
-	body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	// Optimized: Guard null byte sanitization to prevent allocations on clean payloads
+	if bytes.IndexByte(body, 0) != -1 {
+		body = bytes.ReplaceAll(body, []byte{0}, []byte{})
+	}
 	body = bytes.TrimSpace(body)
 
-	h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	// Optimized: Guard high-frequency log with raw logger check to prevent allocations
+	if h.rawLogger.Core().Enabled(zapcore.InfoLevel) {
+		h.logger.Infow("IngestEvents called", "bodyLength", len(body), "preview", string(body[:min(len(body), 200)]))
+	}
 
 	var events []models.RawEvent
 	processed := 0

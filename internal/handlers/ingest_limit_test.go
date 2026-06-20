@@ -57,6 +57,7 @@ func TestIngestEvents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &Handler{
 				logger: logger.Sugar(),
+				rawLogger: logger,
 				pool:   &MockIngestQueue{EnqueueFunc: tt.mockEnqueue},
 			}
 

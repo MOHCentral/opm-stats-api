@@ -36,6 +36,7 @@ func TestPool_RaceCondition(t *testing.T) {
 		config:   cfg,
 		jobQueue: make(chan Job, cfg.QueueSize),
 		logger:   cfg.Logger.Sugar(),
+		rawLogger: cfg.Logger,
 	}
 
 	// Manually init achievement worker with mocks to avoid panic if called
