@@ -61,9 +61,9 @@ type Config struct {
 
 type Handler struct {
 	pool          IngestQueue
-	pg            *pgxpool.Pool
+	pg            logic.PgPool
 	ch            driver.Conn
-	redis         *redis.Client
+	redis         logic.RedisClient
 	logger        *zap.SugaredLogger
 	mqttConnected func() bool
 	playerStats   logic.PlayerStatsService
@@ -465,6 +465,18 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Try cache
+	cacheKey := fmt.Sprintf("matches:l:%d:o:%d", limit, offset)
+	if h.redis != nil {
+		if val, err := h.redis.Get(ctx, cacheKey).Result(); err == nil {
+			var cachedMatches []models.MatchSummary
+			if err := json.Unmarshal([]byte(val), &cachedMatches); err == nil {
+				h.jsonResponse(w, http.StatusOK, cachedMatches)
+				return
+			}
+		}
+	}
+
 	// Fetch matches
 	rows, err := h.ch.Query(ctx, `
 		SELECT 
@@ -519,6 +531,13 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 			matches[i].ServerName = name
 		} else if matches[i].ServerID != "" {
 			matches[i].ServerName = "Unknown Server"
+		}
+	}
+
+	// Store in cache
+	if h.redis != nil {
+		if data, err := json.Marshal(matches); err == nil {
+			h.redis.Set(ctx, cacheKey, string(data), 60*time.Second)
 		}
 	}
 
