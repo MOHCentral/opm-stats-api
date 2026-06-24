@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,8 +27,6 @@ func NewServerTrackingService(ch driver.Conn, pg *pgxpool.Pool, redis *redis.Cli
 // =============================================================================
 // SERVER LIST & OVERVIEW
 // =============================================================================
-
-
 
 // GetServerList returns all servers with live status
 func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]models.ServerOverview, error) {
@@ -57,7 +56,8 @@ func (s *ServerTrackingService) GetServerList(ctx context.Context) ([]models.Ser
 		}
 
 		srv.MaxPlayers = 32 // Default max players
-		srv.DisplayName = fmt.Sprintf("%s:%d", srv.Name, srv.Port)
+		// Optimized: replace fmt.Sprintf with string concat and strconv.Itoa
+		srv.DisplayName = srv.Name + ":" + strconv.Itoa(srv.Port)
 		srv.Rank = rank
 		rank++
 
@@ -154,7 +154,15 @@ func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*mode
 	liveServers, _ := s.redis.HGetAll(ctx, "live_servers").Result()
 	for _, data := range liveServers {
 		var players int
-		fmt.Sscanf(data, "players:%d", &players)
+		// Optimized: parse players count directly without fmt.Sscanf reflection
+		if strings.HasPrefix(data, "players:") {
+			idx := strings.IndexByte(data, ',')
+			if idx == -1 {
+				players, _ = strconv.Atoi(data[8:])
+			} else {
+				players, _ = strconv.Atoi(data[8:idx])
+			}
+		}
 		stats.TotalPlayersNow += players
 	}
 	if stats.OnlineServers > 0 {
@@ -180,15 +188,11 @@ func (s *ServerTrackingService) GetServerGlobalStats(ctx context.Context) (*mode
 
 // ServerDetail contains comprehensive server information
 
-
 // ServerLifetimeStats represents all-time server statistics
-
 
 // ServerTimeStats represents time-windowed stats
 
-
 // ServerUptime represents uptime tracking
-
 
 // GetServerDetail returns comprehensive server information
 func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID string) (*models.ServerDetail, error) {
@@ -206,7 +210,8 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 		return nil, fmt.Errorf("server not found: %w", err)
 	}
 
-	detail.DisplayName = fmt.Sprintf("%s:%d", detail.Name, detail.Port)
+	// Optimized: replace fmt.Sprintf with string concat and strconv.Itoa
+	detail.DisplayName = detail.Name + ":" + strconv.Itoa(detail.Port)
 
 	// Check live status
 	liveData, err := s.redis.HGet(ctx, "live_servers", serverID).Result()
@@ -272,7 +277,6 @@ func (s *ServerTrackingService) GetServerDetail(ctx context.Context, serverID st
 
 // PlayerHistoryPoint represents a data point for player count chart
 
-
 // GetServerPlayerHistory returns player count over time
 func (s *ServerTrackingService) GetServerPlayerHistory(ctx context.Context, serverID string, hours int) ([]models.PlayerHistoryPoint, error) {
 	if hours <= 0 {
@@ -322,7 +326,6 @@ func (s *ServerTrackingService) GetServerPlayerHistory(ctx context.Context, serv
 // =============================================================================
 
 // PeakHoursHeatmap represents activity by hour and day
-
 
 // GetServerPeakHours returns a heatmap of peak activity times
 func (s *ServerTrackingService) GetServerPeakHours(ctx context.Context, serverID string, days int) (*models.PeakHoursHeatmap, error) {
@@ -388,7 +391,6 @@ func (s *ServerTrackingService) GetServerPeakHours(ctx context.Context, serverID
 // =============================================================================
 
 // ServerTopPlayer represents a top player on a specific server
-
 
 // GetServerTopPlayers returns top players for a specific server
 func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverID string, limit int) ([]models.ServerTopPlayer, error) {
@@ -457,7 +459,6 @@ func (s *ServerTrackingService) GetServerTopPlayers(ctx context.Context, serverI
 
 // ServerMapStats represents map usage on a server
 
-
 // GetServerMapStats returns map statistics for a server
 func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID string) ([]models.ServerMapStats, error) {
 	query := `
@@ -508,7 +509,6 @@ func (s *ServerTrackingService) GetServerMapStats(ctx context.Context, serverID 
 
 // ServerWeaponStats represents weapon usage on a server
 
-
 // GetServerWeaponStats returns weapon statistics for a server
 func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, serverID string) ([]models.ServerWeaponStats, error) {
 	query := `
@@ -555,7 +555,6 @@ func (s *ServerTrackingService) GetServerWeaponStats(ctx context.Context, server
 // =============================================================================
 
 // ServerMatch represents a match played on the server
-
 
 // GetServerRecentMatches returns recent matches for a server
 func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serverID string, limit int) ([]models.ServerMatch, error) {
@@ -606,7 +605,6 @@ func (s *ServerTrackingService) GetServerRecentMatches(ctx context.Context, serv
 // =============================================================================
 
 // ActivityTimelinePoint represents activity at a point in time
-
 
 // GetServerActivityTimeline returns hourly activity for the last N days
 func (s *ServerTrackingService) GetServerActivityTimeline(ctx context.Context, serverID string, days int) ([]models.ActivityTimelinePoint, error) {
@@ -697,7 +695,7 @@ func (s *ServerTrackingService) GetLiveServerStatus(ctx context.Context, serverI
 	s.pg.QueryRow(ctx, `
 		SELECT name, max_players FROM servers WHERE id = $1
 	`, serverID).Scan(&name, &maxPlayers)
-	
+
 	status.MaxPlayers = maxPlayers
 
 	// Get live data from Redis
@@ -714,7 +712,7 @@ func (s *ServerTrackingService) GetLiveServerStatus(ctx context.Context, serverI
 
 	// Get current players from Redis
 	playerData, _ := s.redis.HGetAll(ctx, "match:"+serverID+":players").Result()
-	
+
 	status.CurrentPlayers = len(playerData)
 	status.LastUpdate = time.Now().Format(time.RFC3339)
 
@@ -873,7 +871,8 @@ func (s *ServerTrackingService) GetUserFavoriteServers(ctx context.Context, user
 		if nickname != "" {
 			srv.DisplayName = nickname
 		} else {
-			srv.DisplayName = fmt.Sprintf("%s:%d", srv.Name, srv.Port)
+			// Optimized: replace fmt.Sprintf with string concat and strconv.Itoa
+			srv.DisplayName = srv.Name + ":" + strconv.Itoa(srv.Port)
 		}
 		servers = append(servers, srv)
 	}
@@ -1011,14 +1010,14 @@ func (s *ServerTrackingService) GetServerHistoricalPlayers(ctx context.Context, 
 
 // MapRotationEntry represents a map in the rotation
 type MapRotationEntry struct {
-	MapName     string             `json:"map_name"`
-	PlayCount   int64              `json:"play_count"`
-	AvgDuration float64            `json:"avg_duration_mins"`
-	AvgPlayers  float64            `json:"avg_players"`
-	TotalKills  int64              `json:"total_kills"`
-	KillsPerMin float64            `json:"kills_per_minute"`
-	Popularity  float64            `json:"popularity_pct"`
-	PeakHour    int                `json:"peak_hour"`
+	MapName     string  `json:"map_name"`
+	PlayCount   int64   `json:"play_count"`
+	AvgDuration float64 `json:"avg_duration_mins"`
+	AvgPlayers  float64 `json:"avg_players"`
+	TotalKills  int64   `json:"total_kills"`
+	KillsPerMin float64 `json:"kills_per_minute"`
+	Popularity  float64 `json:"popularity_pct"`
+	PeakHour    int     `json:"peak_hour"`
 }
 
 // MapRotationAnalysis represents full map rotation data
@@ -1086,9 +1085,6 @@ func (s *ServerTrackingService) GetServerMapRotation(ctx context.Context, server
 	}
 	return analysis, nil
 }
-
-
-
 
 // =============================================================================
 // COUNTRY/REGION HELPERS
@@ -1160,20 +1156,32 @@ func LookupCountryFromIP(ip string) string {
 // HELPER FUNCTIONS
 // =============================================================================
 
+// Optimized: Manual string parsing replaces strings.Split and fmt.Sscanf to eliminate allocations
 func parseServerLiveData(data string, srv *models.ServerOverview) {
 	// Parse format: "players:5,map:mohdm6,gametype:dm"
 	if srv == nil {
 		return
 	}
-	parts := strings.Split(data, ",")
-	fmt.Printf("[DEBUG] Parsing server data: %v\n", parts)
-	for _, part := range parts {
-		if strings.HasPrefix(part, "players:") {
-			fmt.Sscanf(part, "players:%d", &srv.CurrentPlayers)
-		} else if strings.HasPrefix(part, "map:") {
-			srv.CurrentMap = strings.TrimPrefix(part, "map:")
-		} else if strings.HasPrefix(part, "gametype:") {
-			srv.Gametype = strings.TrimPrefix(part, "gametype:")
+	for {
+		idx := strings.IndexByte(data, ',')
+		var part string
+		if idx == -1 {
+			part = data
+		} else {
+			part = data[:idx]
 		}
+
+		if strings.HasPrefix(part, "players:") {
+			srv.CurrentPlayers, _ = strconv.Atoi(part[8:])
+		} else if strings.HasPrefix(part, "map:") {
+			srv.CurrentMap = part[4:]
+		} else if strings.HasPrefix(part, "gametype:") {
+			srv.Gametype = part[9:]
+		}
+
+		if idx == -1 {
+			break
+		}
+		data = data[idx+1:]
 	}
 }
