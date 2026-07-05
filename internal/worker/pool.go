@@ -7,6 +7,7 @@
 package worker
 
 import (
+	"strconv"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -768,32 +769,40 @@ func (p *Pool) handleMatchEnd(ctx context.Context, event *models.RawEvent) {
 			}
 		}
 
-		// Prepare pipeline for SMF ID and Name lookups
-		pipe := p.config.Redis.Pipeline()
-		smfLookups := make(map[string]*redis.StringCmd)
-		nameLookups := make(map[string]*redis.StringCmd)
+		// Optimized: Used HMGet instead of pipelined HGet to collapse N+1 lookups
+		guidList := make([]string, 0, len(teams))
 		for guid := range teams {
-			smfLookups[guid] = pipe.HGet(ctx, "player_smfids", guid)
-			nameLookups[guid] = pipe.HGet(ctx, "player_names", guid)
+			guidList = append(guidList, guid)
 		}
-		pipe.Exec(ctx)
 
-		for guid, team := range teams {
+		var smfVals []interface{}
+		var nameVals []interface{}
+		if len(guidList) > 0 {
+			smfVals, _ = p.config.Redis.HMGet(ctx, "player_smfids", guidList...).Result()
+			nameVals, _ = p.config.Redis.HMGet(ctx, "player_names", guidList...).Result()
+		}
+
+		// Map results back by index
+		for i, guid := range guidList {
+			team := teams[guid]
 			outcome := 0 // Loss
 			if team == winningTeam {
 				outcome = 1 // Win
 			}
 
-			// Get SMFID and Name from lookup result
 			var smfid int64
-			if cmd, ok := smfLookups[guid]; ok {
-				if val, err := cmd.Result(); err == nil {
-					fmt.Sscanf(val, "%d", &smfid)
+			if i < len(smfVals) && smfVals[i] != nil {
+				if valStr, ok := smfVals[i].(string); ok {
+					// Optimized: Replace fmt.Sscanf with strconv to reduce allocations
+					smfid, _ = strconv.ParseInt(valStr, 10, 64)
 				}
 			}
+
 			playerName := ""
-			if cmd, ok := nameLookups[guid]; ok {
-				playerName, _ = cmd.Result()
+			if i < len(nameVals) && nameVals[i] != nil {
+				if valStr, ok := nameVals[i].(string); ok {
+					playerName = valStr
+				}
 			}
 
 			// Create Outcome Event
